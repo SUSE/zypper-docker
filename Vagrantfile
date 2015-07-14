@@ -16,6 +16,9 @@ Vagrant.configure('2') do |config|
     zypper ar http://download.opensuse.org/repositories/zypp:/Head/openSUSE_13.2/ zypp:Head
     zypper --gpg-auto-import-keys ref && zypper -n install --from zypp:Head zypper libzypp
     zypper --gpg-auto-import-keys ref && zypper -n install docker go
+    /usr/sbin/usermod -G docker vagrant
+    systemctl enable docker
+    systemctl start docker
 EOS
   end
 end
