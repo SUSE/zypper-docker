@@ -13,9 +13,9 @@ Vagrant.configure('2') do |config|
     node.vm.box = 'flavio/opensuse13-2'
     node.vm.box_check_update = true
     node.vm.provision 'shell', inline: <<EOS
-    echo "Hello world"
     zypper ar http://download.opensuse.org/repositories/zypp:/Head/openSUSE_13.2/ zypp:Head
     zypper --gpg-auto-import-keys ref && zypper -n install --from zypp:Head zypper libzypp
+    zypper --gpg-auto-import-keys ref && zypper -n install docker go
 EOS
   end
 end
