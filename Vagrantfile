@@ -14,6 +14,7 @@ Vagrant.configure('2') do |config|
     node.vm.box_check_update = true
     node.vm.provision 'shell', inline: <<EOS
     zypper ar http://download.opensuse.org/repositories/zypp:/Head/openSUSE_13.2/ zypp:Head
+    zypper --gpg-auto-import-keys ref && zypper -n remove yast2-pkg-bindings libyui-ncurses-pkg6
     zypper --gpg-auto-import-keys ref && zypper -n install --from zypp:Head zypper libzypp
     zypper --gpg-auto-import-keys ref && zypper -n install docker go
     /usr/sbin/usermod -G docker vagrant
