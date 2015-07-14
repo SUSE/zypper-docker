@@ -15,14 +15,14 @@ Docker Images based either on SUSE Linux Enterprise or openSUSE.
 `zypper-docker` relies on `zypper` to perform the actual operations against
 Docker images.
 
-
 ## Generic operations
 
-**TODO:** handle generic options of zypper like:
-  * `-n`: non interactive
-  * `-i`: ignore unknown packages
-  * `--no-gpg-checks`
-  * `--gpg-auto-import-keys`
+This tool will support all the generic options as defined by zypper (except for
+the `-i` flag). They are all set to false by default. These are:
+
+* `-n`: non interactive
+* `--no-gpg-checks`
+* `--gpg-auto-import-keys`
 
 ### List all the available images:
 
@@ -43,53 +43,41 @@ $ zypper docker images
 
 ### List all the updates available
 
+We can list the updates available with the following command:
+
 ```
 $ zypper docker list-updates (lu) [options] image
 ```
 
-zypper options to drop:
-  * `-t, --type type`: Type of package (default: package). See section Package
-     Types for list of available package types. If patch is specified, zypper
-     acts as if the list-patches command was executed.
-  *  `-r, --repo alias|name|#|URI`: Work only with the repository specified by
-     the alias, name, number, or URI. This option can be used multiple
-     times.
-
-zypper options we might consider to keep around:
-  * `-a, --all`: List all packages for which newer versions are available,
-    regardless whether they are installable or not.
-  * `--best-effort`: See the update command for description.
+Note that even if zypper supports some options, we don't because they do not
+really apply to this tool.
 
 ### List patches available
 
-List all available needed patches.
+We can list the patches available with the following command:
 
 ```
 zypper docker list-patches (lp) [options] image
 ```
 
-zypper options to keep:
-  * `-b, --bugzilla[=#]`: List available needed patches for all Bugzilla issues,
-    or issues whose number matches the given string.
-  * `--cve[=#]`: List available needed patches for all CVE issues, or issues
-    whose number matches the given string.
-  * `--date YYYY-MM-DD`: List patches issued up to, but not including, the
-    specified date.
-  * `-g, --category category`: List available patches in the specified category.
-  * `--issues[=string]`: Look for issues whose number, summary, or description
-    matches the specified string. Issues found by number are displayed
-    separately from those found by descriptions. In the latter case, use zypper
-    patch-info patchname to get information about issues the patch fixes.
-
-zypper options to drop:
-  * `-a, *--all`: By default, only patches that are relevant and needed on your
-    system are listed. This option causes all available released patches to be
-    listed. This option can be combined with all the rest of the list-updates
-    command options.
-  * `-r, --repo alias|name|#|URI`: Work only with the repository specified by
-    the alias, name, number, or URI. This option can be used multiple times.
+The available options are:
+* `-b, --bugzilla[=#]`: List available needed patches for all Bugzilla issues,
+  or issues whose number matches the given string.
+* `--cve[=#]`: List available needed patches for all CVE issues, or issues
+  whose number matches the given string.
+* `--date YYYY-MM-DD`: List patches issued up to, but not including, the
+  specified date.
+* `-g, --category category`: List available patches in the specified category.
+(**Note**: we are not sure about this option yet).
+* `--issues[=string]`: Look for issues whose number, summary, or description
+  matches the specified string. Issues found by number are displayed
+  separately from those found by descriptions. In the latter case, use zypper
+  patch-info patchname to get information about issues the patch fixes.
 
 ### Check for patches
+
+**Note**: we do not know what's the difference between list-patches and
+patch-check.
 
 Check for patches. Displays a count of applicable patches and how many of them
 have the security category.
@@ -168,3 +156,8 @@ zypper-docker.
 zypper docker ps
 ```
 
+## License
+
+Licensed under the Apache License, Version 2.0. See
+[LICENSE](https://gitlab.suse.de/docker/zypper-docker/blob/master/LICENSE) for
+the full license text.
