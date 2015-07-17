@@ -16,9 +16,14 @@
 // in a safe way.
 package main
 
-import "os"
+import (
+	"log"
+	"os"
+)
 
 func main() {
+	log.SetOutput(os.Stderr)
+
 	app := newApp()
 	app.Run(os.Args)
 }
