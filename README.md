@@ -1,7 +1,7 @@
 ## Preamble
 
-This repository is a temporary placeholder. Once everything is settled we will
-move it to github.com under the SUSE umbrella.
+**NOTE**: this application is under construction. Don't use it on production
+yet.
 
 First of all we need to decide how the whole workflow is going to look like,
 then we will implement the actual command.
