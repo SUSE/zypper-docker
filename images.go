@@ -68,7 +68,7 @@ func imagesCmd(ctx *cli.Context) {
 	client := getDockerClient()
 
 	if imgs, err := client.ListImages(false); err != nil {
-		log.Printf("%v\n", err)
+		log.Println(err)
 	} else {
 		printImages(imgs)
 	}
