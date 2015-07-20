@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -81,17 +82,22 @@ func runCommandInContainer(img string, cmd []string) bool {
 
 	// First of all we create a container in which we will run the command.
 	config := &dockerclient.ContainerConfig{Image: img, Cmd: cmd}
-	id, err := client.CreateContainer(config, temporaryName)
+	name := fmt.Sprintf("%s-%s", temporaryName, img)
+	id, err := client.CreateContainer(config, name)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
+	defer removeContainer(client, id)
 
 	// Second step: start the container and wait for an event in it.
-	// TODO: (mssola) this does not work perfectly for commands that fail, so
-	// most of the times they end up failing because of a timeout error :/
 
 	err = client.StartContainer(id, &dockerclient.HostConfig{})
+	if err != nil {
+		// Silently fail, since it might be "zypper" not existing and we don't
+		// want to add noise to the log.
+		return false
+	}
 
 	containers[id] = make(chan bool, 0)
 	errors := make(chan error)
@@ -116,10 +122,17 @@ func runCommandInContainer(img string, cmd []string) bool {
 	// Finally, we check for the exit code as given by the command and the
 	// temporary container gets removed.
 	info, err := client.InspectContainer(id)
-	client.RemoveContainer(id, true, true)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
 	return info.State.ExitCode == 0
+}
+
+// Safely remove the given container. It will deal with the error by logging
+// it.
+func removeContainer(client DockerClient, id string) {
+	if err := client.RemoveContainer(id, true, true); err != nil {
+		log.Println(err)
+	}
 }
