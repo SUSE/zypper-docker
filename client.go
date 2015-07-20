@@ -60,23 +60,36 @@ const (
 	containerTimeout = 2 * time.Second
 )
 
-// Use this function to safely retrieve the instance of the Docker client.
+// Use this function to safely retrieve the singleton instance of the Docker
+// client. In order to guarantee such safety, the instance has to be
+// initialized when no goroutines are being executed concurrently (e.g. the
+// `init` or the `main` function).
 func getDockerClient() DockerClient {
 	if dockerClient != nil {
 		return dockerClient
 	}
 
-	// TODO: (mssola) tls client
-	dockerClient, err := dockerclient.NewDockerClient(dockerSocket, nil)
-	if err != nil {
-		log.Fatalf("client: Could not connect to Docker!\n")
-	}
+	// We can safely discard the error. The connection will be started
+	// successfully because internally `NewDockerClientTimeout` will handle the
+	// connection as a dial for the http package. Therefore, it won't fail even
+	// if the given URL does not exist. This is ok, since this possible error
+	// will appear later on with subsequent commands.
+	//
+	// The only time it will return an error will be if the given URL has a bad
+	// format, which won't happen.
+	dockerClient, _ = dockerclient.NewDockerClientTimeout(dockerSocket, nil,
+		containerTimeout)
 	return dockerClient
 }
 
 // Run the given command in a container based on the given image. The given
 // image string is just the ID of said image. It returns true if the command
 // was successful, false otherwise.
+//
+// TODO: (mssola) this function is using the monitoring API, which is a bit of
+// an overkill. We should be using the `Wait` endpoint from the API. This can
+// be done once the PR https://github.com/samalba/dockerclient/pull/140 gets
+// merged.
 func runCommandInContainer(img string, cmd []string) bool {
 	client := getDockerClient()
 
