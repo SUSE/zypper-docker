@@ -16,6 +16,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -81,6 +82,8 @@ func (mc *mockClient) CreateContainer(config *dockerclient.ContainerConfig, name
 	if mc.createFail {
 		return "", errors.New("Create failed")
 	}
+	name = fmt.Sprintf("zypper-docker-private-%s", config.Image)
+
 	return name, nil
 }
 
