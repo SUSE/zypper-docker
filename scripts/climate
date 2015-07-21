@@ -1,0 +1,137 @@
+#!/usr/bin/perl -w
+# Copyright (C) 2014-2015 Miquel Sabaté Solà
+# This file is licensed under the MIT license.
+# See the LICENSE file.
+
+# This script allows us to perform a check of the state of a Go package. In
+# order to do this, it checks the following options:
+#
+#   1. The code coverage: it uses the `cover` tool to determine the code
+#   coverage of the given package. A package is considered to have a good code
+#   coverage when it surpasses the value of the "$threshold" configurable
+#   value.
+#   2. The code style: it uses the `gofmt` tool to determine if it is following
+#   the proper code style. You can check the parameters passed to the `gofmt`
+#   tool in the "$fmtparams" configurable value.
+#
+# You can call this script with the following optional arguments:
+#
+#   -a
+#       It will tell this script to keep going, even if the `cover` tool says
+#       that the coverage for the given package is below our threshold.
+#
+#   -o
+#       Tell this script to not open a new tab in the web browser with the
+#       results as given by the `cover` tool.
+#   -t
+#       Tell this script to take a threshold different than the default one.
+#
+# Therefore, this command has the following usage:
+#
+#   $ climate [-a] [-o] [-t number] [-h | --help] package-name
+#
+
+use strict;
+use File::Basename;
+use Cwd 'abs_path', 'getcwd';
+
+
+##
+# Config values. Ideally you should only modify these values to adapt this
+# script to your project.
+#
+# NOTE: path values should *not* start and/or end with a slash.
+
+
+# The base path that this script will use. By default it picks the current
+# working directory.
+my $base = abs_path(getcwd);
+
+# The threshold is the percentage in which we consider that the given package
+# is covered enough by tests. It defaults to 90.0%
+my $threshold = 90.0;
+
+# The parameters passed to the `gofmt` tool. The default value is the one
+# specified by Go authors.
+my $fmtparams = '-l=true -e=true';
+
+
+##
+# And here starts the program itself.
+
+
+# Show the usage message.
+sub usage {
+    print "Usage: climate [-a] [-o] [-h | --help] package-name\n";
+    print "  -a  Continue even if the cover test is below our threshold.\n";
+    print "  -o  Don't open a new tab with the coverage results.\n";
+    print "  -t  Pass a different threshold than the default one.\n";
+    print "  -h  Show this message.\n";
+}
+
+# Initialization.
+my $pkg = $ARGV[-1];
+my $all = 0;
+
+# Parsing options.
+if (@ARGV == 0) {
+    usage();
+    exit(1);
+}
+
+my %opts = ('a', 0, 'o', 1, 't', $threshold);
+for (my $it = 0; $it < @ARGV; $it++) {
+    if ($ARGV[$it] eq '-a') {
+        $opts{'a'} = 1;
+    } elsif ($ARGV[$it] eq '-o') {
+        $opts{'o'} = 0;
+    } elsif ($ARGV[$it] eq '-t') {
+        usage() if (!$ARGV[$it + 1]);
+        $opts{'t'} = sprintf '%.1f', $ARGV[$it + 1];
+        $it++;
+    } elsif ($ARGV[$it] eq '-h' || $ARGV[$it] eq '--help') {
+        usage();
+        exit(0);
+    } else {
+        if ($it == @ARGV - 1) {
+            last;
+        }
+        print "Unknown option `$ARGV[$it]'.\n";
+        usage();
+        exit(1);
+    }
+}
+
+# Cover tool.
+chdir("$base/$pkg") or die $!;
+my $cover = `go tool cover 2>&1`;
+
+# First check whether we have to get the cover tool or not.
+if ($cover =~ /^go tool: no such tool "cover"/) {
+    `go get golang.org/x/tools/cmd/cover`;
+}
+
+# Execute the cover tool.
+$cover = `go test -coverprofile=c.out -covermode=count`;
+if ($cover =~ /coverage:\s?(.+)%/) {
+    my $fl = sprintf '%.1f', $1;
+    if ($fl < $opts{'t'}) {
+        print "Coverage required: $opts{'t'}%; got: $fl%\n";
+        if (!$opts{'a'}) {
+            `rm -f c.out`;
+            exit(1);
+        }
+    } else {
+        print "The tests are covering the $fl% of this package!\n";
+    }
+    if ($opts{'o'}) {
+        `go tool cover -html=c.out`;
+    }
+    `rm -f c.out`;
+} else {
+    print "No tests found in package '$pkg'.\n";
+}
+
+# Fmt tool
+chdir("$base") or die $!;
+print `gofmt $fmtparams -d=true $pkg`;
