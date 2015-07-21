@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/SUSE/zypper-docker.svg?branch=master)](https://travis-ci.org/SUSE/zypper-docker)
+[![GoDoc](https://godoc.org/github.com/SUSE/zypper-docker?status.png)](https://godoc.org/github.com/SUSE/zypper-docker)
+
 ## Preamble
 
 **NOTE**: this application is under construction. Don't use it on production
