@@ -1,6 +1,6 @@
 {
-	"ImportPath": "gitlab.suse.de:docker/zypper-docker",
-	"GoVersion": "go1.4.2",
+	"ImportPath": "github.com/SUSE/zypper-docker",
+	"GoVersion": "devel",
 	"Deps": [
 		{
 			"ImportPath": "github.com/codegangsta/cli",
@@ -18,8 +18,8 @@
 			"Rev": "ac3f7c71b8e82b5faf014b13138219723f6a0c67"
 		},
 		{
-			"ImportPath": "github.com/samalba/dockerclient",
-			"Rev": "fa1083bcf9844d7de9754beb037de207d2bcfa9f"
+			"ImportPath": "github.com/mssola/dockerclient",
+			"Rev": "46f187ce074129a17000bb0a2919b23aba58fc9d"
 		}
 	]
 }
