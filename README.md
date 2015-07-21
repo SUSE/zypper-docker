@@ -1,7 +1,4 @@
-[![Build Status](https://travis-ci.org/SUSE/zypper-docker.svg?branch=master)](https://travis-ci.org/SUSE/zypper-docker)
-[![GoDoc](https://godoc.org/github.com/SUSE/zypper-docker?status.png)](https://godoc.org/github.com/SUSE/zypper-docker)
-
-## Preamble
+## zypper-docker [![Build Status](https://travis-ci.org/SUSE/zypper-docker.svg?branch=master)](https://travis-ci.org/SUSE/zypper-docker) [![GoDoc](https://godoc.org/github.com/SUSE/zypper-docker?status.png)](https://godoc.org/github.com/SUSE/zypper-docker)
 
 First of all we need to decide how the whole workflow is going to look like,
 then we will implement the actual command.
