@@ -72,10 +72,7 @@ func TestImagesListEmpty(t *testing.T) {
 }
 
 func TestImagesListOk(t *testing.T) {
-	dockerClient = &mockClient{
-		inspectSleep:     100 * time.Millisecond,
-		monitoringStatus: "die",
-	}
+	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)

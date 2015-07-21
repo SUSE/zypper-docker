@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/samalba/dockerclient"
+	"github.com/mssola/dockerclient"
 )
 
 func TestMockClient(t *testing.T) {
@@ -96,11 +96,10 @@ func TestRunCommandInContainerStartFailure(t *testing.T) {
 	}
 }
 
-func TestRunCommandInContainerInspectFailure(t *testing.T) {
+func TestRunCommandInContainerWaitFailed(t *testing.T) {
 	dockerClient = &mockClient{
-		inspectFail:      true,
-		inspectSleep:     100 * time.Millisecond,
-		monitoringStatus: "die",
+		waitFail:  true,
+		waitSleep: 100 * time.Millisecond,
 	}
 
 	buffer := bytes.NewBuffer([]byte{})
@@ -113,7 +112,7 @@ func TestRunCommandInContainerInspectFailure(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatal("Wrong number of lines")
 	}
-	if !strings.Contains(buffer.String(), "Inspect fail") {
+	if !strings.Contains(buffer.String(), "Wait failed") {
 		t.Fatal("It should've logged something expected\n")
 	}
 	if !strings.Contains(buffer.String(), "Removed container zypper-docker-private-fail") {
@@ -121,12 +120,8 @@ func TestRunCommandInContainerInspectFailure(t *testing.T) {
 	}
 }
 
-func TestRunCommandInContainerInspectTimeout(t *testing.T) {
-	dockerClient = &mockClient{
-		inspectFail:      true,
-		inspectSleep:     containerTimeout * 2,
-		monitoringStatus: "die",
-	}
+func TestRunCommandInContainerWaitTimedOut(t *testing.T) {
+	dockerClient = &mockClient{waitSleep: containerTimeout * 2}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -135,53 +130,19 @@ func TestRunCommandInContainerInspectTimeout(t *testing.T) {
 	}
 
 	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 4 {
+	if len(lines) != 3 {
 		t.Fatal("Wrong number of lines")
 	}
 	if !strings.Contains(buffer.String(), "Timed out when waiting for a container.") {
 		t.Fatal("It should've logged something expected\n")
 	}
-	if !strings.Contains(buffer.String(), "Inspect fail") {
-		t.Fatal("It should've logged something expected\n")
-	}
 	if !strings.Contains(buffer.String(), "Removed container zypper-docker-private-fail") {
 		t.Fatal("It should've logged something expected\n")
 	}
 }
 
-func TestRunCommandInContainerInspectErrored(t *testing.T) {
-	dockerClient = &mockClient{
-		inspectFail:      true,
-		inspectSleep:     100 * time.Millisecond,
-		monitoringStatus: "error",
-	}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	if res := runCommandInContainer("fail", []string{}); res {
-		t.Fatal("It should've failed\n")
-	}
-
-	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 4 {
-		t.Fatal("Wrong number of lines")
-	}
-	if !strings.Contains(buffer.String(), "Start monitor errored") {
-		t.Fatal("It should've logged something expected\n")
-	}
-	if !strings.Contains(buffer.String(), "Inspect fail") {
-		t.Fatal("It should've logged something expected\n")
-	}
-	if !strings.Contains(buffer.String(), "Removed container zypper-docker-private-fail") {
-		t.Fatal("It should've logged something expected\n")
-	}
-}
-
-func TestRunCommandInContainerInspect(t *testing.T) {
-	dockerClient = &mockClient{
-		inspectSleep:     100 * time.Millisecond,
-		monitoringStatus: "die",
-	}
+func TestRunCommandInContainerSuccess(t *testing.T) {
+	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)

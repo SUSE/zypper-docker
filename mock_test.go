@@ -19,19 +19,17 @@ import (
 	"log"
 	"time"
 
-	"github.com/samalba/dockerclient"
+	"github.com/mssola/dockerclient"
 )
 
 type mockClient struct {
-	id               string
-	createFail       bool
-	removeFail       bool
-	startFail        bool
-	inspectFail      bool
-	inspectSleep     time.Duration
-	monitoringStatus string
-	listFail         bool
-	listEmpty        bool
+	createFail bool
+	removeFail bool
+	startFail  bool
+	waitSleep  time.Duration
+	waitFail   bool
+	listFail   bool
+	listEmpty  bool
 }
 
 func (mc *mockClient) ListImages(all bool) ([]*dockerclient.Image, error) {
@@ -94,7 +92,6 @@ func (mc *mockClient) StartContainer(id string, config *dockerclient.HostConfig)
 		// Ubuntu doesn't have zypper: fail.
 		return errors.New("Start failed")
 	}
-	mc.id = id
 	return nil
 }
 
@@ -106,30 +103,17 @@ func (mc *mockClient) RemoveContainer(id string, force, volume bool) error {
 	return nil
 }
 
-func (mc *mockClient) InspectContainer(id string) (*dockerclient.ContainerInfo, error) {
-	if mc.inspectFail {
-		return nil, errors.New("Inspect fail")
-	}
-	return &dockerclient.ContainerInfo{
-		State: &dockerclient.State{ExitCode: 0},
-	}, nil
-}
+func (mc *mockClient) Wait(id string) <-chan dockerclient.WaitResult {
+	ch := make(chan dockerclient.WaitResult)
 
-func (mc *mockClient) StartMonitorEvents(cb dockerclient.Callback, ec chan error, args ...interface{}) {
-	// Just create a fake event and get out.
-	event := &dockerclient.Event{Id: mc.id, Status: mc.monitoringStatus}
 	go func() {
-		// This sleep is needed, otherwise we enter in a deadlock with the
-		// containers[id] channel...
-		time.Sleep(mc.inspectSleep)
-		if event.Status == "error" {
-			ec <- errors.New("Start monitor errored")
+		time.Sleep(mc.waitSleep)
+		if mc.waitFail {
+			err := errors.New("Wait failed")
+			ch <- dockerclient.WaitResult{ExitCode: -1, Error: err}
 		} else {
-			cb(event, ec, args...)
+			ch <- dockerclient.WaitResult{ExitCode: 0, Error: nil}
 		}
 	}()
-}
-
-func (mc *mockClient) StopAllMonitorEvents() {
-	// Doing nothing.
+	return ch
 }
