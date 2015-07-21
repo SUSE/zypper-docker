@@ -60,7 +60,7 @@ func printImages(imgs []*dockerclient.Image) {
 				timeAgo(img.Created), size)
 		}
 	}
-	w.Flush()
+	_ = w.Flush()
 }
 
 // The images command prints all the images that are based on SUSE.

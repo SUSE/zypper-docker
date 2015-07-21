@@ -29,5 +29,5 @@ func main() {
 	_ = getDockerClient()
 
 	app := newApp()
-	app.Run(os.Args)
+	app.RunAndExitOnError()
 }

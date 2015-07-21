@@ -58,8 +58,8 @@ func TestImagesListEmpty(t *testing.T) {
 		t.Fatal("Could not read temporary file")
 	}
 
-	temp.Close()
-	os.Remove(temp.Name())
+	_ = temp.Close()
+	_ = os.Remove(temp.Name())
 	os.Stdout = original
 
 	lines := strings.Split(string(b), "\n")
@@ -89,8 +89,8 @@ func TestImagesListOk(t *testing.T) {
 		t.Fatal("Could not read temporary file")
 	}
 
-	temp.Close()
-	os.Remove(temp.Name())
+	_ = temp.Close()
+	_ = os.Remove(temp.Name())
 	os.Stdout = original
 
 	lines := strings.Split(string(b), "\n")
