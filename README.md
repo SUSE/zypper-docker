@@ -1,33 +1,45 @@
 ## zypper-docker [![Build Status](https://travis-ci.org/SUSE/zypper-docker.svg?branch=master)](https://travis-ci.org/SUSE/zypper-docker) [![GoDoc](https://godoc.org/github.com/SUSE/zypper-docker?status.png)](https://godoc.org/github.com/SUSE/zypper-docker)
 
-First of all we need to decide how the whole workflow is going to look like,
-then we will implement the actual command.
-
-
 The `zypper-docker` command line tool provides a quick way to patch and update
-Docker Images based either on SUSE Linux Enterprise or openSUSE.
+Docker Images based on either SUSE Linux Enterprise or openSUSE.
 
-`zypper-docker` mimics `zypper` command line syntax to ease its usage.
+`zypper-docker` mimics `zypper` command line syntax to ease its usage. This
+application relies on `zypper` to perform the actual operations against Docker
+images.
 
-`zypper-docker` relies on `zypper` to perform the actual operations against
-Docker images.
+**NOTE**: this application is still WIP. Here's a list of the features that
+have been implemented:
+
+- [ ] Global options should be respected.
+- [x] List all the available images.
+- [ ] List all the available updates.
+- [ ] List all the available patches.
+- [ ] Checking patches.
+- [ ] Installing patches.
 
 ## Generic operations
 
-This tool will support all the generic options as defined by zypper (except for
-the `-i` flag). They are all set to false by default. These are:
+This tool supports some of the global options as defined by zypper. They are
+all set by default:
 
-* `-n`: non interactive
+* `-n`, `--non-interactive`
 * `--no-gpg-checks`
 * `--gpg-auto-import-keys`
 
 ### List all the available images:
 
-List all the Docker images that are based on openSUSE or SLE (or simply have
-`/usr/bin/zypper` inside of them).
+List all the Docker images that are based on openSUSE or SLE. Note that any
+system with `zypper` installed is considered to be based on either openSUSE or
+SLE. Here's an example:
 
 ```
-$ zypper docker images
+mssola:~ $ docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED              VIRTUAL SIZE
+opensuse            latest              c7ff47bc7ebb        13 days ago          254.5 MB
+busybox             latest              8c2e06607696        3 months ago         2.43 MB
+mssola:~ $ zypper-docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED              VIRTUAL SIZE
+opensuse            latest              c7ff47bc7ebb        13 days ago          254.5 MB
 ```
 
 ## Operations available against Docker images
