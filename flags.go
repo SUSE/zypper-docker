@@ -26,11 +26,8 @@ func version() string {
 		major = 0
 		minor = 1
 	)
-
 	return fmt.Sprintf("%v.%v", major, minor)
 }
-
-// TODO: remove that stinking help subcommad (but keeping it on the options)
 
 // It returns an application with all the flags and subcommands already in
 // place.
