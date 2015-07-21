@@ -17,17 +17,17 @@ Vagrant.configure('2') do |config|
 
     # Install the latest zypper and docker.
     zypper ar http://download.opensuse.org/repositories/zypp:/Head/openSUSE_13.2/ zypp:Head
+    zypper ar http://download.opensuse.org/repositories/devel:/languages:/go/openSUSE_13.2/ go:Head
+
     zypper --gpg-auto-import-keys ref && zypper -n remove yast2-pkg-bindings libyui-ncurses-pkg6
     zypper --gpg-auto-import-keys ref && zypper -n install --from zypp:Head zypper libzypp
     zypper --gpg-auto-import-keys ref && zypper -n install docker
+    zypper --gpg-auto-import-keys ref && zypper -n install --from go:Head go
 
     # Since Go 1.4 is not in openSUSE 13.2 yet, let's use the one as provided
     # by the Go project.
-    wget -q https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz -O go.tar.gz
-    tar xzf go.tar.gz && rm go.tar.gz
-    echo 'export GOROOT=/home/vagrant/go' >> /home/vagrant/.bashrc
     echo 'export GOPATH=/home/vagrant/gopath' >> /home/vagrant/.bashrc
-    echo 'export PATH=\$GOROOT/bin:\$GOPATH/bin:\$PATH' >> /home/vagrant/.bashrc
+    echo 'export PATH=$GOPATH/bin:\$PATH'     >> /home/vagrant/.bashrc
     source /home/vagrant/.bashrc
 
     # Install zypper-docker
