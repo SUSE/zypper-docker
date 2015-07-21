@@ -15,7 +15,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -41,10 +40,6 @@ var dockerClient DockerClient
 const (
 	// The path in which the Docker client is listening to.
 	dockerSocket = "unix:///var/run/docker.sock"
-
-	// The name of the temporary container created in the
-	// `runCommandInContainer` function.
-	temporaryName = "zypper-docker-private"
 
 	// The timeout in which the container is allowed to run a command as given
 	// to the `runCommandInContainer` function.
@@ -80,9 +75,8 @@ func runCommandInContainer(img string, cmd []string) bool {
 	client := getDockerClient()
 
 	// First of all we create a container in which we will run the command.
-	config := &dockerclient.ContainerConfig{Image: img, Cmd: cmd}
-	name := fmt.Sprintf("%s-%s", temporaryName, img)
-	id, err := client.CreateContainer(config, name)
+	config := &dockerclient.ContainerConfig{Image: img, Entrypoint: cmd}
+	id, err := client.CreateContainer(config, "")
 	if err != nil {
 		log.Println(err)
 		return false
