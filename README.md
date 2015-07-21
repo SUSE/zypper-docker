@@ -28,9 +28,8 @@ all set by default:
 
 ### List all the available images:
 
-List all the Docker images that are based on openSUSE or SLE. Note that any
-system with `zypper` installed is considered to be based on either openSUSE or
-SLE. Here's an example:
+List all the Docker images that are based on openSUSE or SLE (that is, any
+system with the `zypper` command installed). Here's an example:
 
 ```
 mssola:~ $ docker images
@@ -164,6 +163,17 @@ zypper-docker.
 ```
 zypper docker ps
 ```
+
+## Development environment
+
+This application requires the latest version of `zypper` (>= 1.12.8), which can
+be troublesome. For this reason, there's a Vagrantfile ready to be used. Just:
+
+```
+$ vagrant up
+```
+
+And everything will be up and running so you can test this application.
 
 ## License
 
