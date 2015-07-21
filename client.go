@@ -19,7 +19,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/samalba/dockerclient"
+	"github.com/mssola/dockerclient"
 )
 
 // This interface lists all the functions that we use from Docker clients. Take
@@ -31,21 +31,12 @@ type DockerClient interface {
 	CreateContainer(config *dockerclient.ContainerConfig, name string) (string, error)
 	StartContainer(id string, config *dockerclient.HostConfig) error
 	RemoveContainer(id string, force, volume bool) error
-	InspectContainer(id string) (*dockerclient.ContainerInfo, error)
 
-	StartMonitorEvents(cb dockerclient.Callback, ec chan error, args ...interface{})
-	StopAllMonitorEvents()
+	Wait(id string) <-chan dockerclient.WaitResult
 }
 
-var (
-	// This global variable holds the instance to the docker client.
-	dockerClient DockerClient
-
-	// This map contains all the containers that are waiting for an event. The
-	// key for each entry is the ID of the container, and the value is a
-	// channel that will be supplied when an event has occurred.
-	containers map[string]chan bool = make(map[string]chan bool)
-)
+// This global variable holds the instance to the docker client.
+var dockerClient DockerClient
 
 const (
 	// The path in which the Docker client is listening to.
@@ -85,11 +76,6 @@ func getDockerClient() DockerClient {
 // Run the given command in a container based on the given image. The given
 // image string is just the ID of said image. It returns true if the command
 // was successful, false otherwise.
-//
-// TODO: (mssola) this function is using the monitoring API, which is a bit of
-// an overkill. We should be using the `Wait` endpoint from the API. This can
-// be done once the PR https://github.com/samalba/dockerclient/pull/140 gets
-// merged.
 func runCommandInContainer(img string, cmd []string) bool {
 	client := getDockerClient()
 
@@ -103,7 +89,8 @@ func runCommandInContainer(img string, cmd []string) bool {
 	}
 	defer removeContainer(client, id)
 
-	// Second step: start the container and wait for an event in it.
+	// Second step: start the container, wait for it to finish and return the
+	// results.
 
 	err = client.StartContainer(id, &dockerclient.HostConfig{})
 	if err != nil {
@@ -112,34 +99,17 @@ func runCommandInContainer(img string, cmd []string) bool {
 		return false
 	}
 
-	containers[id] = make(chan bool, 0)
-	errors := make(chan error)
-	client.StartMonitorEvents(
-		func(event *dockerclient.Event, ec chan error, args ...interface{}) {
-			if event.Status == "die" || event.Status == "destroy" {
-				containers[event.Id] <- true
-			}
-		}, errors)
-
 	select {
-	case <-containers[id]:
-		// Event received, remove it from the queue.
-		delete(containers, id)
-	case errStr := <-errors:
-		log.Printf("%v\n", errStr)
+	case res := <-client.Wait(id):
+		if res.Error != nil {
+			log.Println(res.Error)
+		} else {
+			return res.ExitCode == 0
+		}
 	case <-time.After(containerTimeout):
 		log.Printf("Timed out when waiting for a container.\n")
 	}
-	client.StopAllMonitorEvents()
-
-	// Finally, we check for the exit code as given by the command and the
-	// temporary container gets removed.
-	info, err := client.InspectContainer(id)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	return info.State.ExitCode == 0
+	return false
 }
 
 // Safely remove the given container. It will deal with the error by logging

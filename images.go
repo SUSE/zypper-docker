@@ -25,7 +25,7 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/units"
-	"github.com/samalba/dockerclient"
+	"github.com/mssola/dockerclient"
 )
 
 // Returns whether the given ID matches an image that is based on SUSE.
