@@ -28,12 +28,6 @@ import (
 	"github.com/mssola/dockerclient"
 )
 
-// Returns whether the given ID matches an image that is based on SUSE.
-func isSUSE(id string) bool {
-	// TODO: (mssola) cache it ?
-	return runCommandInContainer(id, []string{"zypper"})
-}
-
 // Returns a string that contains a description of how much has passed since
 // the given timestamp until now.
 func timeAgo(ts int64) string {
@@ -47,8 +41,9 @@ func printImages(imgs []*dockerclient.Image) {
 	w := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 	fmt.Fprintf(w, "REPOSITORY\tTAG\tIMAGE ID\tCREATED\tVIRTUAL SIZE\n")
 
+	cache := getCacheFile()
 	for _, img := range imgs {
-		if isSUSE(img.Id) {
+		if cache.isSUSE(img.Id) {
 			if len(img.RepoTags) < 1 {
 				continue
 			}
@@ -61,11 +56,18 @@ func printImages(imgs []*dockerclient.Image) {
 		}
 	}
 	_ = w.Flush()
+	cache.flush()
 }
 
 // The images command prints all the images that are based on SUSE.
 func imagesCmd(ctx *cli.Context) {
 	client := getDockerClient()
+
+	// On "force", just cleanup the cache.
+	if ctx.Bool("force") {
+		cd := getCacheFile()
+		cd.reset()
+	}
 
 	if imgs, err := client.ListImages(false); err != nil {
 		log.Println(err)

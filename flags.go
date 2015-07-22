@@ -51,6 +51,10 @@ func newApp() *cli.App {
 			Name:  "-gpg-auto-import-keys",
 			Usage: "If new repository signing key is found, do not ask what to do; trust and import it automatically",
 		},
+		cli.BoolFlag{
+			Name:  "f, -force",
+			Usage: "Ignore all the local caches",
+		},
 	}
 	app.Commands = []cli.Command{
 		{

@@ -16,9 +16,11 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -26,12 +28,18 @@ import (
 	"github.com/codegangsta/cli"
 )
 
+func testContext(force bool) *cli.Context {
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("force", force, "doc")
+	return cli.NewContext(nil, set, nil)
+}
+
 func TestImagesCmdFail(t *testing.T) {
 	dockerClient = &mockClient{listFail: true}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	imagesCmd(&cli.Context{})
+	imagesCmd(testContext(false))
 
 	lines := strings.Split(buffer.String(), "\n")
 	if len(lines) != 2 {
@@ -52,7 +60,7 @@ func TestImagesListEmpty(t *testing.T) {
 	original := os.Stdout
 	os.Stdout = temp
 
-	imagesCmd(&cli.Context{})
+	imagesCmd(testContext(false))
 	b, err := ioutil.ReadFile(temp.Name())
 	if err != nil {
 		t.Fatal("Could not read temporary file")
@@ -83,9 +91,10 @@ func TestImagesListOk(t *testing.T) {
 	original := os.Stdout
 	os.Stdout = temp
 
-	imagesCmd(&cli.Context{})
+	imagesCmd(testContext(false))
 	b, err := ioutil.ReadFile(temp.Name())
 	if err != nil {
+		os.Stdout = original
 		t.Fatal("Could not read temporary file")
 	}
 
@@ -108,4 +117,56 @@ func TestImagesListOk(t *testing.T) {
 	if lines[2] != str {
 		t.Fatal("Wrong contents")
 	}
+}
+
+func TestImagesForce(t *testing.T) {
+	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+
+	temp, err := ioutil.TempFile("", "zypper")
+	if err != nil {
+		t.Fatal("Could not setup test")
+	}
+	original := os.Stdout
+	os.Stdout = temp
+
+	cache := os.Getenv("XDG_CACHE_HOME")
+	abs, _ := filepath.Abs(".")
+	test := filepath.Join(abs, "test")
+
+	defer func() {
+		_ = os.Setenv("XDG_CACHE_HOME", cache)
+		_ = os.Remove(filepath.Join(test, cacheName))
+	}()
+	_ = os.Setenv("XDG_CACHE_HOME", test)
+
+	// Dump some dummy value.
+	cd := getCacheFile()
+	cd.Suse = []string{"1234"}
+	cd.flush()
+
+	// Check that they are really written there.
+	cd = getCacheFile()
+	if len(cd.Suse) != 1 || cd.Suse[0] != "1234" {
+		t.Fatal("Unexpected value")
+	}
+
+	// Luke, use the force!
+	imagesCmd(testContext(true))
+	cd = getCacheFile()
+
+	if !cd.Valid {
+		t.Fatal("It should be valid")
+	}
+	for i, v := range []string{"1", "2", "4"} {
+		if cd.Suse[i] != v {
+			t.Fatal("Unexpected value")
+		}
+	}
+	if len(cd.Other) != 1 || cd.Other[0] != "3" {
+		t.Fatal("Unexpected value")
+	}
+
+	_ = temp.Close()
+	_ = os.Remove(temp.Name())
+	os.Stdout = original
 }
