@@ -20,11 +20,24 @@ have been implemented:
 ## Generic operations
 
 This tool supports some of the global options as defined by zypper. They are
-all set by default:
+all set to false by default:
 
 * `-n`, `--non-interactive`
 * `--no-gpg-checks`
 * `--gpg-auto-import-keys`
+* `-f`, `--force`: ignore cached values.
+
+Note that some of these commands might be expensive. That's why some of the
+needed data is cached into a single file. This file is named
+`docker-zypper.json` and it can be located in either of these locations:
+
+1. $XDG\_CACHE\_HOME
+2. $XDG\_DATA\_DIRS
+3. $HOME/.cache
+4. /tmp
+
+The application will first try to allocate the cache on `$XDG_CACHE_HOME`. If
+it fails, it will try it on the next location, and so on.
 
 ### List all the available images:
 
