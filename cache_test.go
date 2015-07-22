@@ -26,7 +26,7 @@ import (
 	"testing"
 )
 
-// NOTE: some function are already covered in other places of this test suite,
+// NOTE: some functions are already covered in other places of this test suite,
 // so there's no point to add more tests in this specific file.
 
 func TestCachePath(t *testing.T) {
