@@ -42,7 +42,8 @@ func printImages(imgs []*dockerclient.Image) {
 	fmt.Fprintf(w, "REPOSITORY\tTAG\tIMAGE ID\tCREATED\tVIRTUAL SIZE\n")
 
 	cache := getCacheFile()
-	for _, img := range imgs {
+	for counter, img := range imgs {
+		fmt.Printf("Inspecting image %d/%d\r", (counter + 1), len(imgs))
 		if cache.isSUSE(img.Id) {
 			if len(img.RepoTags) < 1 {
 				continue
@@ -55,6 +56,9 @@ func printImages(imgs []*dockerclient.Image) {
 				timeAgo(img.Created), size)
 		}
 	}
+
+	fmt.Printf("\n")
+
 	_ = w.Flush()
 	cache.flush()
 }
