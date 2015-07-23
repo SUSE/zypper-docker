@@ -40,19 +40,19 @@ func newApp() *cli.App {
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
-			Name:  "n, -non-interactive",
+			Name:  "n, non-interactive",
 			Usage: "Switches to non-interactive mode",
 		},
 		cli.BoolFlag{
-			Name:  "-no-gpg-checks",
+			Name:  "no-gpg-checks",
 			Usage: "Ignore GPG check failures and continue",
 		},
 		cli.BoolFlag{
-			Name:  "-gpg-auto-import-keys",
+			Name:  "gpg-auto-import-keys",
 			Usage: "If new repository signing key is found, do not ask what to do; trust and import it automatically",
 		},
 		cli.BoolFlag{
-			Name:  "f, -force",
+			Name:  "f, force",
 			Usage: "Ignore all the local caches",
 		},
 	}
@@ -79,15 +79,15 @@ func newApp() *cli.App {
 					Value: "",
 				},
 				cli.StringFlag{
-					Name:  "-cve",
+					Name:  "cve",
 					Value: "",
 				},
 				cli.StringFlag{
-					Name:  "-date",
+					Name:  "date",
 					Value: "",
 				},
 				cli.StringFlag{
-					Name:  "-issues",
+					Name:  "issues",
 					Value: "",
 				},
 			},
@@ -102,15 +102,15 @@ func newApp() *cli.App {
 					Value: "",
 				},
 				cli.StringFlag{
-					Name:  "-cve",
+					Name:  "cve",
 					Value: "",
 				},
 				cli.StringFlag{
-					Name:  "-date",
+					Name:  "date",
 					Value: "",
 				},
 				cli.StringFlag{
-					Name:  "-issues",
+					Name:  "issues",
 					Value: "",
 				},
 			},

@@ -68,7 +68,7 @@ func imagesCmd(ctx *cli.Context) {
 	client := getDockerClient()
 
 	// On "force", just cleanup the cache.
-	if ctx.Bool("force") {
+	if ctx.GlobalBool("force") {
 		cd := getCacheFile()
 		cd.reset()
 	}
