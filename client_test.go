@@ -16,7 +16,9 @@ package main
 
 import (
 	"bytes"
+	"io/ioutil"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -69,7 +71,7 @@ func TestRunCommandInContainerCreateFailure(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	if res := runCommandInContainer("fail", []string{}); res {
+	if _, err := runCommandInContainer("fail", []string{}, false); err == nil {
 		t.Fatal("It should've failed\n")
 	}
 	if !strings.Contains(buffer.String(), "Create failed") {
@@ -82,21 +84,92 @@ func TestRunCommandInContainerStartFailure(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	if res := runCommandInContainer("fail", []string{}); res {
+	if ret := checkCommandInImage("fail", ""); ret {
 		t.Fatal("It should've failed\n")
 	}
 
 	// The only logged stuff is that the created container has been removed.
 	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 2 {
+	if len(lines) != 3 {
 		t.Fatal("Wrong number of lines")
 	}
 	if !strings.Contains(buffer.String(), "Removed container") {
 		t.Fatal("It should've logged something expected\n")
 	}
+	if !strings.Contains(buffer.String(), "Start failed") {
+		t.Fatal("It should've logged something expected\n")
+	}
 }
 
-func TestRunCommandInContainerWaitFailed(t *testing.T) {
+func TestRunCommandInContainerContainerLogsFailure(t *testing.T) {
+	dockerClient = &mockClient{logFail: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	_, err := runCommandInContainer("opensuse", []string{"zypper"}, true)
+	if err == nil {
+		t.Fatal("It should have failed\n")
+	}
+
+	if err.Error() != "Fake log failure" {
+		t.Fatal("Should have failed because of a logging issue")
+	}
+}
+
+func TestRunCommandInContainerStreaming(t *testing.T) {
+	mock := mockClient{}
+	dockerClient = &mock
+
+	temp, err := ioutil.TempFile("", "zypper_docker")
+	if err != nil {
+		t.Fatal("Could not setup test")
+	}
+
+	defer func() {
+		_ = temp.Close()
+		_ = os.Remove(temp.Name())
+	}()
+
+	original := os.Stdout
+	os.Stdout = temp
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	_, err = runCommandInContainer("opensuse", []string{"foo"}, true)
+
+	// restore stdout
+	os.Stdout = original
+
+	if err != nil {
+		t.Fatal("It shouldn't have failed\n")
+	}
+
+	b, err := ioutil.ReadFile(temp.Name())
+	if err != nil {
+		t.Fatal("Could not read temporary file")
+	}
+
+	if !strings.Contains(string(b), "streaming buffer initialized") {
+		t.Fatal("The streaming buffer should have been initialized\n")
+	}
+}
+
+func TestRunCommandInContainerCommandFailure(t *testing.T) {
+	dockerClient = &mockClient{commandFail: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	_, err := runCommandInContainer("busybox", []string{"zypper"}, false)
+	if err == nil {
+		t.Fatal("It should've failed\n")
+	}
+
+	if err.Error() != "Command exited with status 1" {
+		t.Fatal("Wrong type of error received")
+	}
+}
+
+func TestCheckCommandInImageWaitFailed(t *testing.T) {
 	dockerClient = &mockClient{
 		waitFail:  true,
 		waitSleep: 100 * time.Millisecond,
@@ -104,7 +177,7 @@ func TestRunCommandInContainerWaitFailed(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	if res := runCommandInContainer("fail", []string{}); res {
+	if res := checkCommandInImage("fail", ""); res {
 		t.Fatal("It should've failed\n")
 	}
 
@@ -120,17 +193,17 @@ func TestRunCommandInContainerWaitFailed(t *testing.T) {
 	}
 }
 
-func TestRunCommandInContainerWaitTimedOut(t *testing.T) {
+func TestCheckCommandInImageWaitTimedOut(t *testing.T) {
 	dockerClient = &mockClient{waitSleep: containerTimeout * 2}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	if res := runCommandInContainer("fail", []string{}); res {
+	if res := checkCommandInImage("fail", ""); res {
 		t.Fatal("It should've failed\n")
 	}
 
 	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 3 {
+	if len(lines) != 4 {
 		t.Fatal("Wrong number of lines")
 	}
 	if !strings.Contains(buffer.String(), "Timed out when waiting for a container.") {
@@ -141,12 +214,12 @@ func TestRunCommandInContainerWaitTimedOut(t *testing.T) {
 	}
 }
 
-func TestRunCommandInContainerSuccess(t *testing.T) {
+func TestCheckCommandInImageSuccess(t *testing.T) {
 	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	if res := runCommandInContainer("ok", []string{}); !res {
+	if res := checkCommandInImage("ok", ""); !res {
 		t.Fatal("It should've been ok\n")
 	}
 
@@ -164,7 +237,7 @@ func TestRemoveContainerFail(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	removeContainer(dockerClient, "fail")
+	removeContainer("fail")
 	if !strings.Contains(buffer.String(), "Remove failed") {
 		t.Fatal("It should've logged something expected\n")
 	}

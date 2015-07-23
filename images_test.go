@@ -71,10 +71,10 @@ func TestImagesListEmpty(t *testing.T) {
 	os.Stdout = original
 
 	lines := strings.Split(string(b), "\n")
-	if len(lines) != 2 {
+	if len(lines) != 3 {
 		t.Fatal("Wrong number of lines")
 	}
-	if !strings.HasPrefix(lines[0], "REPOSITORY") {
+	if !strings.HasPrefix(lines[1], "REPOSITORY") {
 		t.Fatal("Wrong contents")
 	}
 }
@@ -103,18 +103,18 @@ func TestImagesListOk(t *testing.T) {
 	os.Stdout = original
 
 	lines := strings.Split(string(b), "\n")
-	if len(lines) != 4 {
+	if len(lines) != 5 {
 		t.Fatal("Wrong number of lines")
 	}
-	if !strings.HasPrefix(lines[0], "REPOSITORY") {
+	if !strings.HasPrefix(lines[1], "REPOSITORY") {
 		t.Fatal("Wrong contents")
 	}
 	str := "opensuse            latest              1                   Less than a second ago   254.5 MB"
-	if lines[1] != str {
+	if lines[2] != str {
 		t.Fatal("Wrong contents")
 	}
 	str = "opensuse            13.2                2                   Less than a second ago   254.5 MB"
-	if lines[2] != str {
+	if lines[3] != str {
 		t.Fatal("Wrong contents")
 	}
 }

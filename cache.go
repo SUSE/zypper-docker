@@ -63,7 +63,7 @@ func (cd *cachedData) isSUSE(id string) bool {
 		}
 	}
 
-	suse := runCommandInContainer(id, []string{"zypper"})
+	suse := checkCommandInImage(id, "zypper")
 	if cd.Valid {
 		if suse {
 			cd.Suse = append(cd.Suse, id)
