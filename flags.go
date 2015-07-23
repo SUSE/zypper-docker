@@ -38,6 +38,11 @@ func newApp() *cli.App {
 	app.Usage = "Patching Docker images safely"
 	app.Version = version()
 
+	app.CommandNotFound = func(context *cli.Context, cmd string) {
+		fmt.Printf("Incorrect usage: command '%v' does not exist.\n\n", cmd)
+		cli.ShowAppHelp(context)
+	}
+
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "n, non-interactive",
