@@ -15,8 +15,10 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -24,13 +26,15 @@ import (
 )
 
 type mockClient struct {
-	createFail bool
-	removeFail bool
-	startFail  bool
-	waitSleep  time.Duration
-	waitFail   bool
-	listFail   bool
-	listEmpty  bool
+	createFail  bool
+	removeFail  bool
+	startFail   bool
+	waitSleep   time.Duration
+	waitFail    bool
+	commandFail bool
+	listFail    bool
+	listEmpty   bool
+	logFail     bool
 }
 
 func (mc *mockClient) ListImages(all bool) ([]*dockerclient.Image, error) {
@@ -115,8 +119,29 @@ func (mc *mockClient) Wait(id string) <-chan dockerclient.WaitResult {
 			err := errors.New("Wait failed")
 			ch <- dockerclient.WaitResult{ExitCode: -1, Error: err}
 		} else {
-			ch <- dockerclient.WaitResult{ExitCode: 0, Error: nil}
+			if mc.commandFail {
+				ch <- dockerclient.WaitResult{ExitCode: 1, Error: nil}
+			} else {
+				ch <- dockerclient.WaitResult{ExitCode: 0, Error: nil}
+			}
 		}
 	}()
 	return ch
+}
+
+type closingBuffer struct {
+	*bytes.Buffer
+}
+
+func (cb *closingBuffer) Close() error {
+	return nil
+}
+
+func (mc *mockClient) ContainerLogs(id string, options *dockerclient.LogOptions) (io.ReadCloser, error) {
+	if mc.logFail {
+		return nil, fmt.Errorf("Fake log failure")
+	}
+	cb := &closingBuffer{bytes.NewBuffer([]byte{})}
+	_, err := cb.WriteString("streaming buffer initialized\n")
+	return cb, err
 }

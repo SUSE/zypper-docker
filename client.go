@@ -15,13 +15,16 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
+	"os"
 	"time"
 
 	"github.com/mssola/dockerclient"
 )
 
-// This interface lists all the functions that we use from Docker clients. Take
+// The DockerClient interface lists all the functions that we use from Docker clients. Take
 // a look at http://godoc.org/github.com/samalba/dockerclient if you want to
 // read the documentation for each function.
 type DockerClient interface {
@@ -32,6 +35,8 @@ type DockerClient interface {
 	RemoveContainer(id string, force, volume bool) error
 
 	Wait(id string) <-chan dockerclient.WaitResult
+
+	ContainerLogs(id string, options *dockerclient.LogOptions) (io.ReadCloser, error)
 }
 
 // This global variable holds the instance to the docker client.
@@ -42,7 +47,7 @@ const (
 	dockerSocket = "unix:///var/run/docker.sock"
 
 	// The timeout in which the container is allowed to run a command as given
-	// to the `runCommandInContainer` function.
+	// to the `startContainer` function.
 	containerTimeout = 2 * time.Second
 )
 
@@ -68,47 +73,130 @@ func getDockerClient() DockerClient {
 	return dockerClient
 }
 
-// Run the given command in a container based on the given image. The given
-// image string is just the ID of said image. It returns true if the command
-// was successful, false otherwise.
-func runCommandInContainer(img string, cmd []string) bool {
-	client := getDockerClient()
+// Looks for the specified command inside of a Docker image.
+// The given image string is just the ID of said image.
+// It returns true if the command was successful, false otherwise.
+func checkCommandInImage(img, cmd string) bool {
+	containerId, err := startContainer(img, []string{cmd}, false, false)
 
-	// First of all we create a container in which we will run the command.
-	config := &dockerclient.ContainerConfig{Image: img, Entrypoint: cmd}
-	id, err := client.CreateContainer(config, "")
+	defer removeContainer(containerId)
+
 	if err != nil {
 		log.Println(err)
 		return false
 	}
-	defer removeContainer(client, id)
+	return true
+}
 
-	// Second step: start the container, wait for it to finish and return the
-	// results.
+// Run the given command in a container based on the given image. The given
+// image string is just the ID of said image.
+// The STDOUT and STDERR of the container can be streamed to the host's STDOUT
+// by setting the `streaming` parameter to true.
+// It returns the ID of the container spawned from the image.
+// Note well: the container is NOT deleted when the given command terminates.
+func runCommandInContainer(img string, cmd []string, streaming bool) (string, error) {
+	return startContainer(img, cmd, streaming, true)
+}
 
-	err = client.StartContainer(id, &dockerclient.HostConfig{})
+// Start a container from the specified image and then runs the given command
+// inside of it. The given image string is just the ID of said image.
+// The STDOUT and STDERR of the container can be streamed to the host's STDOUT
+// by setting the `streaming` parameter to true.
+// When `wait` is set to true the function will wait untill the container exits,
+// otherwise it will timeout raising an error.
+// Note well: the container is NOT deleted when the given command terminates.
+// This is again up to the caller.
+// It returns the ID of the container spawned from the image.
+func startContainer(img string, cmd []string, streaming, wait bool) (string, error) {
+	id, err := createContainer(img, cmd)
 	if err != nil {
+		log.Println(err)
+		return "", err
+	}
+
+	client := getDockerClient()
+	if err = client.StartContainer(id, &dockerclient.HostConfig{}); err != nil {
 		// Silently fail, since it might be "zypper" not existing and we don't
 		// want to add noise to the log.
-		return false
+		return id, err
 	}
+
+	if streaming {
+		// setup logging
+		rc, err := dockerClient.ContainerLogs(id, &dockerclient.LogOptions{
+			Follow: true, // required to keep streaming
+			Stdout: true,
+			Stderr: true,
+		})
+		if err != nil {
+			log.Println(err)
+			return id, err
+		}
+		defer func() {
+			if err := rc.Close(); err != nil {
+				log.Print(err)
+			}
+		}()
+		go func() {
+			if _, err := io.Copy(os.Stdout, rc); err != nil {
+				log.Print(err)
+			}
+		}()
+	}
+
+	timeout := make(chan int)
+	go func() {
+		if !wait {
+			time.Sleep(containerTimeout)
+			timeout <- 1
+		}
+	}()
 
 	select {
 	case res := <-client.Wait(id):
 		if res.Error != nil {
-			log.Println(res.Error)
-		} else {
-			return res.ExitCode == 0
+			return id, res.Error
+		} else if res.ExitCode != 0 {
+			return id, fmt.Errorf("Command exited with status %d", res.ExitCode)
 		}
-	case <-time.After(containerTimeout):
-		log.Printf("Timed out when waiting for a container.\n")
+	case <-timeout:
+		return id, fmt.Errorf("Timed out when waiting for a container.\n")
 	}
-	return false
+
+	return id, nil
+}
+
+// Creates a container based on the given image. The given image string is just
+// the ID of said image. The command specified is set as the entry point of the
+// container.
+// It returns the ID of the spawned container when successful, nil otherwise.
+// The error is set accordingly when it's not possible to create the container.
+// Note well: the container is not running at this time, it must be started via
+// the `startContainer` function.
+func createContainer(img string, cmd []string) (string, error) {
+	client := getDockerClient()
+
+	// First of all we create a container in which we will run the command.
+	config := &dockerclient.ContainerConfig{
+		Image:        img,
+		Entrypoint:   cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+		// required to avoid garbage when cmd overwrites the terminal
+		// like "zypper ref" does
+		Tty: true,
+	}
+	id, err := client.CreateContainer(config, "")
+	if err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 // Safely remove the given container. It will deal with the error by logging
 // it.
-func removeContainer(client DockerClient, id string) {
+func removeContainer(id string) {
+	client := getDockerClient()
 	if err := client.RemoveContainer(id, true, true); err != nil {
 		log.Println(err)
 	}
