@@ -12,7 +12,7 @@ have been implemented:
 
 - [ ] Global options should be respected.
 - [x] List all the available images.
-- [ ] List all the available updates.
+- [x] List all the available updates.
 - [ ] List all the available patches.
 - [ ] Checking patches.
 - [ ] Installing patches.

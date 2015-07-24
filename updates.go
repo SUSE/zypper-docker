@@ -14,13 +14,27 @@
 
 package main
 
-import "github.com/codegangsta/cli"
+import (
+	"github.com/codegangsta/cli"
+	"log"
+)
 
-func listPatchescmd(ctx *cli.Context) {
-}
-func patchCmd(ctx *cli.Context) {
-}
-func patchCheckCmd(ctx *cli.Context) {
-}
-func psCmd(ctx *cli.Context) {
+func listUpdatesCmd(ctx *cli.Context) {
+	imageName := ctx.Args().First()
+
+	if imageName == "" {
+		log.Printf("Error: no image name specified\n")
+		exitWithCode(1)
+	}
+
+	id, err := runCommandInContainer(
+		imageName,
+		[]string{"/bin/sh", "-c", "zypper ref && zypper lu"},
+		true)
+	removeContainer(id)
+
+	if err != nil {
+		log.Printf("Error: %s\n", err)
+		exitWithCode(1)
+	}
 }

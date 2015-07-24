@@ -21,7 +21,13 @@ import (
 	"os"
 )
 
+var exitWithCode func(code int)
+
 func main() {
+	exitWithCode = func(code int) {
+		os.Exit(code)
+	}
+
 	log.SetOutput(os.Stderr)
 
 	// Safe initialization of the singleton client instance. Take a look at the
