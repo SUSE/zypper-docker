@@ -121,6 +121,8 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 		return id, err
 	}
 
+	sc := make(chan bool)
+
 	if streaming {
 		// setup logging
 		rc, err := dockerClient.ContainerLogs(id, &dockerclient.LogOptions{
@@ -141,6 +143,7 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 			if _, err := io.Copy(os.Stdout, rc); err != nil {
 				log.Print(err)
 			}
+			sc <- true
 		}()
 	}
 
@@ -154,6 +157,9 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 
 	select {
 	case res := <-client.Wait(id):
+		if streaming {
+			<-sc
+		}
 		if res.Error != nil {
 			return id, res.Error
 		} else if res.ExitCode != 0 {
