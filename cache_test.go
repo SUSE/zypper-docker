@@ -91,6 +91,29 @@ func TestCachePathFail(t *testing.T) {
 	}
 }
 
+func TestCachePathMultiple(t *testing.T) {
+	cache := os.Getenv("XDG_CACHE_HOME")
+	abs, _ := filepath.Abs(".")
+	test := filepath.Join(abs, "test")
+
+	defer func() {
+		_ = os.Setenv("XDG_CACHE_HOME", cache)
+	}()
+
+	_ = os.Setenv("XDG_CACHE_HOME", fmt.Sprintf("%v:%v", test, abs))
+	file := cachePath()
+	if file == nil {
+		t.Fatal("It should've been successful")
+	}
+	name, path := file.Name(), filepath.Join(test, cacheName)
+	_ = file.Close()
+	_ = os.Remove(path)
+
+	if name != path {
+		t.Fatal("Wrong name!")
+	}
+}
+
 func TestCacheBadJson(t *testing.T) {
 	cache := os.Getenv("XDG_CACHE_HOME")
 	abs, _ := filepath.Abs(".")

@@ -19,6 +19,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const cacheName = "docker-zypper.json"
@@ -118,10 +119,14 @@ func cachePath() *os.File {
 		if dir == "" {
 			continue
 		}
-		name := filepath.Join(dir, cacheName)
-		file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0666)
-		if err == nil {
-			return file
+
+		dirs := strings.Split(dir, ":")
+		for _, d := range dirs {
+			name := filepath.Join(d, cacheName)
+			file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0666)
+			if err == nil {
+				return file
+			}
 		}
 	}
 	return nil
