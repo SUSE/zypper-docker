@@ -179,14 +179,45 @@ zypper docker ps
 
 ## Development environment
 
-This application requires the latest version of `zypper` (>= 1.12.8), which can
-be troublesome. For this reason, there's a Vagrantfile ready to be used. Just:
+It is possible to run all the test suite and the code analysis tool using
+docker.
+
+### Build the docker images
+
+The tests and code analysis tool are going to be executed ran using both
+the latest stable version of Go and the current experimental version.
+
+To build these docker images type:
 
 ```
-$ vagrant up
+$ make build
 ```
 
-And everything will be up and running so you can test this application.
+### Run the tests against Go stable
+
+To run the test suite and the code analysis tools against Go stable type:
+
+```
+$ make test_stable
+```
+
+### Run the tests against Go tip
+
+To run the test suite and the code analysis tools against Go tip type:
+
+```
+$ make test_tip
+```
+
+### Run the tests against Go stable and Go tip
+
+To run the test suite and the code analysis tools against Go stable and Go tip
+type:
+
+```
+$ make test
+```
+
 
 ## License
 
