@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -26,6 +25,7 @@ import (
 	"time"
 
 	"github.com/codegangsta/cli"
+	"github.com/mssola/capture"
 )
 
 func testContext(force bool) *cli.Context {
@@ -53,24 +53,9 @@ func TestImagesCmdFail(t *testing.T) {
 func TestImagesListEmpty(t *testing.T) {
 	dockerClient = &mockClient{listEmpty: true}
 
-	temp, err := ioutil.TempFile("", "zypper")
-	if err != nil {
-		t.Fatal("Could not setup test")
-	}
-	original := os.Stdout
-	os.Stdout = temp
+	res := capture.All(func() { imagesCmd(testContext(false)) })
 
-	imagesCmd(testContext(false))
-	b, err := ioutil.ReadFile(temp.Name())
-	if err != nil {
-		t.Fatal("Could not read temporary file")
-	}
-
-	_ = temp.Close()
-	_ = os.Remove(temp.Name())
-	os.Stdout = original
-
-	lines := strings.Split(string(b), "\n")
+	lines := strings.Split(string(res.Stdout), "\n")
 	if len(lines) != 3 {
 		t.Fatal("Wrong number of lines")
 	}
@@ -84,25 +69,10 @@ func TestImagesListOk(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	temp, err := ioutil.TempFile("", "zypper")
-	if err != nil {
-		t.Fatal("Could not setup test")
-	}
-	original := os.Stdout
-	os.Stdout = temp
 
-	imagesCmd(testContext(false))
-	b, err := ioutil.ReadFile(temp.Name())
-	if err != nil {
-		os.Stdout = original
-		t.Fatal("Could not read temporary file")
-	}
+	res := capture.All(func() { imagesCmd(testContext(false)) })
 
-	_ = temp.Close()
-	_ = os.Remove(temp.Name())
-	os.Stdout = original
-
-	lines := strings.Split(string(b), "\n")
+	lines := strings.Split(string(res.Stdout), "\n")
 	if len(lines) != 5 {
 		t.Fatal("Wrong number of lines")
 	}
@@ -122,20 +92,12 @@ func TestImagesListOk(t *testing.T) {
 func TestImagesForce(t *testing.T) {
 	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
 
-	temp, err := ioutil.TempFile("", "zypper")
-	if err != nil {
-		t.Fatal("Could not setup test")
-	}
-	original := os.Stdout
-	os.Stdout = temp
-
 	cache := os.Getenv("XDG_CACHE_HOME")
 	abs, _ := filepath.Abs(".")
 	test := filepath.Join(abs, "test")
 
 	defer func() {
 		_ = os.Setenv("XDG_CACHE_HOME", cache)
-		_ = os.Remove(filepath.Join(test, cacheName))
 	}()
 	_ = os.Setenv("XDG_CACHE_HOME", test)
 
@@ -151,7 +113,7 @@ func TestImagesForce(t *testing.T) {
 	}
 
 	// Luke, use the force!
-	imagesCmd(testContext(true))
+	capture.All(func() { imagesCmd(testContext(true)) })
 	cd = getCacheFile()
 
 	if !cd.Valid {
@@ -165,8 +127,4 @@ func TestImagesForce(t *testing.T) {
 	if len(cd.Other) != 1 || cd.Other[0] != "3" {
 		t.Fatal("Unexpected value")
 	}
-
-	_ = temp.Close()
-	_ = os.Remove(temp.Name())
-	os.Stdout = original
 }
