@@ -16,14 +16,13 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
 	"log"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/mssola/capture"
 	"github.com/mssola/dockerclient"
 )
 
@@ -120,36 +119,19 @@ func TestRunCommandInContainerStreaming(t *testing.T) {
 	mock := mockClient{}
 	dockerClient = &mock
 
-	temp, err := ioutil.TempFile("", "zypper_docker")
-	if err != nil {
-		t.Fatal("Could not setup test")
-	}
-
-	defer func() {
-		_ = temp.Close()
-		_ = os.Remove(temp.Name())
-	}()
-
-	original := os.Stdout
-	os.Stdout = temp
-
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	_, err = runCommandInContainer("opensuse", []string{"foo"}, true)
 
-	// restore stdout
-	os.Stdout = original
+	var err error
+	res := capture.All(func() {
+		_, err = runCommandInContainer("opensuse", []string{"foo"}, true)
+	})
 
 	if err != nil {
 		t.Fatal("It shouldn't have failed\n")
 	}
 
-	b, err := ioutil.ReadFile(temp.Name())
-	if err != nil {
-		t.Fatal("Could not read temporary file")
-	}
-
-	if !strings.Contains(string(b), "streaming buffer initialized") {
+	if !strings.Contains(string(res.Stdout), "streaming buffer initialized") {
 		t.Fatal("The streaming buffer should have been initialized\n")
 	}
 }
@@ -157,9 +139,12 @@ func TestRunCommandInContainerStreaming(t *testing.T) {
 func TestRunCommandInContainerCommandFailure(t *testing.T) {
 	dockerClient = &mockClient{commandFail: true}
 
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	_, err := runCommandInContainer("busybox", []string{"zypper"}, false)
+	var err error
+
+	capture.All(func() {
+		_, err = runCommandInContainer("busybox", []string{"zypper"}, false)
+	})
+
 	if err == nil {
 		t.Fatal("It should've failed\n")
 	}
