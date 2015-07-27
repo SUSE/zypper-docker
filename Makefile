@@ -18,10 +18,10 @@ clean ::
 
 build_stable ::
 	@echo Building zypper-docker-testing-golang-stable
-	docker build -f Dockerfile.golang.stable -t zypper-docker-testing-golang-stable .
+	docker build -f docker/Dockerfile.golang.stable -t zypper-docker-testing-golang-stable docker
 
 build_tip ::
 	@echo Building zypper-docker-testing-golang-tip
-	docker build -f Dockerfile.golang.tip -t zypper-docker-testing-golang-tip .
+	docker build -f docker/Dockerfile.golang.tip -t zypper-docker-testing-golang-tip docker
 
 build :: build_stable build_tip
