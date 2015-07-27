@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/SUSE/zypper-docker",
-	"GoVersion": "devel",
+	"GoVersion": "go1.4.2",
 	"Deps": [
 		{
 			"ImportPath": "github.com/codegangsta/cli",
@@ -16,6 +16,10 @@
 			"ImportPath": "github.com/docker/docker/pkg/units",
 			"Comment": "v1.4.1-4684-gac3f7c7",
 			"Rev": "ac3f7c71b8e82b5faf014b13138219723f6a0c67"
+		},
+		{
+			"ImportPath": "github.com/mssola/capture",
+			"Rev": "9e5615ff6effb8da9202768b3e95c3e246823315"
 		},
 		{
 			"ImportPath": "github.com/mssola/dockerclient",

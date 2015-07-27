@@ -1,0 +1,21 @@
+language: go
+go:
+  - 1.2
+  - 1.3
+  - 1.4
+  - tip
+
+matrix:
+  allow_failures:
+    - go: tip
+
+before_script:
+  - go get github.com/mssola/climate
+  - go get golang.org/x/tools/cmd/cover
+  - go get golang.org/x/tools/cmd/vet
+  - go get github.com/golang/lint/golint
+  - go get github.com/kisielk/errcheck
+
+script:
+  - go test -v ./...
+  - climate -open=false -threshold=80.0 -errcheck -vet -fmt .
