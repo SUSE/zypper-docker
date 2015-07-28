@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/codegangsta/cli"
+	"github.com/mssola/capture"
 )
 
 func setupTestUpdates() {
@@ -49,13 +50,11 @@ func TestListUpdatesNoImageSpecified(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-
-	listUpdatesCmd(testListUpdatesContext(""))
+	capture.All(func() { listUpdatesCmd(testListUpdatesContext("")) })
 
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")
 	}
-
 	if !strings.Contains(buffer.String(), "Error: no image name specified") {
 		t.Fatal("It should've logged something\n")
 	}
@@ -68,7 +67,9 @@ func TestListUpdatesCommandFailure(t *testing.T) {
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
 
-	listUpdatesCmd(testListUpdatesContext("opensuse:13.2"))
+	capture.All(func() {
+		listUpdatesCmd(testListUpdatesContext("opensuse:13.2"))
+	})
 
 	if !strings.Contains(buffer.String(), "Error: Command exited with status 1") {
 		t.Fatal("It should've logged something\n")
