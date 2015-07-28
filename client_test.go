@@ -234,3 +234,47 @@ func TestRemoveContainerFail(t *testing.T) {
 		t.Fatal("Wrong number of lines")
 	}
 }
+
+func TestHandleSignalWhileContainerRuns(t *testing.T) {
+	// create the killChannel, make it buffered and put already a message inside
+	// of it
+	killChannel = make(chan bool, 1)
+	killChannel <- true
+
+	exitInvocations = 0
+	exitWithCode = func(code int) {
+		exitInvocations += 1
+	}
+
+	dockerClient = &mockClient{}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	checkCommandInImage("kill", "")
+
+	if exitInvocations != 1 {
+		t.Fatal("os.Exit should have been called by the client code\n")
+	}
+}
+
+func TestHandleSignalWhileContainerRunsEvenWhenKillContainerFails(t *testing.T) {
+	// create the killChannel, make it buffered and put already a message inside
+	// of it
+	killChannel = make(chan bool, 1)
+	killChannel <- true
+
+	exitInvocations = 0
+	exitWithCode = func(code int) {
+		exitInvocations += 1
+	}
+
+	dockerClient = &mockClient{killFail: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { checkCommandInImage("kill", "") })
+
+	if exitInvocations != 1 {
+		t.Fatal("os.Exit should have been called by the client code\n")
+	}
+}
