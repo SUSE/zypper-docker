@@ -75,7 +75,9 @@ func imagesCmd(ctx *cli.Context) {
 
 	if imgs, err := client.ListImages(false); err != nil {
 		log.Println(err)
+		exitWithCode(1)
 	} else {
 		printImages(imgs)
+		exitWithCode(0)
 	}
 }

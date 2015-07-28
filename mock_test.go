@@ -25,7 +25,7 @@ import (
 	"github.com/mssola/dockerclient"
 )
 
-var exitInvocations int
+var exitInvocations, lastCode int
 
 type mockClient struct {
 	createFail  bool

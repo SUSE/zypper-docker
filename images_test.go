@@ -55,6 +55,7 @@ func TestMain(m *testing.M) {
 
 func TestImagesCmdFail(t *testing.T) {
 	dockerClient = &mockClient{listFail: true}
+	setupTestExitStatus()
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -67,10 +68,14 @@ func TestImagesCmdFail(t *testing.T) {
 	if !strings.Contains(buffer.String(), "List Failed") {
 		t.Fatal("It should've logged something expected\n")
 	}
+	if exitInvocations != 1 && lastCode != 1 {
+		t.Fatal("Wring exit code")
+	}
 }
 
 func TestImagesListEmpty(t *testing.T) {
 	dockerClient = &mockClient{listEmpty: true}
+	setupTestExitStatus()
 
 	res := capture.All(func() { imagesCmd(testContext(false)) })
 
@@ -81,10 +86,14 @@ func TestImagesListEmpty(t *testing.T) {
 	if !strings.HasPrefix(lines[1], "REPOSITORY") {
 		t.Fatal("Wrong contents")
 	}
+	if exitInvocations != 1 && lastCode != 0 {
+		t.Fatal("Wring exit code")
+	}
 }
 
 func TestImagesListOk(t *testing.T) {
 	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+	setupTestExitStatus()
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -106,10 +115,14 @@ func TestImagesListOk(t *testing.T) {
 	if lines[3] != str {
 		t.Fatal("Wrong contents")
 	}
+	if exitInvocations != 1 && lastCode != 0 {
+		t.Fatal("Wring exit code")
+	}
 }
 
 func TestImagesForce(t *testing.T) {
 	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+	setupTestExitStatus()
 
 	cache := os.Getenv("XDG_CACHE_HOME")
 	abs, _ := filepath.Abs(".")
@@ -145,5 +158,8 @@ func TestImagesForce(t *testing.T) {
 	}
 	if len(cd.Other) != 1 || cd.Other[0] != "3" {
 		t.Fatal("Unexpected value")
+	}
+	if exitInvocations != 1 && lastCode != 0 {
+		t.Fatal("Wring exit code")
 	}
 }
