@@ -34,6 +34,25 @@ func testContext(force bool) *cli.Context {
 	return cli.NewContext(nil, set, nil)
 }
 
+func TestMain(m *testing.M) {
+	status := 0
+
+	cache := os.Getenv("XDG_CACHE_HOME")
+	abs, _ := filepath.Abs(".")
+	test := filepath.Join(abs, "test")
+	path := filepath.Join(test, cacheName)
+
+	_ = os.Setenv("XDG_CACHE_HOME", test)
+
+	defer func() {
+		_ = os.Setenv("XDG_CACHE_HOME", cache)
+		_ = os.Remove(path)
+		os.Exit(status)
+	}()
+
+	status = m.Run()
+}
+
 func TestImagesCmdFail(t *testing.T) {
 	dockerClient = &mockClient{listFail: true}
 
