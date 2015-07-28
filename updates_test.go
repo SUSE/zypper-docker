@@ -25,11 +25,13 @@ import (
 	"github.com/mssola/capture"
 )
 
-func setupTestUpdates() {
+func setupTestExitStatus() {
 	exitInvocations = 0
+	lastCode = 0
 
 	if exitWithCode == nil {
 		exitWithCode = func(code int) {
+			lastCode = code
 			exitInvocations += 1
 		}
 	}
@@ -45,7 +47,7 @@ func testListUpdatesContext(image string) *cli.Context {
 }
 
 func TestListUpdatesNoImageSpecified(t *testing.T) {
-	setupTestUpdates()
+	setupTestExitStatus()
 	dockerClient = &mockClient{}
 
 	buffer := bytes.NewBuffer([]byte{})
@@ -61,7 +63,7 @@ func TestListUpdatesNoImageSpecified(t *testing.T) {
 }
 
 func TestListUpdatesCommandFailure(t *testing.T) {
-	setupTestUpdates()
+	setupTestExitStatus()
 	dockerClient = &mockClient{commandFail: true}
 
 	buffer := bytes.NewBuffer([]byte{})
