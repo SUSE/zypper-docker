@@ -69,7 +69,7 @@ func TestImagesCmdFail(t *testing.T) {
 		t.Fatal("It should've logged something expected\n")
 	}
 	if exitInvocations != 1 && lastCode != 1 {
-		t.Fatal("Wring exit code")
+		t.Fatal("Wrong exit code")
 	}
 }
 
@@ -87,7 +87,7 @@ func TestImagesListEmpty(t *testing.T) {
 		t.Fatal("Wrong contents")
 	}
 	if exitInvocations != 1 && lastCode != 0 {
-		t.Fatal("Wring exit code")
+		t.Fatal("Wrong exit code")
 	}
 }
 
@@ -116,7 +116,7 @@ func TestImagesListOk(t *testing.T) {
 		t.Fatal("Wrong contents")
 	}
 	if exitInvocations != 1 && lastCode != 0 {
-		t.Fatal("Wring exit code")
+		t.Fatal("Wrong exit code")
 	}
 }
 
@@ -160,6 +160,6 @@ func TestImagesForce(t *testing.T) {
 		t.Fatal("Unexpected value")
 	}
 	if exitInvocations != 1 && lastCode != 0 {
-		t.Fatal("Wring exit code")
+		t.Fatal("Wrong exit code")
 	}
 }
