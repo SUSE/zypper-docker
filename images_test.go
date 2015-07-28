@@ -35,6 +35,8 @@ func testContext(force bool) *cli.Context {
 }
 
 func TestMain(m *testing.M) {
+	status := 0
+
 	cache := os.Getenv("XDG_CACHE_HOME")
 	abs, _ := filepath.Abs(".")
 	test := filepath.Join(abs, "test")
@@ -42,12 +44,13 @@ func TestMain(m *testing.M) {
 
 	_ = os.Setenv("XDG_CACHE_HOME", test)
 
-	status := m.Run()
+	defer func() {
+		_ = os.Setenv("XDG_CACHE_HOME", cache)
+		_ = os.Remove(path)
+		os.Exit(status)
+	}()
 
-	_ = os.Setenv("XDG_CACHE_HOME", cache)
-	_ = os.Remove(path)
-
-	os.Exit(status)
+	status = m.Run()
 }
 
 func TestImagesCmdFail(t *testing.T) {
