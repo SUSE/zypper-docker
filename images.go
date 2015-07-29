@@ -50,10 +50,12 @@ func printImages(imgs []*dockerclient.Image) {
 			}
 
 			id := stringid.TruncateID(img.Id)
-			repoTag := strings.SplitN(img.RepoTags[0], ":", 2)
 			size := units.HumanSize(float64(img.VirtualSize))
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s ago\t%s\n", repoTag[0], repoTag[1], id,
-				timeAgo(img.Created), size)
+			for _, tag := range img.RepoTags {
+				t := strings.SplitN(tag, ":", 2)
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s ago\t%s\n", t[0], t[1], id,
+					timeAgo(img.Created), size)
+			}
 		}
 	}
 

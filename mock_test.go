@@ -56,7 +56,7 @@ func (mc *mockClient) ListImages(all bool) ([]*dockerclient.Image, error) {
 			ParentId:    "0",       // Not used
 			Size:        0,         // Not used
 			VirtualSize: 254515796, // 254.5 MB
-			RepoTags:    []string{"opensuse:latest"},
+			RepoTags:    []string{"opensuse:latest", "opensuse:tag"},
 			Created:     time.Now().UnixNano(),
 		},
 		&dockerclient.Image{

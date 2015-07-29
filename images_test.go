@@ -101,7 +101,7 @@ func TestImagesListOk(t *testing.T) {
 	res := capture.All(func() { imagesCmd(testContext(false)) })
 
 	lines := strings.Split(string(res.Stdout), "\n")
-	if len(lines) != 5 {
+	if len(lines) != 6 {
 		t.Fatal("Wrong number of lines")
 	}
 	if !strings.HasPrefix(lines[1], "REPOSITORY") {
@@ -111,8 +111,12 @@ func TestImagesListOk(t *testing.T) {
 	if lines[2] != str {
 		t.Fatal("Wrong contents")
 	}
-	str = "opensuse            13.2                2                   Less than a second ago   254.5 MB"
+	str = "opensuse            tag                 1                   Less than a second ago   254.5 MB"
 	if lines[3] != str {
+		t.Fatal("Wrong contents")
+	}
+	str = "opensuse            13.2                2                   Less than a second ago   254.5 MB"
+	if lines[4] != str {
 		t.Fatal("Wrong contents")
 	}
 	if exitInvocations != 1 && lastCode != 0 {
