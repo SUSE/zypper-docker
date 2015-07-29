@@ -10,10 +10,10 @@ images.
 **NOTE**: this application is still WIP. Here's a list of the features that
 have been implemented:
 
-- [ ] Global options should be respected.
+- [ ] Global options should be respected. (the implemented commands do it)
 - [x] List all the available images.
 - [x] List all the available updates.
-- [ ] List all the available patches.
+- [x] List all the available patches.
 - [ ] Checking patches.
 - [ ] Installing patches.
 
@@ -89,7 +89,6 @@ The available options are:
 * `--date YYYY-MM-DD`: List patches issued up to, but not including, the
   specified date.
 * `-g, --category category`: List available patches in the specified category.
-(**Note**: we are not sure about this option yet).
 * `--issues[=string]`: Look for issues whose number, summary, or description
   matches the specified string. Issues found by number are displayed
   separately from those found by descriptions. In the latter case, use zypper
@@ -122,7 +121,7 @@ zypper options to drop:
 Install all available needed patches.
 
 ```
-zypper docker patchh [options] image
+zypper docker patch [options] image
 ```
 
 **NOTE WELL**

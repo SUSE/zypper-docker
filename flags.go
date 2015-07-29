@@ -77,7 +77,7 @@ func newApp() *cli.App {
 			Name:    "list-patches",
 			Aliases: []string{"lp"},
 			Usage:   "List all the available patches",
-			Action:  listPatchescmd,
+			Action:  listPatchesCmd,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "b, bugzilla",
@@ -98,6 +98,11 @@ func newApp() *cli.App {
 					Name:  "issues",
 					Value: "",
 					Usage: "Look for issues whose number, summary, or description matches the specified string.",
+				},
+				cli.StringFlag{
+					Name:  "g, category",
+					Value: "",
+					Usage: "List only patches with this category.",
 				},
 			},
 		},
