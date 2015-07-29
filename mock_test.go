@@ -37,6 +37,7 @@ type mockClient struct {
 	listFail    bool
 	listEmpty   bool
 	logFail     bool
+	lastCmd     []string
 	killFail    bool
 }
 
@@ -90,6 +91,7 @@ func (mc *mockClient) CreateContainer(config *dockerclient.ContainerConfig, name
 		return "", errors.New("Create failed")
 	}
 	name = fmt.Sprintf("zypper-docker-private-%s", config.Image)
+	mc.lastCmd = config.Entrypoint
 
 	return name, nil
 }

@@ -15,26 +15,28 @@
 package main
 
 import (
-	"github.com/codegangsta/cli"
+	"fmt"
 	"log"
+
+	"github.com/codegangsta/cli"
 )
 
-func listUpdatesCmd(ctx *cli.Context) {
-	imageName := ctx.Args().First()
-
-	if imageName == "" {
-		log.Printf("Error: no image name specified\n")
+func listCommand(img, cmd string) {
+	if img == "" {
+		log.Println("Error: no image name specified.")
 		exitWithCode(1)
 	}
 
-	id, err := runCommandInContainer(
-		imageName,
-		[]string{"/bin/sh", "-c", "zypper ref && zypper lu"},
-		true)
+	cmd = fmt.Sprintf("zypper ref && zypper %v", cmd)
+	id, err := runCommandInContainer(img, []string{"/bin/sh", "-c", cmd}, true)
 	removeContainer(id)
 
 	if err != nil {
 		log.Printf("Error: %s\n", err)
 		exitWithCode(1)
 	}
+}
+
+func listUpdatesCmd(ctx *cli.Context) {
+	listCommand(ctx.Args().First(), "lu")
 }

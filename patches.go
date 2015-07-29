@@ -14,11 +14,30 @@
 
 package main
 
-import "github.com/codegangsta/cli"
+import (
+	"fmt"
 
-func patchCmd(ctx *cli.Context) {
+	"github.com/codegangsta/cli"
+)
+
+// It appends the set flags with the given command.
+func cmdWithFlags(cmd string, ctx *cli.Context) string {
+	for _, name := range ctx.FlagNames() {
+		if value := ctx.String(name); value != "" {
+			var dash string
+			if len(name) == 1 {
+				dash = "-"
+			} else {
+				dash = "--"
+			}
+
+			cmd += fmt.Sprintf(" %v%s %s", dash, name, value)
+		}
+	}
+	return cmd
 }
-func patchCheckCmd(ctx *cli.Context) {
-}
-func psCmd(ctx *cli.Context) {
+
+// zypper-docker list-patches [flags] <image>
+func listPatchesCmd(ctx *cli.Context) {
+	listCommand(ctx.Args().First(), cmdWithFlags("lp", ctx))
 }
