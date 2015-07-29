@@ -19,24 +19,26 @@ package main
 import (
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
-var exitWithCode func(code int)
-var killChannel chan bool
-
-func main() {
-	listenSignals()
-
-	exitWithCode = func(code int) {
-		os.Exit(code)
-	}
-
-	log.SetOutput(os.Stderr)
-
-	// Safe initialization of the singleton client instance. Take a look at the
-	// documentation of this function for more information.
-	_ = getDockerClient()
-
-	app := newApp()
-	app.RunAndExitOnError()
+// Listen to all signals, propagates SIGINT, SIGTSTP and SIGTERM
+// to the killChannel channel.
+func listenSignals() {
+	killChannel = make(chan bool)
+	c := make(chan os.Signal)
+	signal.Notify(c)
+	go func() {
+		for sig := range c {
+			switch sig {
+			case syscall.SIGQUIT, syscall.SIGINT, syscall.SIGTSTP,
+				syscall.SIGTERM:
+				log.Printf("Shutting down gracefully.")
+				killChannel <- true
+			default:
+				log.Printf("Signal not handled. Doing nothing...")
+			}
+		}
+	}()
 }

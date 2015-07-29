@@ -33,6 +33,7 @@ type DockerClient interface {
 	CreateContainer(config *dockerclient.ContainerConfig, name string) (string, error)
 	StartContainer(id string, config *dockerclient.HostConfig) error
 	RemoveContainer(id string, force, volume bool) error
+	KillContainer(id, signal string) error
 
 	Wait(id string) <-chan dockerclient.WaitResult
 
@@ -167,6 +168,13 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 		}
 	case <-timeout:
 		return id, fmt.Errorf("Timed out when waiting for a container.\n")
+	case <-killChannel:
+		if err := client.KillContainer(id, "KILL"); err != nil {
+			fmt.Println("Error while killing running container:", err)
+		} else {
+			removeContainer(id)
+		}
+		exitWithCode(1)
 	}
 
 	return id, nil

@@ -38,6 +38,7 @@ type mockClient struct {
 	listEmpty   bool
 	logFail     bool
 	lastCmd     []string
+	killFail    bool
 }
 
 func (mc *mockClient) ListImages(all bool) ([]*dockerclient.Image, error) {
@@ -148,4 +149,11 @@ func (mc *mockClient) ContainerLogs(id string, options *dockerclient.LogOptions)
 	cb := &closingBuffer{bytes.NewBuffer([]byte{})}
 	_, err := cb.WriteString("streaming buffer initialized\n")
 	return cb, err
+}
+
+func (mc *mockClient) KillContainer(id, signal string) error {
+	if mc.killFail {
+		return fmt.Errorf("Fake failure while killing container")
+	}
+	return nil
 }
