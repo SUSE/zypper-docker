@@ -16,4 +16,4 @@ before_script:
 
 script:
   - go test -v ./...
-  - climate -open=false -threshold=80.0 -errcheck -vet -fmt .
+  - climate -open=false -threshold=80.0 -errcheck -vet -fmt -race .
