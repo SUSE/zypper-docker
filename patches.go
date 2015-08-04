@@ -39,5 +39,7 @@ func cmdWithFlags(cmd string, ctx *cli.Context) string {
 
 // zypper-docker list-patches [flags] <image>
 func listPatchesCmd(ctx *cli.Context) {
-	runStreamedCommand(ctx.Args().First(), cmdWithFlags("lp", ctx), false)
+	// It's safe to ignore the returned error because we set to false the
+	// `getError` parameter of this function.
+	_ = runStreamedCommand(ctx.Args().First(), cmdWithFlags("lp", ctx), false)
 }

@@ -54,5 +54,7 @@ func runStreamedCommand(img, cmd string, getError bool) error {
 }
 
 func listUpdatesCmd(ctx *cli.Context) {
-	runStreamedCommand(ctx.Args().First(), "lu", false)
+	// It's safe to ignore the returned error because we set to false the
+	// `getError` parameter of this function.
+	_ = runStreamedCommand(ctx.Args().First(), "lu", false)
 }
