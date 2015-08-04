@@ -14,7 +14,7 @@ have been implemented:
 - [x] List all the available images.
 - [x] List all the available updates.
 - [x] List all the available patches.
-- [ ] Checking patches.
+- [x] Checking patches.
 - [ ] Installing patches.
 
 ## Generic operations
@@ -96,25 +96,8 @@ The available options are:
 
 ### Check for patches
 
-**Note**: we do not know what's the difference between list-patches and
-patch-check.
-
 Check for patches. Displays a count of applicable patches and how many of them
 have the security category.
-
-```
-zypper docker patch-check (pchk) image
-```
-
-See also the EXIT CODES section for details on exit status of 0, 100, and 101
-returned by this command.
-
-**TODO: Add EXIT CODES section**
-
-zypper options to drop:
-  * `-r, --repo alias|name|#|URI`: Check for patches only in the repository
-    specified by the alias, name, number, or URI. This option can be used
-    multiple times.
 
 ### Install patches
 

@@ -54,6 +54,9 @@ func TestListUpdatesNoImageSpecified(t *testing.T) {
 	log.SetOutput(buffer)
 	capture.All(func() { listUpdatesCmd(testListUpdatesContext("")) })
 
+	if testCommand() != "" {
+		t.Fatalf("The command should not have been executed")
+	}
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")
 	}

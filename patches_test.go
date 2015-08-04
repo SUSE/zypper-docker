@@ -24,11 +24,14 @@ import (
 )
 
 func testCommand() string {
-	// [0]: "/bin/sh", [1]: "-c", [2]: the actual command.
-	cmd := dockerClient.(*mockClient).lastCmd[2]
+	cmd := dockerClient.(*mockClient).lastCmd
+	if len(cmd) != 3 {
+		return ""
+	}
 
+	// [0]: "/bin/sh", [1]: "-c", [2]: the actual command.
 	// The command is basically: "zypper ref && actual command".
-	return strings.TrimSpace(strings.Split(cmd, "&&")[1])
+	return strings.TrimSpace(strings.Split(cmd[2], "&&")[1])
 }
 
 func TestListPatchesNoImageSpecified(t *testing.T) {
@@ -39,8 +42,8 @@ func TestListPatchesNoImageSpecified(t *testing.T) {
 	log.SetOutput(buffer)
 	capture.All(func() { listPatchesCmd(testListUpdatesContext("")) })
 
-	if testCommand() != "zypper lp" {
-		t.Fatalf("Wrong command!")
+	if testCommand() != "" {
+		t.Fatalf("The command should not have been executed")
 	}
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")

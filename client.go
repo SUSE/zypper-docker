@@ -24,6 +24,22 @@ import (
 	"github.com/mssola/dockerclient"
 )
 
+// dockerError encapsulates a dockerclient.WaitResult that has an exit status
+// different than 0. This is done this way because, for some commands, zypper
+// might set an exit code different than 0, even if there was no error. For
+// example, the patch-check command can set the exit code 100, to determine
+// that there are patches to be installed. In this case, the caller can decide
+// what to do depending on the error returned by zypper. Therefore, the caller
+// of functions such as `startContainer` should only care about this type if
+// the command being implemented has this kind of behavior.
+type dockerError struct {
+	dockerclient.WaitResult
+}
+
+func (de dockerError) Error() string {
+	return fmt.Sprintf("Command exited with status %d", de.ExitCode)
+}
+
 // The DockerClient interface lists all the functions that we use from Docker clients. Take
 // a look at http://godoc.org/github.com/samalba/dockerclient if you want to
 // read the documentation for each function.
@@ -107,7 +123,11 @@ func runCommandInContainer(img string, cmd []string, streaming bool) (string, er
 // otherwise it will timeout raising an error.
 // Note well: the container is NOT deleted when the given command terminates.
 // This is again up to the caller.
-// It returns the ID of the container spawned from the image.
+//
+// It returns the ID of the container spawned from the image. The error
+// returned can be of type dockerError. This only happens when the container
+// has run normally (no signals, no timeout), but the exit code is not 0. Read
+// the documentation on the `dockerError` command on why we do this.
 func startContainer(img string, cmd []string, streaming, wait bool) (string, error) {
 	id, err := createContainer(img, cmd)
 	if err != nil {
@@ -164,7 +184,7 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 		if res.Error != nil {
 			return id, res.Error
 		} else if res.ExitCode != 0 {
-			return id, fmt.Errorf("Command exited with status %d", res.ExitCode)
+			return id, dockerError{res}
 		}
 	case <-timeout:
 		return id, fmt.Errorf("Timed out when waiting for a container.\n")
