@@ -22,10 +22,10 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/SUSE/dockerclient"
 	"github.com/codegangsta/cli"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/units"
-	"github.com/mssola/dockerclient"
 )
 
 // Returns a string that contains a description of how much has passed since

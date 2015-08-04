@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SUSE/dockerclient"
 	"github.com/mssola/capture"
-	"github.com/mssola/dockerclient"
 )
 
 func TestMockClient(t *testing.T) {

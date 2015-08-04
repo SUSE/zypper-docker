@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/mssola/dockerclient"
+	"github.com/SUSE/dockerclient"
 )
 
 // dockerError encapsulates a dockerclient.WaitResult that has an exit status

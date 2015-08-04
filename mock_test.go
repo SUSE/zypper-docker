@@ -22,7 +22,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/mssola/dockerclient"
+	"github.com/SUSE/dockerclient"
 )
 
 var exitInvocations, lastCode int
