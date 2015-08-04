@@ -34,6 +34,7 @@ type mockClient struct {
 	waitSleep   time.Duration
 	waitFail    bool
 	commandFail bool
+	commandExit int
 	listFail    bool
 	listEmpty   bool
 	logFail     bool
@@ -125,7 +126,11 @@ func (mc *mockClient) Wait(id string) <-chan dockerclient.WaitResult {
 			ch <- dockerclient.WaitResult{ExitCode: -1, Error: err}
 		} else {
 			if mc.commandFail {
-				ch <- dockerclient.WaitResult{ExitCode: 1, Error: nil}
+				// If commandExit was not specified, just exit with 1.
+				if mc.commandExit == 0 {
+					mc.commandExit = 1
+				}
+				ch <- dockerclient.WaitResult{ExitCode: mc.commandExit, Error: nil}
 			} else {
 				ch <- dockerclient.WaitResult{ExitCode: 0, Error: nil}
 			}

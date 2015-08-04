@@ -15,31 +15,30 @@
 package main
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/codegangsta/cli"
 )
 
-// It appends the set flags with the given command.
-func cmdWithFlags(cmd string, ctx *cli.Context) string {
-	for _, name := range ctx.FlagNames() {
-		if value := ctx.String(name); value != "" {
-			var dash string
-			if len(name) == 1 {
-				dash = "-"
-			} else {
-				dash = "--"
-			}
+// zypper-docker patch-check [flags] <image>
+func patchCheckCmd(ctx *cli.Context) {
+	err := runStreamedCommand(ctx.Args().First(), "pchk", true)
+	if err == nil {
+		return
+	}
 
-			cmd += fmt.Sprintf(" %v%s %s", dash, name, value)
+	switch err.(type) {
+	case dockerError:
+		// According to zypper's documentation:
+		// 	100 - There are patches available for installation.
+		// 	101 - There are security patches available for installation.
+		// Therefore, if the returned exit code is one of the specified above,
+		// then we do nothing.
+		de := err.(dockerError)
+		if de.ExitCode == 100 || de.ExitCode == 101 {
+			return
 		}
 	}
-	return cmd
-}
-
-// zypper-docker list-patches [flags] <image>
-func listPatchesCmd(ctx *cli.Context) {
-	// It's safe to ignore the returned error because we set to false the
-	// `getError` parameter of this function.
-	_ = runStreamedCommand(ctx.Args().First(), cmdWithFlags("lp", ctx), false)
+	log.Printf("Error: %v\n", err)
+	exitWithCode(1)
 }

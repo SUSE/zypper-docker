@@ -14,29 +14,10 @@
 
 package main
 
-import (
-	"fmt"
-	"log"
-
-	"github.com/codegangsta/cli"
-)
-
-func listCommand(img, cmd string) {
-	if img == "" {
-		log.Println("Error: no image name specified.")
-		exitWithCode(1)
-	}
-
-	cmd = fmt.Sprintf("zypper ref && zypper %v", cmd)
-	id, err := runCommandInContainer(img, []string{"/bin/sh", "-c", cmd}, true)
-	removeContainer(id)
-
-	if err != nil {
-		log.Printf("Error: %s\n", err)
-		exitWithCode(1)
-	}
-}
+import "github.com/codegangsta/cli"
 
 func listUpdatesCmd(ctx *cli.Context) {
-	listCommand(ctx.Args().First(), "lu")
+	// It's safe to ignore the returned error because we set to false the
+	// `getError` parameter of this function.
+	_ = runStreamedCommand(ctx.Args().First(), "lu", false)
 }

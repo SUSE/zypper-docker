@@ -18,7 +18,5 @@ import "github.com/codegangsta/cli"
 
 func patchCmd(ctx *cli.Context) {
 }
-func patchCheckCmd(ctx *cli.Context) {
-}
 func psCmd(ctx *cli.Context) {
 }
