@@ -65,6 +65,18 @@ func patchCmd(ctx *cli.Context) {
 		tag = target[1]
 	}
 
+	imageExists, err := checkImageExists(repo, tag)
+	if err != nil {
+		log.Println(err)
+		exitWithCode(1)
+		return
+	}
+	if imageExists {
+		log.Println("Cannot overwrite an existing image. Please use a different repository/tag.")
+		exitWithCode(1)
+		return
+	}
+
 	cmd := fmt.Sprintf("zypper ref && zypper -n %v", cmdWithFlags("patch", ctx))
 	id, err := runCommandInContainer(img, []string{"/bin/sh", "-c", cmd}, true)
 	if err != nil {

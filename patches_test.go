@@ -174,3 +174,35 @@ func TestPatchCommandCommitSuccessImplicitLatestTag(t *testing.T) {
 		t.Fatal("It should've logged something\n")
 	}
 }
+
+func TestPatchCommandCheckImageFailure(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{listFail: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { patchCmd(testPatchContext("foo:1.0.0", "foo:1.0.1")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+	if !strings.Contains(buffer.String(), "List Failed") {
+		t.Fatal("It should've logged something\n")
+	}
+}
+
+func TestPatchCommandExitWhenTargetOverwritesExistingImage(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { patchCmd(testPatchContext("foo:1.0.0", "opensuse:13.2")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+	if !strings.Contains(buffer.String(), "Cannot overwrite an existing image.") {
+		t.Fatal("It should've logged something\n")
+	}
+}
