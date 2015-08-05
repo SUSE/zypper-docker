@@ -14,7 +14,16 @@
 
 package main
 
-import "github.com/codegangsta/cli"
+var exitInvocations, lastCode int
 
-func psCmd(ctx *cli.Context) {
+func setupTestExitStatus() {
+	exitInvocations = 0
+	lastCode = 0
+
+	if exitWithCode == nil {
+		exitWithCode = func(code int) {
+			lastCode = code
+			exitInvocations += 1
+		}
+	}
 }

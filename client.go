@@ -50,6 +50,7 @@ type DockerClient interface {
 	StartContainer(id string, config *dockerclient.HostConfig) error
 	RemoveContainer(id string, force, volume bool) error
 	KillContainer(id, signal string) error
+	Commit(id string, c *dockerclient.ContainerConfig, repo, tag, comment, author string) (string, error)
 
 	Wait(id string) <-chan dockerclient.WaitResult
 
@@ -266,4 +267,13 @@ func removeContainer(id string) {
 	if err := client.RemoveContainer(id, true, true); err != nil {
 		log.Println(err)
 	}
+}
+
+// Create a Docker image from the container specified by containerId
+// repo is the name of the reposity, hence it includes also the namespace (eg: suse/sle11sp3)
+// tag is the version of the image (eg: 1.0.0)
+func commitContainerToImage(containerId, repo, tag, comment, author string) error {
+	client := getDockerClient()
+	_, err := client.Commit(containerId, &dockerclient.ContainerConfig{}, repo, tag, comment, author)
+	return err
 }

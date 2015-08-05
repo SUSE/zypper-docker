@@ -25,8 +25,6 @@ import (
 	"github.com/SUSE/dockerclient"
 )
 
-var exitInvocations, lastCode int
-
 type mockClient struct {
 	createFail  bool
 	removeFail  bool
@@ -40,6 +38,7 @@ type mockClient struct {
 	logFail     bool
 	lastCmd     []string
 	killFail    bool
+	commitFail  bool
 }
 
 func (mc *mockClient) ListImages(all bool) ([]*dockerclient.Image, error) {
@@ -161,4 +160,11 @@ func (mc *mockClient) KillContainer(id, signal string) error {
 		return fmt.Errorf("Fake failure while killing container")
 	}
 	return nil
+}
+
+func (mc *mockClient) Commit(id string, c *dockerclient.ContainerConfig, repo, tag, comment, author string) (string, error) {
+	if mc.commitFail {
+		return "", fmt.Errorf("Fake failure while committing container")
+	}
+	return "fake image ID", nil
 }

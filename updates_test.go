@@ -25,18 +25,6 @@ import (
 	"github.com/mssola/capture"
 )
 
-func setupTestExitStatus() {
-	exitInvocations = 0
-	lastCode = 0
-
-	if exitWithCode == nil {
-		exitWithCode = func(code int) {
-			lastCode = code
-			exitInvocations += 1
-		}
-	}
-}
-
 func testListUpdatesContext(image string) *cli.Context {
 	set := flag.NewFlagSet("test", 0)
 	err := set.Parse([]string{image})
