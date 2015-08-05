@@ -16,6 +16,7 @@ have been implemented:
 - [x] List all the available patches.
 - [x] Checking patches.
 - [ ] Installing patches.
+- [ ] Install updates.
 
 ## Generic operations
 
@@ -72,6 +73,38 @@ $ zypper docker list-updates (lu) [options] image
 
 Note that even if zypper supports some options, we don't because they do not
 really apply to this tool.
+
+### Install updates
+
+Install all available updates.
+
+```
+$ zypper docker update (up) [options] image target
+```
+
+The command will create a new Docker image as specified by `target` (e.g.: `flavio/redis:1.1.0`).
+
+The command will refuse to overwrite an already existing Docker image.
+
+The available options are:
+
+* `--skip-interactive`: This will skip interactive patches, that is, those
+  that need reboot, contain a message, or update a package whose license needs
+  to be confirmed.
+* `--with-interactive`: Avoid skipping of interactive patches when in
+  non-interactive mode.
+* `-l, --auto-agree-with-licenses`: Automatically say yes to third party
+  license confirmation prompt. By using this option, you choose to agree with
+  licenses of all third-party software this command will install.
+  This option is particularly useful for administrators installing the same
+  set of packages on multiple machines (by an automated process) and have the
+  licenses confirmed before.
+* `--no-recommends`: By default, zypper installs also packages recommended by
+  the requested ones. This option causes the recommended packages to be
+  ignored and only the required ones to be installed.
+* `--replacefiles`: Install the packages even if they replace files from
+  other, already installed, packages. Default is to treat file conflicts as an
+  error.
 
 ### List patches available
 
