@@ -83,3 +83,28 @@ func imagesCmd(ctx *cli.Context) {
 		exitWithCode(0)
 	}
 }
+
+// Looks for a docker image defined by repo:tag
+// Returns true if the image already exists, false otherwise
+func checkImageExists(repo, tag string) (bool, error) {
+	client := getDockerClient()
+	images, err := client.ListImages(false, repo, &dockerclient.ListFilter{})
+	if err != nil {
+		return false, err
+	}
+	if len(images) == 0 {
+		return false, nil
+	}
+
+	ref := fmt.Sprintf("%s:%s", repo, tag)
+
+	for _, image := range images {
+		for _, t := range image.RepoTags {
+			if ref == t {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}

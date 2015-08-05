@@ -167,3 +167,70 @@ func TestImagesForce(t *testing.T) {
 		t.Fatal("Wrong exit code")
 	}
 }
+
+func TestCheckImageListFail(t *testing.T) {
+	dockerClient = &mockClient{listFail: true}
+
+	var err error
+
+	capture.All(func() {
+		_, err = checkImageExists("opensuse", "bar")
+	})
+
+	if err == nil {
+		t.Fatal("Error did not occur")
+	}
+}
+
+func TestCheckImageExistsEmptyList(t *testing.T) {
+	var found bool
+	var err error
+
+	dockerClient = &mockClient{listEmpty: true}
+
+	capture.All(func() {
+		found, err = checkImageExists("suse/sles11sp3", "latest")
+	})
+
+	if err != nil {
+		t.Fatal("Unexpected error")
+	}
+	if found == true {
+		t.Fatal("The image should not have been found")
+	}
+}
+
+func TestCheckImageExists(t *testing.T) {
+	var found bool
+	var err error
+
+	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+
+	expected := []string{"latest", "13.2"}
+	for _, e := range expected {
+		capture.All(func() {
+			found, err = checkImageExists("opensuse", e)
+		})
+
+		if err != nil {
+			t.Fatal("Unexpected error")
+		}
+		if found != true {
+			t.Fatal("The image should have been found")
+		}
+	}
+
+	not_expected := []string{"unexpected_tag"}
+	for _, unexpected := range not_expected {
+		capture.All(func() {
+			found, err = checkImageExists("opensuse", unexpected)
+		})
+
+		if err != nil {
+			t.Fatal("Unexpected error")
+		}
+		if found != false {
+			t.Fatal("The image should not have been found")
+		}
+	}
+}
