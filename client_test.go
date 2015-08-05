@@ -278,3 +278,66 @@ func TestHandleSignalWhileContainerRunsEvenWhenKillContainerFails(t *testing.T) 
 		t.Fatal("os.Exit should have been called by the client code\n")
 	}
 }
+
+func TestRunCommandAndCommitToImageSuccess(t *testing.T) {
+	dockerClient = &mockClient{}
+	var err error
+
+	capture.All(func() {
+		err = runCommandAndCommitToImage(
+			"source",
+			"new_repo",
+			"new_tag",
+			"touch foo",
+			"comment",
+			"author")
+	})
+
+	if err != nil {
+		t.Fatalf("Unexpected error")
+	}
+}
+
+func TestRunCommandAndCommitToImageRunFailure(t *testing.T) {
+	dockerClient = &mockClient{startFail: true}
+	var err error
+
+	capture.All(func() {
+		err = runCommandAndCommitToImage(
+			"source",
+			"new_repo",
+			"new_tag",
+			"touch foo",
+			"comment",
+			"author")
+	})
+
+	if err == nil {
+		t.Fatalf("No error")
+	}
+	if !strings.Contains(err.Error(), "Start failed") {
+		t.Fatalf("Wrong error")
+	}
+}
+
+func TestRunCommandAndCommitToImageCommitFailure(t *testing.T) {
+	dockerClient = &mockClient{commitFail: true}
+	var err error
+
+	capture.All(func() {
+		err = runCommandAndCommitToImage(
+			"source",
+			"new_repo",
+			"new_tag",
+			"touch foo",
+			"comment",
+			"author")
+	})
+
+	if err == nil {
+		t.Fatalf("No error")
+	}
+	if !strings.Contains(err.Error(), "Fake failure while committing container") {
+		t.Fatalf("Wrong error")
+	}
+}

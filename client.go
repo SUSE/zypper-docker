@@ -277,3 +277,22 @@ func commitContainerToImage(containerId, repo, tag, comment, author string) erro
 	_, err := client.Commit(containerId, &dockerclient.ContainerConfig{}, repo, tag, comment, author)
 	return err
 }
+
+// Spawns a container from the specified image, runs the specified command inside
+// of it and commits the results to a new image.
+// The name of the new image is specified via target_repo and target_tag.
+// The container is always deleted.
+// If something goes wrong an error message is returned.
+func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, author string) error {
+	containerId, err := runCommandInContainer(img, []string{"/bin/sh", "-c", cmd}, true)
+	if err != nil {
+		return err
+	}
+
+	err = commitContainerToImage(containerId, target_repo, target_tag, comment, author)
+
+	// always remove the container
+	removeContainer(containerId)
+
+	return err
+}

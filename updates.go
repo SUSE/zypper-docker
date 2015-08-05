@@ -14,10 +14,49 @@
 
 package main
 
-import "github.com/codegangsta/cli"
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/codegangsta/cli"
+)
 
 func listUpdatesCmd(ctx *cli.Context) {
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
 	_ = runStreamedCommand(ctx.Args().First(), "lu", false)
+}
+
+func updateCmd(ctx *cli.Context) {
+	if len(ctx.Args()) != 2 {
+		log.Println("Wrong invocation")
+		exitWithCode(1)
+		return
+	}
+
+	img := ctx.Args()[0]
+	repo, tag := parseImageName(ctx.Args()[1])
+	if err := preventImageOverwrite(repo, tag); err != nil {
+		log.Println(err)
+		exitWithCode(1)
+	}
+
+	comment := "[zypper-docker] apply updates"
+	author := os.Getenv("USER")
+
+	cmd := fmt.Sprintf("zypper ref && zypper -n %v", cmdWithFlags("up", ctx))
+	err := runCommandAndCommitToImage(
+		img,
+		repo,
+		tag,
+		cmd,
+		comment,
+		author)
+	if err != nil {
+		log.Println(err)
+		exitWithCode(1)
+	}
+
+	log.Printf("%s:%s successfully created", repo, tag)
 }
