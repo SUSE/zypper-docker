@@ -41,7 +41,7 @@ type mockClient struct {
 	commitFail  bool
 }
 
-func (mc *mockClient) ListImages(all bool) ([]*dockerclient.Image, error) {
+func (mc *mockClient) ListImages(all bool, filter string, filters *dockerclient.ListFilter) ([]*dockerclient.Image, error) {
 	if mc.listFail {
 		return nil, errors.New("List Failed")
 	}

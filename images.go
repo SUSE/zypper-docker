@@ -75,7 +75,7 @@ func imagesCmd(ctx *cli.Context) {
 		cd.reset()
 	}
 
-	if imgs, err := client.ListImages(false); err != nil {
+	if imgs, err := client.ListImages(true, "", &dockerclient.ListFilter{}); err != nil {
 		log.Println(err)
 		exitWithCode(1)
 	} else {

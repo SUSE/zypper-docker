@@ -44,7 +44,7 @@ func (de dockerError) Error() string {
 // a look at http://godoc.org/github.com/samalba/dockerclient if you want to
 // read the documentation for each function.
 type DockerClient interface {
-	ListImages(all bool) ([]*dockerclient.Image, error)
+	ListImages(all bool, filter string, filters *dockerclient.ListFilter) ([]*dockerclient.Image, error)
 
 	CreateContainer(config *dockerclient.ContainerConfig, name string) (string, error)
 	StartContainer(id string, config *dockerclient.HostConfig) error
