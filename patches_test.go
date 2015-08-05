@@ -111,35 +111,25 @@ func TestPatchCommandWrongInvocation(t *testing.T) {
 	}
 }
 
-func TestPatchCommandCommitFailure(t *testing.T) {
+func TestPatchCommandImageOverwriteDetected(t *testing.T) {
 	setupTestExitStatus()
-	dockerClient = &mockClient{commitFail: true}
+	dockerClient = &mockClient{listFail: true}
 
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
 	capture.All(func() { patchCmd(testPatchContext("ori", "new:1.0.0")) })
 
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")
-	}
-	if !strings.Contains(buffer.String(), "Fake failure while committing container") {
-		t.Fatal("It should've logged something\n")
 	}
 }
 
-func TestPatchCommandRunFailure(t *testing.T) {
+func TestPatchCommandRunAndCommitFailure(t *testing.T) {
 	setupTestExitStatus()
 	dockerClient = &mockClient{startFail: true}
 
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
 	capture.All(func() { patchCmd(testPatchContext("ori", "new:1.0.0")) })
 
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")
-	}
-	if !strings.Contains(buffer.String(), "Start failed") {
-		t.Fatal("It should've logged something\n")
 	}
 }
 
@@ -155,54 +145,6 @@ func TestPatchCommandCommitSuccess(t *testing.T) {
 		t.Fatalf("Expected to have exited successfully")
 	}
 	if !strings.Contains(buffer.String(), "new:1.0.0 successfully created") {
-		t.Fatal("It should've logged something\n")
-	}
-}
-
-func TestPatchCommandCommitSuccessImplicitLatestTag(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { patchCmd(testPatchContext("ori", "new")) })
-
-	if exitInvocations != 0 {
-		t.Fatalf("Expected to have exited successfully")
-	}
-	if !strings.Contains(buffer.String(), "new:latest successfully created") {
-		t.Fatal("It should've logged something\n")
-	}
-}
-
-func TestPatchCommandCheckImageFailure(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{listFail: true}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { patchCmd(testPatchContext("foo:1.0.0", "foo:1.0.1")) })
-
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-	if !strings.Contains(buffer.String(), "List Failed") {
-		t.Fatal("It should've logged something\n")
-	}
-}
-
-func TestPatchCommandExitWhenTargetOverwritesExistingImage(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { patchCmd(testPatchContext("foo:1.0.0", "opensuse:13.2")) })
-
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-	if !strings.Contains(buffer.String(), "Cannot overwrite an existing image.") {
 		t.Fatal("It should've logged something\n")
 	}
 }

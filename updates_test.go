@@ -34,6 +34,24 @@ func testListUpdatesContext(image string) *cli.Context {
 	return cli.NewContext(nil, set, nil)
 }
 
+func testUpdateContext(source, destination string) *cli.Context {
+	set := flag.NewFlagSet("test", 0)
+	c := cli.NewContext(nil, set, nil)
+	args := []string{}
+
+	if source != "" {
+		args = append(args, source)
+	}
+	if destination != "" {
+		args = append(args, destination)
+	}
+
+	if err := set.Parse(args); err != nil {
+		log.Fatalf("Cannot parse args: %s", err)
+	}
+	return c
+}
+
 func TestListUpdatesNoImageSpecified(t *testing.T) {
 	setupTestExitStatus()
 	dockerClient = &mockClient{}
@@ -69,5 +87,59 @@ func TestListUpdatesCommandFailure(t *testing.T) {
 	}
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")
+	}
+}
+
+func TestUpdateCommandWrongInvocation(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { updateCmd(testUpdateContext("", "")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+	if !strings.Contains(buffer.String(), "Wrong invocation") {
+		t.Fatal("It should've logged something\n")
+	}
+}
+
+func TestUpdateCommandImageOverwriteDetected(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{listFail: true}
+
+	capture.All(func() { updateCmd(testUpdateContext("ori", "new:1.0.0")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+}
+
+func TestUpdateCommandRunAndCommitFailure(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{startFail: true}
+
+	capture.All(func() { updateCmd(testUpdateContext("ori", "new:1.0.0")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+}
+
+func TestUpdateCommandCommitSuccess(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { updateCmd(testUpdateContext("ori", "new:1.0.0")) })
+
+	if exitInvocations != 0 {
+		t.Fatalf("Expected to have exited successfully")
+	}
+	if !strings.Contains(buffer.String(), "new:1.0.0 successfully created") {
+		t.Fatal("It should've logged something\n")
 	}
 }

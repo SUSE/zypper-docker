@@ -18,27 +18,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/codegangsta/cli"
 )
-
-// It appends the set flags with the given command.
-func cmdWithFlags(cmd string, ctx *cli.Context) string {
-	for _, name := range ctx.FlagNames() {
-		if value := ctx.String(name); value != "" {
-			var dash string
-			if len(name) == 1 {
-				dash = "-"
-			} else {
-				dash = "--"
-			}
-
-			cmd += fmt.Sprintf(" %v%s %s", dash, name, value)
-		}
-	}
-	return cmd
-}
 
 // zypper-docker list-patches [flags] <image>
 func listPatchesCmd(ctx *cli.Context) {
@@ -56,44 +38,27 @@ func patchCmd(ctx *cli.Context) {
 	}
 
 	img := ctx.Args()[0]
-	target := strings.SplitN(ctx.Args()[1], ":", 2)
-	var repo, tag string
-	repo = target[0]
-	if len(target) != 2 {
-		tag = "latest"
-	} else {
-		tag = target[1]
-	}
-
-	imageExists, err := checkImageExists(repo, tag)
-	if err != nil {
-		log.Println(err)
-		exitWithCode(1)
-		return
-	}
-	if imageExists {
-		log.Println("Cannot overwrite an existing image. Please use a different repository/tag.")
-		exitWithCode(1)
-		return
-	}
-
-	cmd := fmt.Sprintf("zypper ref && zypper -n %v", cmdWithFlags("patch", ctx))
-	id, err := runCommandInContainer(img, []string{"/bin/sh", "-c", cmd}, true)
-	if err != nil {
+	repo, tag := parseImageName(ctx.Args()[1])
+	if err := preventImageOverwrite(repo, tag); err != nil {
 		log.Println(err)
 		exitWithCode(1)
 	}
 
 	comment := "[zypper-docker] apply patches"
 	author := os.Getenv("USER")
-	err = commitContainerToImage(id, repo, tag, comment, author)
 
-	// always remove the container
-	removeContainer(id)
-
+	cmd := fmt.Sprintf("zypper ref && zypper -n %v", cmdWithFlags("patch", ctx))
+	err := runCommandAndCommitToImage(
+		img,
+		repo,
+		tag,
+		cmd,
+		comment,
+		author)
 	if err != nil {
 		log.Println(err)
 		exitWithCode(1)
 	}
+
 	log.Printf("%s:%s successfully created", repo, tag)
 }

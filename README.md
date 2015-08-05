@@ -16,7 +16,7 @@ have been implemented:
 - [x] List all the available patches.
 - [x] Checking patches.
 - [x] Installing patches.
-- [ ] Install updates.
+- [x] Install updates.
 
 ## Generic operations
 
