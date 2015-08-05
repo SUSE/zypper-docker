@@ -14,7 +14,26 @@
 
 package main
 
-import "github.com/codegangsta/cli"
+import "bytes"
 
-func psCmd(ctx *cli.Context) {
+var exitInvocations, lastCode int
+
+func setupTestExitStatus() {
+	exitInvocations = 0
+	lastCode = 0
+
+	if exitWithCode == nil {
+		exitWithCode = func(code int) {
+			lastCode = code
+			exitInvocations += 1
+		}
+	}
+}
+
+type closingBuffer struct {
+	*bytes.Buffer
+}
+
+func (cb *closingBuffer) Close() error {
+	return nil
 }

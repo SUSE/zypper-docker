@@ -16,12 +16,32 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"log"
 	"strings"
 	"testing"
 
+	"github.com/codegangsta/cli"
 	"github.com/mssola/capture"
 )
+
+func testPatchContext(source, destination string) *cli.Context {
+	set := flag.NewFlagSet("test", 0)
+	c := cli.NewContext(nil, set, nil)
+	args := []string{}
+
+	if source != "" {
+		args = append(args, source)
+	}
+	if destination != "" {
+		args = append(args, destination)
+	}
+
+	if err := set.Parse(args); err != nil {
+		log.Fatalf("Cannot parse args: %s", err)
+	}
+	return c
+}
 
 func testCommand() string {
 	cmd := dockerClient.(*mockClient).lastCmd
@@ -72,5 +92,117 @@ func TestListPatchesCommandFailure(t *testing.T) {
 	}
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")
+	}
+}
+
+func TestPatchCommandWrongInvocation(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { patchCmd(testPatchContext("", "")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+	if !strings.Contains(buffer.String(), "Wrong invocation") {
+		t.Fatal("It should've logged something\n")
+	}
+}
+
+func TestPatchCommandCommitFailure(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{commitFail: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { patchCmd(testPatchContext("ori", "new:1.0.0")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+	if !strings.Contains(buffer.String(), "Fake failure while committing container") {
+		t.Fatal("It should've logged something\n")
+	}
+}
+
+func TestPatchCommandRunFailure(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{startFail: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { patchCmd(testPatchContext("ori", "new:1.0.0")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+	if !strings.Contains(buffer.String(), "Start failed") {
+		t.Fatal("It should've logged something\n")
+	}
+}
+
+func TestPatchCommandCommitSuccess(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { patchCmd(testPatchContext("ori", "new:1.0.0")) })
+
+	if exitInvocations != 0 {
+		t.Fatalf("Expected to have exited successfully")
+	}
+	if !strings.Contains(buffer.String(), "new:1.0.0 successfully created") {
+		t.Fatal("It should've logged something\n")
+	}
+}
+
+func TestPatchCommandCommitSuccessImplicitLatestTag(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { patchCmd(testPatchContext("ori", "new")) })
+
+	if exitInvocations != 0 {
+		t.Fatalf("Expected to have exited successfully")
+	}
+	if !strings.Contains(buffer.String(), "new:latest successfully created") {
+		t.Fatal("It should've logged something\n")
+	}
+}
+
+func TestPatchCommandCheckImageFailure(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{listFail: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { patchCmd(testPatchContext("foo:1.0.0", "foo:1.0.1")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+	if !strings.Contains(buffer.String(), "List Failed") {
+		t.Fatal("It should've logged something\n")
+	}
+}
+
+func TestPatchCommandExitWhenTargetOverwritesExistingImage(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { patchCmd(testPatchContext("foo:1.0.0", "opensuse:13.2")) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+	if !strings.Contains(buffer.String(), "Cannot overwrite an existing image.") {
+		t.Fatal("It should've logged something\n")
 	}
 }

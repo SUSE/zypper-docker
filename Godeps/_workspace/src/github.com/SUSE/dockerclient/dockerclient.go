@@ -559,12 +559,47 @@ func (client *DockerClient) RemoveContainer(id string, force, volumes bool) erro
 	return err
 }
 
-func (client *DockerClient) ListImages(all bool) ([]*Image, error) {
-	argAll := 0
+func (client *DockerClient) ListImages(all bool, filter string, filters *ListFilter) ([]*Image, error) {
+	v := url.Values{}
+
+	argAll := "0"
 	if all {
-		argAll = 1
+		argAll = "1"
 	}
-	uri := fmt.Sprintf("/%s/images/json?all=%d", APIVersion, argAll)
+	v.Set("all", argAll)
+
+	if filter != "" {
+		v.Set("filter", filter)
+	}
+
+	filtersData := make(map[string][]string)
+
+	if filters.Dangling {
+		filtersData["dangling"] = []string{"true"}
+	}
+
+	if len(filters.Keys) > 0 {
+		for _, key := range filters.Keys {
+			filtersData["key"] = append(filtersData["key"], key)
+		}
+	}
+
+	if len(filters.Labels) > 0 {
+		for _, label := range filters.Labels {
+			filtersData["label"] = append(filtersData["label"], label)
+		}
+	}
+
+	if len(filtersData) > 0 {
+		mf, err := json.Marshal(filtersData)
+		if err != nil {
+			return nil, err
+		}
+		v.Set("filters", string(mf))
+	}
+
+	uri := fmt.Sprintf("/%s/images/json?%s", APIVersion, v.Encode())
+
 	data, err := client.doRequest("GET", uri, nil, nil)
 	if err != nil {
 		return nil, err
@@ -658,7 +693,7 @@ func (client *DockerClient) ImportImage(source string, repository string, tag st
 	return client.doStreamRequest("POST", "/images/create?"+v.Encode(), in, nil)
 }
 
-func (client *DockerClient) BuildImage(image BuildImage) (io.ReadCloser, error) {
+func (client *DockerClient) BuildImage(image *BuildImage) (io.ReadCloser, error) {
 	v := url.Values{}
 
 	if image.DockerfileName != "" {
@@ -711,4 +746,31 @@ func (client *DockerClient) BuildImage(image BuildImage) (io.ReadCloser, error) 
 
 	uri := fmt.Sprintf("/%s/build?%s", APIVersion, v.Encode())
 	return client.doStreamRequest("POST", uri, image.Context, headers)
+}
+
+func (client *DockerClient) Commit(id string, c *ContainerConfig, repo, tag, comment, author string) (string, error) {
+	config, err := json.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+
+	v := url.Values{}
+	v.Set("container", id)
+	v.Set("repo", repo)
+	v.Set("tag", tag)
+	v.Set("comment", comment)
+	v.Set("author", author)
+
+	uri := fmt.Sprintf("/%s/commit?%s", APIVersion, v.Encode())
+	data, err := client.doRequest("POST", uri, config, nil)
+	if err != nil {
+		return "", err
+	}
+
+	var img Image
+	if err := json.Unmarshal(data, &img); err != nil {
+		return "", err
+	}
+
+	return img.Id, nil
 }

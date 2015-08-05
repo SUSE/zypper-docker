@@ -3,6 +3,10 @@
 	"GoVersion": "go1.4.2",
 	"Deps": [
 		{
+			"ImportPath": "github.com/SUSE/dockerclient",
+			"Rev": "db6f695f08f672ab85ca4f38fe9689fa9b72e8b0"
+		},
+		{
 			"ImportPath": "github.com/codegangsta/cli",
 			"Comment": "1.2.0-137-gbca61c4",
 			"Rev": "bca61c476e3c752594983e4c9bcd5f62fb09f157"
@@ -20,10 +24,6 @@
 		{
 			"ImportPath": "github.com/mssola/capture",
 			"Rev": "9e5615ff6effb8da9202768b3e95c3e246823315"
-		},
-		{
-			"ImportPath": "github.com/mssola/dockerclient",
-			"Rev": "46f187ce074129a17000bb0a2919b23aba58fc9d"
 		}
 	]
 }

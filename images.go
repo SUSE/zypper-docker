@@ -22,10 +22,10 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/SUSE/dockerclient"
 	"github.com/codegangsta/cli"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/units"
-	"github.com/mssola/dockerclient"
 )
 
 // Returns a string that contains a description of how much has passed since
@@ -75,11 +75,36 @@ func imagesCmd(ctx *cli.Context) {
 		cd.reset()
 	}
 
-	if imgs, err := client.ListImages(false); err != nil {
+	if imgs, err := client.ListImages(true, "", &dockerclient.ListFilter{}); err != nil {
 		log.Println(err)
 		exitWithCode(1)
 	} else {
 		printImages(imgs)
 		exitWithCode(0)
 	}
+}
+
+// Looks for a docker image defined by repo:tag
+// Returns true if the image already exists, false otherwise
+func checkImageExists(repo, tag string) (bool, error) {
+	client := getDockerClient()
+	images, err := client.ListImages(false, repo, &dockerclient.ListFilter{})
+	if err != nil {
+		return false, err
+	}
+	if len(images) == 0 {
+		return false, nil
+	}
+
+	ref := fmt.Sprintf("%s:%s", repo, tag)
+
+	for _, image := range images {
+		for _, t := range image.RepoTags {
+			if ref == t {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
