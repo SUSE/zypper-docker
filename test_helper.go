@@ -14,6 +14,8 @@
 
 package main
 
+import "bytes"
+
 var exitInvocations, lastCode int
 
 func setupTestExitStatus() {
@@ -26,4 +28,12 @@ func setupTestExitStatus() {
 			exitInvocations += 1
 		}
 	}
+}
+
+type closingBuffer struct {
+	*bytes.Buffer
+}
+
+func (cb *closingBuffer) Close() error {
+	return nil
 }

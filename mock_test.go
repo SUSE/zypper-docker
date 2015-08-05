@@ -138,14 +138,6 @@ func (mc *mockClient) Wait(id string) <-chan dockerclient.WaitResult {
 	return ch
 }
 
-type closingBuffer struct {
-	*bytes.Buffer
-}
-
-func (cb *closingBuffer) Close() error {
-	return nil
-}
-
 func (mc *mockClient) ContainerLogs(id string, options *dockerclient.LogOptions) (io.ReadCloser, error) {
 	if mc.logFail {
 		return nil, fmt.Errorf("Fake log failure")
