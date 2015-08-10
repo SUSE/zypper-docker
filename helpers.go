@@ -22,7 +22,21 @@ import (
 )
 
 // It appends the set flags with the given command.
-func cmdWithFlags(cmd string, ctx *cli.Context) string {
+// `boolFlags` is a list of strings containing the names of the boolean
+// command line options. These have to be handled in a slightly different
+// way because zypper expects `--boolflag` instead of `--boolflag true`. Also
+// boolean flags with a false value are ignored because zypper set all the
+// undefined bool flags to false by default.
+func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags []string) string {
+	arrayInclude := func(s string, arr []string) bool {
+		for _, i := range arr {
+			if i == s {
+				return true
+			}
+		}
+		return false
+	}
+
 	for _, name := range ctx.FlagNames() {
 		if value := ctx.String(name); value != "" {
 			var dash string
@@ -32,14 +46,14 @@ func cmdWithFlags(cmd string, ctx *cli.Context) string {
 				dash = "--"
 			}
 
-			if ctx.Bool(name) == false && ctx.IsSet(name) {
-				// this cannot be a false boolean flag
+			if arrayInclude(name, boolFlags) {
+				if ctx.Bool(name) {
+					// ignore bool flags with value set to false
+					cmd += fmt.Sprintf(" %v%s", dash, name)
+				}
+			} else {
 				cmd += fmt.Sprintf(" %v%s %s", dash, name, value)
-			} else if ctx.Bool(name) {
-				// This is a boolean flag set to true
-				cmd += fmt.Sprintf(" %v%s", dash, name)
 			}
-			// else this is a false boolean flag, we just omit it
 		}
 	}
 	return cmd

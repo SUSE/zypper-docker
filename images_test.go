@@ -16,7 +16,6 @@ package main
 
 import (
 	"bytes"
-	"flag"
 	"log"
 	"os"
 	"path/filepath"
@@ -24,15 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codegangsta/cli"
 	"github.com/mssola/capture"
 )
-
-func testContext(force bool) *cli.Context {
-	set := flag.NewFlagSet("test", 0)
-	set.Bool("force", force, "doc")
-	return cli.NewContext(nil, set, nil)
-}
 
 func TestMain(m *testing.M) {
 	status := 0
@@ -59,7 +51,7 @@ func TestImagesCmdFail(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	imagesCmd(testContext(false))
+	imagesCmd(testContext([]string{}, false))
 
 	lines := strings.Split(buffer.String(), "\n")
 	if len(lines) != 2 {
@@ -77,7 +69,7 @@ func TestImagesListEmpty(t *testing.T) {
 	dockerClient = &mockClient{listEmpty: true}
 	setupTestExitStatus()
 
-	res := capture.All(func() { imagesCmd(testContext(false)) })
+	res := capture.All(func() { imagesCmd(testContext([]string{}, false)) })
 
 	lines := strings.Split(string(res.Stdout), "\n")
 	if len(lines) != 3 {
@@ -98,7 +90,7 @@ func TestImagesListOk(t *testing.T) {
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
 
-	res := capture.All(func() { imagesCmd(testContext(false)) })
+	res := capture.All(func() { imagesCmd(testContext([]string{}, false)) })
 
 	lines := strings.Split(string(res.Stdout), "\n")
 	if len(lines) != 6 {
@@ -149,7 +141,7 @@ func TestImagesForce(t *testing.T) {
 	}
 
 	// Luke, use the force!
-	capture.All(func() { imagesCmd(testContext(true)) })
+	capture.All(func() { imagesCmd(testContext([]string{}, true)) })
 	cd = getCacheFile()
 
 	if !cd.Valid {

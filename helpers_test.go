@@ -15,8 +15,11 @@
 package main
 
 import (
+	"flag"
 	"strings"
 	"testing"
+
+	"github.com/codegangsta/cli"
 )
 
 func TestParseImageName(t *testing.T) {
@@ -60,5 +63,54 @@ func TestPreventImageOverwriteImageExists(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Cannot overwrite an existing image.") {
 		t.Fatal("Wrong error message")
+	}
+}
+
+func TestCmdWithFlags(t *testing.T) {
+	cmd := cli.Command{
+		Name:  "lp",
+		Usage: "List all the images based on either OpenSUSE or SLES",
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Name:  "b, bugzilla",
+				Value: "",
+				Usage: "List available needed patches for all Bugzilla issues, or issues whose number matches the given string.",
+			},
+			cli.StringFlag{
+				Name:  "cve",
+				Value: "",
+				Usage: "List available needed patches for all CVE issues, or issues whose number matches the given string.",
+			},
+			cli.BoolFlag{
+				Name:  "l, auto-agree-with-licenses",
+				Usage: "Automatically say yes to third party license confirmation prompt. By using this option, you choose to agree with licenses of all third-party software this command will install.",
+			},
+			cli.BoolFlag{
+				Name:  "no-recommends",
+				Usage: "By default, zypper installs also packages recommended by the requested ones. This option causes the recommended packages to be ignored and only the required ones to be installed.",
+			},
+			cli.BoolFlag{
+				Name:  "explode",
+				Usage: "Boom",
+			},
+		},
+	}
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("b", "bugzilla_value", "doc")
+	set.String("cve", "cve_value", "doc")
+	set.Bool("l", true, "doc")
+	set.Bool("no-recommends", true, "doc")
+	set.Bool("explode", false, "doc")
+
+	ctx := cli.NewContext(nil, set, nil)
+	ctx.Command = cmd
+
+	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends", "explode"}
+	actual := cmdWithFlags("cmd", ctx, boolFlags)
+	expected := "cmd -b bugzilla_value --cve cve_value -l --no-recommends"
+
+	if expected != actual {
+		t.Fatal("Wrong command")
 	}
 }

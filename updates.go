@@ -45,7 +45,10 @@ func updateCmd(ctx *cli.Context) {
 	comment := "[zypper-docker] apply updates"
 	author := os.Getenv("USER")
 
-	cmd := fmt.Sprintf("zypper ref && zypper -n %v", cmdWithFlags("up", ctx))
+	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends"}
+	cmd := fmt.Sprintf(
+		"zypper ref && zypper -n %v",
+		cmdWithFlags("up", ctx, boolFlags))
 	err := runCommandAndCommitToImage(
 		img,
 		repo,

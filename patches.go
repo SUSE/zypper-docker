@@ -26,7 +26,7 @@ import (
 func listPatchesCmd(ctx *cli.Context) {
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
-	_ = runStreamedCommand(ctx.Args().First(), cmdWithFlags("lp", ctx), false)
+	_ = runStreamedCommand(ctx.Args().First(), cmdWithFlags("lp", ctx, []string{}), false)
 }
 
 // zypper-docker patch [flags] image
@@ -47,7 +47,11 @@ func patchCmd(ctx *cli.Context) {
 	comment := "[zypper-docker] apply patches"
 	author := os.Getenv("USER")
 
-	cmd := fmt.Sprintf("zypper ref && zypper -n %v", cmdWithFlags("patch", ctx))
+	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends"}
+
+	cmd := fmt.Sprintf(
+		"zypper ref && zypper -n %v",
+		cmdWithFlags("patch", ctx, boolFlags))
 	err := runCommandAndCommitToImage(
 		img,
 		repo,

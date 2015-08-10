@@ -60,7 +60,7 @@ func TestListPatchesNoImageSpecified(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	capture.All(func() { listPatchesCmd(testListUpdatesContext("")) })
+	capture.All(func() { listPatchesCmd(testContext([]string{}, false)) })
 
 	if testCommand() != "" {
 		t.Fatalf("The command should not have been executed")
@@ -81,7 +81,7 @@ func TestListPatchesCommandFailure(t *testing.T) {
 	log.SetOutput(buffer)
 
 	capture.All(func() {
-		listPatchesCmd(testListUpdatesContext("opensuse:13.2"))
+		listPatchesCmd(testContext([]string{"opensuse:13.2"}, false))
 	})
 
 	if testCommand() != "zypper lp" {
