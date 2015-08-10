@@ -87,6 +87,16 @@ func newApp() *cli.App {
 					Name:  "no-recommends",
 					Usage: "By default, zypper installs also packages recommended by the requested ones. This option causes the recommended packages to be ignored and only the required ones to be installed.",
 				},
+				cli.StringFlag{
+					Name:   "author",
+					EnvVar: "USERNAME",
+					Usage:  "Commit author to associate with the new layer (e.g., \"John Doe <john.doe@example.com>\")",
+				},
+				cli.StringFlag{
+					Name:  "message",
+					Value: "[zypper-docker] update",
+					Usage: "Commit message to associated with the new layer",
+				},
 			},
 		},
 		{
@@ -154,6 +164,16 @@ func newApp() *cli.App {
 				cli.BoolFlag{
 					Name:  "no-recommends",
 					Usage: "By default, zypper installs also packages recommended by the requested ones. This option causes the recommended packages to be ignored and only the required ones to be installed.",
+				},
+				cli.StringFlag{
+					Name:   "author",
+					EnvVar: "USERNAME",
+					Usage:  "Commit author to associate with the new layer (e.g., \"John Doe <john.doe@example.com>\")",
+				},
+				cli.StringFlag{
+					Name:  "message",
+					Value: "[zypper-docker] patch",
+					Usage: "Commit message to associated with the new layer",
 				},
 			},
 		},

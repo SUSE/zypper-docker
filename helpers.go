@@ -27,8 +27,11 @@ import (
 // way because zypper expects `--boolflag` instead of `--boolflag true`. Also
 // boolean flags with a false value are ignored because zypper set all the
 // undefined bool flags to false by default.
-func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags []string) string {
-	arrayInclude := func(s string, arr []string) bool {
+// `toIgnore` contains a list of flag names to not be passed to the final
+//  command, this is useful to prevent zypper-docker only parameters to be
+// forwarded to zypper (eg: `--author` or `--message`).
+func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags, toIgnore []string) string {
+	arrayInclude := func(arr []string, s string) bool {
 		for _, i := range arr {
 			if i == s {
 				return true
@@ -38,6 +41,10 @@ func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags []string) string {
 	}
 
 	for _, name := range ctx.FlagNames() {
+		if arrayInclude(toIgnore, name) {
+			continue
+		}
+
 		if value := ctx.String(name); value != "" {
 			var dash string
 			if len(name) == 1 {
@@ -46,7 +53,7 @@ func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags []string) string {
 				dash = "--"
 			}
 
-			if arrayInclude(name, boolFlags) {
+			if arrayInclude(boolFlags, name) {
 				if ctx.Bool(name) {
 					// ignore bool flags with value set to false
 					cmd += fmt.Sprintf(" %v%s", dash, name)

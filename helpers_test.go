@@ -81,6 +81,11 @@ func TestCmdWithFlags(t *testing.T) {
 				Value: "",
 				Usage: "List available needed patches for all CVE issues, or issues whose number matches the given string.",
 			},
+			cli.StringFlag{
+				Name:  "to-ignore",
+				Value: "",
+				Usage: "Should not be forwarded.",
+			},
 			cli.BoolFlag{
 				Name:  "l, auto-agree-with-licenses",
 				Usage: "Automatically say yes to third party license confirmation prompt. By using this option, you choose to agree with licenses of all third-party software this command will install.",
@@ -99,6 +104,7 @@ func TestCmdWithFlags(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.String("b", "bugzilla_value", "doc")
 	set.String("cve", "cve_value", "doc")
+	set.String("to-ignore", "to_ignore_value", "doc")
 	set.Bool("l", true, "doc")
 	set.Bool("no-recommends", true, "doc")
 	set.Bool("explode", false, "doc")
@@ -107,7 +113,8 @@ func TestCmdWithFlags(t *testing.T) {
 	ctx.Command = cmd
 
 	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends", "explode"}
-	actual := cmdWithFlags("cmd", ctx, boolFlags)
+	toIgnore := []string{"to-ignore"}
+	actual := cmdWithFlags("cmd", ctx, boolFlags, toIgnore)
 	expected := "cmd -b bugzilla_value --cve cve_value -l --no-recommends"
 
 	if expected != actual {
