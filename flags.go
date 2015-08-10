@@ -80,7 +80,7 @@ func newApp() *cli.App {
 			Action:  updateCmd,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
-					Name:  "l, auto-agree-with-licenses:",
+					Name:  "l, auto-agree-with-licenses",
 					Usage: "Automatically say yes to third party license confirmation prompt. By using this option, you choose to agree with licenses of all third-party software this command will install.",
 				},
 				cli.BoolFlag{
@@ -146,6 +146,14 @@ func newApp() *cli.App {
 					Name:  "issues",
 					Value: "",
 					Usage: "Look for issues whose number, summary, or description matches the specified string.",
+				},
+				cli.BoolFlag{
+					Name:  "l, auto-agree-with-licenses",
+					Usage: "Automatically say yes to third party license confirmation prompt. By using this option, you choose to agree with licenses of all third-party software this command will install.",
+				},
+				cli.BoolFlag{
+					Name:  "no-recommends",
+					Usage: "By default, zypper installs also packages recommended by the requested ones. This option causes the recommended packages to be ignored and only the required ones to be installed.",
 				},
 			},
 		},
