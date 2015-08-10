@@ -82,6 +82,11 @@ func TestCmdWithFlags(t *testing.T) {
 				Usage: "List available needed patches for all CVE issues, or issues whose number matches the given string.",
 			},
 			cli.StringFlag{
+				Name:  "date",
+				Value: "",
+				Usage: "Install patches issued up to, but not including, the specified date (YYYY-MM-DD).",
+			},
+			cli.StringFlag{
 				Name:  "to-ignore",
 				Value: "",
 				Usage: "Should not be forwarded.",
@@ -105,19 +110,61 @@ func TestCmdWithFlags(t *testing.T) {
 	set.String("b", "bugzilla_value", "doc")
 	set.String("cve", "cve_value", "doc")
 	set.String("to-ignore", "to_ignore_value", "doc")
+	set.String("date", "", "doc")
 	set.Bool("l", true, "doc")
 	set.Bool("no-recommends", true, "doc")
-	set.Bool("explode", false, "doc")
+	err := set.Parse([]string{
+		"-b", "bugzilla_value",
+		"--cve", "cve_value",
+		"--to-ignore", "to_ignore_value",
+		"--date", "",
+		"-l",
+		"--no-recommends",
+	})
+	if err != nil {
+		t.Fatal("cannot parse flags")
+	}
 
 	ctx := cli.NewContext(nil, set, nil)
 	ctx.Command = cmd
 
-	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends", "explode"}
+	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends"}
 	toIgnore := []string{"to-ignore"}
 	actual := cmdWithFlags("cmd", ctx, boolFlags, toIgnore)
-	expected := "cmd -b bugzilla_value --cve cve_value -l --no-recommends"
+	expected := "cmd -b bugzilla_value --cve cve_value --date  -l --no-recommends"
 
 	if expected != actual {
 		t.Fatal("Wrong command")
+	}
+}
+
+func TestSanitizeStringSpecialFlagUsedAsBool(t *testing.T) {
+	input := []string{"zypper-docker", "lp", "--bugzilla", "image"}
+	expected := []string{"zypper-docker", "lp", "--bugzilla", "", "image"}
+
+	actual := fixArgsForZypper(input)
+	if err := compareStringSlices(actual, expected); err != nil {
+		t.Fatalf("Wrong sanitization %v", err)
+	}
+}
+
+func TestSanitizeStringSpecialFlagUsedAsStringWithEmptyValue(t *testing.T) {
+	// this can be achieved by calling zypper-docker lp --bugzilla "" image
+	input := []string{"zypper-docker", "lp", "--bugzilla", "", "image"}
+	expected := []string{"zypper-docker", "lp", "--bugzilla", "", "image"}
+
+	actual := fixArgsForZypper(input)
+	if err := compareStringSlices(actual, expected); err != nil {
+		t.Fatalf("Wrong sanitization %v", err)
+	}
+}
+
+func TestSanitizeStringSpecialFlagUsedAsString(t *testing.T) {
+	input := []string{"zypper-docker", "lp", "--bugzilla=bnc123", "image"}
+	expected := []string{"zypper-docker", "lp", "--bugzilla", "bnc123", "image"}
+
+	actual := fixArgsForZypper(input)
+	if err := compareStringSlices(actual, expected); err != nil {
+		t.Fatalf("Wrong sanitization %v", err)
 	}
 }

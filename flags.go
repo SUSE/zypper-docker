@@ -108,12 +108,12 @@ func newApp() *cli.App {
 				cli.StringFlag{
 					Name:  "b, bugzilla",
 					Value: "",
-					Usage: "List available needed patches for all Bugzilla issues, or issues whose number matches the given string.",
+					Usage: "List available needed patches for all Bugzilla issues, or issues whose number matches the given string (--bugzilla=#).",
 				},
 				cli.StringFlag{
 					Name:  "cve",
 					Value: "",
-					Usage: "List available needed patches for all CVE issues, or issues whose number matches the given string.",
+					Usage: "List available needed patches for all CVE issues, or issues whose number matches the given string (--cve=#).",
 				},
 				cli.StringFlag{
 					Name:  "date",
@@ -123,7 +123,7 @@ func newApp() *cli.App {
 				cli.StringFlag{
 					Name:  "issues",
 					Value: "",
-					Usage: "Look for issues whose number, summary, or description matches the specified string.",
+					Usage: "Look for issues whose number, summary, or description matches the specified string (--issue=string).",
 				},
 				cli.StringFlag{
 					Name:  "g, category",
@@ -140,12 +140,12 @@ func newApp() *cli.App {
 				cli.StringFlag{
 					Name:  "b, bugzilla",
 					Value: "",
-					Usage: "List available needed patches for all Bugzilla issues, or issues whose number matches the given string.",
+					Usage: "Install available needed patches for all Bugzilla issues, or issues whose number matches the given string (--bugzilla=#).",
 				},
 				cli.StringFlag{
 					Name:  "cve",
 					Value: "",
-					Usage: "List available needed patches for all CVE issues, or issues whose number matches the given string.",
+					Usage: "Install available needed patches for all CVE issues, or issues whose number matches the given string (--cve=#).",
 				},
 				cli.StringFlag{
 					Name:  "date",

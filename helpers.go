@@ -45,7 +45,7 @@ func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags, toIgnore []string) st
 			continue
 		}
 
-		if value := ctx.String(name); value != "" {
+		if value := ctx.String(name); ctx.IsSet(name) {
 			var dash string
 			if len(name) == 1 {
 				dash = "-"
@@ -54,16 +54,66 @@ func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags, toIgnore []string) st
 			}
 
 			if arrayInclude(boolFlags, name) {
-				if ctx.Bool(name) {
-					// ignore bool flags with value set to false
-					cmd += fmt.Sprintf(" %v%s", dash, name)
-				}
+				cmd += fmt.Sprintf(" %v%s", dash, name)
 			} else {
 				cmd += fmt.Sprintf(" %v%s %s", dash, name, value)
 			}
 		}
 	}
 	return cmd
+}
+
+// This function clears a list of args (like the one provided by `os.Args`)
+// to match with some special cases of zypper.
+// For example:
+//   zypper lp --bugzilla
+// In the above case --buzilla acts as a boolean flag, while with:
+//   zypper lp --bugzilla=123
+// acts like a string flag.
+// We have to differentiate between invocations with and without the "=".
+// When the "=" is not found we have to artificially inject an empty string
+// to avoid the next parameter to be considered the flag value.
+func fixArgsForZypper(args []string) []string {
+	specialFlags := []string{
+		"-b", "--bugzilla",
+		"--cve",
+		"--issues",
+	}
+	sanitizedArgs := []string{}
+	skip := false
+
+	for pos, arg := range args {
+		if skip {
+			skip = false
+			continue
+		}
+
+		special := false
+		for _, specialFlag := range specialFlags {
+			if specialFlag == arg {
+				sanitizedArgs = append(sanitizedArgs, arg)
+				sanitizedArgs = append(sanitizedArgs, "")
+				special = true
+
+				if len(args) >= (pos+1) && args[pos+1] == "" {
+					skip = true
+				}
+				break
+			} else if strings.Contains(arg, specialFlag+"=") {
+				argAndValue := strings.SplitN(arg, "=", 2)
+
+				sanitizedArgs = append(sanitizedArgs, argAndValue[0])
+				sanitizedArgs = append(sanitizedArgs, argAndValue[1])
+				special = true
+				break
+			}
+		}
+		if !special {
+			sanitizedArgs = append(sanitizedArgs, arg)
+		}
+	}
+
+	return sanitizedArgs
 }
 
 // Given a Docker image name it returns the repository and the tag composing it

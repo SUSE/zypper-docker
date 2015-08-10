@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"log"
 
 	"github.com/codegangsta/cli"
@@ -53,4 +54,20 @@ func testContext(args []string, force bool) *cli.Context {
 		log.Fatal("Cannot parse cli options", err)
 	}
 	return c
+}
+
+func compareStringSlices(actual, expected []string) error {
+	if len(actual) != len(expected) {
+		return fmt.Errorf("different size, actual is %d while expected is %d",
+			len(actual), len(expected))
+	}
+
+	for pos, item := range actual {
+		if item != expected[pos] {
+			return fmt.Errorf("item at position %d are different, expected %s, got %s",
+				pos, expected[pos], item)
+		}
+	}
+
+	return nil
 }
