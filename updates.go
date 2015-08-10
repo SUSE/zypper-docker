@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/codegangsta/cli"
 )
@@ -42,13 +41,15 @@ func updateCmd(ctx *cli.Context) {
 		exitWithCode(1)
 	}
 
-	comment := "[zypper-docker] apply updates"
-	author := os.Getenv("USER")
+	comment := ctx.String("message")
+	author := ctx.String("author")
 
 	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends"}
+	toIgnore := []string{"author", "message"}
+
 	cmd := fmt.Sprintf(
 		"zypper ref && zypper -n %v",
-		cmdWithFlags("up", ctx, boolFlags))
+		cmdWithFlags("up", ctx, boolFlags, toIgnore))
 	err := runCommandAndCommitToImage(
 		img,
 		repo,
