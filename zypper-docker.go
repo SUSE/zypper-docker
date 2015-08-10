@@ -37,6 +37,7 @@ func main() {
 	// documentation of this function for more information.
 	_ = getDockerClient()
 
+	os.Args = fixArgsForZypper(os.Args)
 	app := newApp()
 	app.RunAndExitOnError()
 }
