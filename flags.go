@@ -87,6 +87,10 @@ func newApp() *cli.App {
 					Name:  "no-recommends",
 					Usage: "By default, zypper installs also packages recommended by the requested ones. This option causes the recommended packages to be ignored and only the required ones to be installed.",
 				},
+				cli.BoolFlag{
+					Name:  "replacefiles",
+					Usage: "Install the packages even if they replace files from other, already installed, packages. Default is to treat file conflicts as an error.",
+				},
 				cli.StringFlag{
 					Name:   "author",
 					EnvVar: "USERNAME",
@@ -150,12 +154,12 @@ func newApp() *cli.App {
 				cli.StringFlag{
 					Name:  "date",
 					Value: "",
-					Usage: "List patches issued up to, but not including, the specified date (YYYY-MM-DD).",
+					Usage: "Install patches issued up to, but not including, the specified date (YYYY-MM-DD).",
 				},
 				cli.StringFlag{
-					Name:  "issues",
+					Name:  "g, category",
 					Value: "",
-					Usage: "Look for issues whose number, summary, or description matches the specified string.",
+					Usage: "Install only patches with this category.",
 				},
 				cli.BoolFlag{
 					Name:  "l, auto-agree-with-licenses",
@@ -164,6 +168,10 @@ func newApp() *cli.App {
 				cli.BoolFlag{
 					Name:  "no-recommends",
 					Usage: "By default, zypper installs also packages recommended by the requested ones. This option causes the recommended packages to be ignored and only the required ones to be installed.",
+				},
+				cli.BoolFlag{
+					Name:  "replacefiles",
+					Usage: "Install the packages even if they replace files from other, already installed, packages. Default is to treat file conflicts as an error.",
 				},
 				cli.StringFlag{
 					Name:   "author",

@@ -44,7 +44,8 @@ func updateCmd(ctx *cli.Context) {
 	comment := ctx.String("message")
 	author := ctx.String("author")
 
-	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends"}
+	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends",
+		"replacefiles"}
 	toIgnore := []string{"author", "message"}
 
 	cmd := fmt.Sprintf(
