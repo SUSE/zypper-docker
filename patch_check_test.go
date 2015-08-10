@@ -29,7 +29,7 @@ func TestPatchCheckNoImageSpecified(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	capture.All(func() { patchCheckCmd(testListUpdatesContext("")) })
+	capture.All(func() { patchCheckCmd(testContext([]string{}, false)) })
 
 	if testCommand() != "" {
 		t.Fatalf("The command should not have been executed")
@@ -52,7 +52,7 @@ func TestPatchCheckInvalidError(t *testing.T) {
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
 	capture.All(func() {
-		patchCheckCmd(testListUpdatesContext("opensuse:13.2"))
+		patchCheckCmd(testContext([]string{"opensuse:13.2"}, false))
 	})
 
 	if testCommand() != "zypper pchk" {
@@ -73,7 +73,7 @@ func TestPatchCheckSupportedNonZeroExit(t *testing.T) {
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
 	capture.All(func() {
-		patchCheckCmd(testListUpdatesContext("opensuse:13.2"))
+		patchCheckCmd(testContext([]string{"opensuse:13.2"}, false))
 	})
 
 	if testCommand() != "zypper pchk" {
@@ -91,7 +91,7 @@ func TestPatchCheckOk(t *testing.T) {
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
 	capture.All(func() {
-		patchCheckCmd(testListUpdatesContext("opensuse:13.2"))
+		patchCheckCmd(testContext([]string{"opensuse:13.2"}, false))
 	})
 
 	if testCommand() != "zypper pchk" {

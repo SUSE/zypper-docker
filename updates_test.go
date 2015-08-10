@@ -16,41 +16,12 @@ package main
 
 import (
 	"bytes"
-	"flag"
 	"log"
 	"strings"
 	"testing"
 
-	"github.com/codegangsta/cli"
 	"github.com/mssola/capture"
 )
-
-func testListUpdatesContext(image string) *cli.Context {
-	set := flag.NewFlagSet("test", 0)
-	err := set.Parse([]string{image})
-	if err != nil {
-		log.Fatal("Cannot parse cli options", err)
-	}
-	return cli.NewContext(nil, set, nil)
-}
-
-func testUpdateContext(source, destination string) *cli.Context {
-	set := flag.NewFlagSet("test", 0)
-	c := cli.NewContext(nil, set, nil)
-	args := []string{}
-
-	if source != "" {
-		args = append(args, source)
-	}
-	if destination != "" {
-		args = append(args, destination)
-	}
-
-	if err := set.Parse(args); err != nil {
-		log.Fatalf("Cannot parse args: %s", err)
-	}
-	return c
-}
 
 func TestListUpdatesNoImageSpecified(t *testing.T) {
 	setupTestExitStatus()
@@ -58,7 +29,7 @@ func TestListUpdatesNoImageSpecified(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	capture.All(func() { listUpdatesCmd(testListUpdatesContext("")) })
+	capture.All(func() { listUpdatesCmd(testContext([]string{}, false)) })
 
 	if testCommand() != "" {
 		t.Fatalf("The command should not have been executed")
@@ -79,7 +50,7 @@ func TestListUpdatesCommandFailure(t *testing.T) {
 	log.SetOutput(buffer)
 
 	capture.All(func() {
-		listUpdatesCmd(testListUpdatesContext("opensuse:13.2"))
+		listUpdatesCmd(testContext([]string{"opensuse:13.2"}, false))
 	})
 
 	if !strings.Contains(buffer.String(), "Error: Command exited with status 1") {
@@ -96,7 +67,7 @@ func TestUpdateCommandWrongInvocation(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	capture.All(func() { updateCmd(testUpdateContext("", "")) })
+	capture.All(func() { updateCmd(testContext([]string{}, false)) })
 
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")
@@ -110,7 +81,7 @@ func TestUpdateCommandImageOverwriteDetected(t *testing.T) {
 	setupTestExitStatus()
 	dockerClient = &mockClient{listFail: true}
 
-	capture.All(func() { updateCmd(testUpdateContext("ori", "new:1.0.0")) })
+	capture.All(func() { updateCmd(testContext([]string{"ori", "new:1.0.0"}, false)) })
 
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")
@@ -121,7 +92,7 @@ func TestUpdateCommandRunAndCommitFailure(t *testing.T) {
 	setupTestExitStatus()
 	dockerClient = &mockClient{startFail: true}
 
-	capture.All(func() { updateCmd(testUpdateContext("ori", "new:1.0.0")) })
+	capture.All(func() { updateCmd(testContext([]string{"ori", "new:1.0.0"}, false)) })
 
 	if exitInvocations != 1 {
 		t.Fatalf("Expected to have exited with error")
@@ -134,7 +105,7 @@ func TestUpdateCommandCommitSuccess(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	capture.All(func() { updateCmd(testUpdateContext("ori", "new:1.0.0")) })
+	capture.All(func() { updateCmd(testContext([]string{"ori", "new:1.0.0"}, false)) })
 
 	if exitInvocations != 0 {
 		t.Fatalf("Expected to have exited successfully")

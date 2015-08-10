@@ -14,7 +14,13 @@
 
 package main
 
-import "bytes"
+import (
+	"bytes"
+	"flag"
+	"log"
+
+	"github.com/codegangsta/cli"
+)
 
 var exitInvocations, lastCode int
 
@@ -36,4 +42,15 @@ type closingBuffer struct {
 
 func (cb *closingBuffer) Close() error {
 	return nil
+}
+
+func testContext(args []string, force bool) *cli.Context {
+	set := flag.NewFlagSet("test", 0)
+	c := cli.NewContext(nil, set, nil)
+	set.Bool("force", force, "doc")
+	err := set.Parse(args)
+	if err != nil {
+		log.Fatal("Cannot parse cli options", err)
+	}
+	return c
 }
