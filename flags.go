@@ -110,7 +110,7 @@ func newApp() *cli.App {
 			Action:  listPatchesCmd,
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "b, bugzilla",
+					Name:  "bugzilla",
 					Value: "",
 					Usage: "List available needed patches for all Bugzilla issues, or issues whose number matches the given string (--bugzilla=#).",
 				},
@@ -142,7 +142,7 @@ func newApp() *cli.App {
 			Action: patchCmd,
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "b, bugzilla",
+					Name:  "bugzilla",
 					Value: "",
 					Usage: "Install available needed patches for all Bugzilla issues, or issues whose number matches the given string (--bugzilla=#).",
 				},

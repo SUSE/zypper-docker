@@ -22,7 +22,7 @@ import (
 )
 
 var specialFlags = []string{
-	"-b", "--bugzilla",
+	"--bugzilla",
 	"--cve",
 	"--issues",
 }
