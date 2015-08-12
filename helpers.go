@@ -21,6 +21,12 @@ import (
 	"github.com/codegangsta/cli"
 )
 
+var specialFlags = []string{
+	"-b", "--bugzilla",
+	"--cve",
+	"--issues",
+}
+
 // It appends the set flags with the given command.
 // `boolFlags` is a list of strings containing the names of the boolean
 // command line options. These have to be handled in a slightly different
@@ -56,10 +62,15 @@ func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags, toIgnore []string) st
 			if arrayInclude(boolFlags, name) {
 				cmd += fmt.Sprintf(" %v%s", dash, name)
 			} else {
-				cmd += fmt.Sprintf(" %v%s %s", dash, name, value)
+				if arrayInclude(specialFlags, fmt.Sprintf("%v%s", dash, name)) && value != "" {
+					cmd += fmt.Sprintf(" %v%s=%s", dash, name, value)
+				} else {
+					cmd += fmt.Sprintf(" %v%s %s", dash, name, value)
+				}
 			}
 		}
 	}
+
 	return cmd
 }
 
@@ -74,11 +85,6 @@ func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags, toIgnore []string) st
 // When the "=" is not found we have to artificially inject an empty string
 // to avoid the next parameter to be considered the flag value.
 func fixArgsForZypper(args []string) []string {
-	specialFlags := []string{
-		"-b", "--bugzilla",
-		"--cve",
-		"--issues",
-	}
 	sanitizedArgs := []string{}
 	skip := false
 

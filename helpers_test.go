@@ -82,9 +82,9 @@ func TestCmdWithFlags(t *testing.T) {
 				Usage: "List available needed patches for all CVE issues, or issues whose number matches the given string.",
 			},
 			cli.StringFlag{
-				Name:  "date",
+				Name:  "issues",
 				Value: "",
-				Usage: "Install patches issued up to, but not including, the specified date (YYYY-MM-DD).",
+				Usage: "doc",
 			},
 			cli.StringFlag{
 				Name:  "to-ignore",
@@ -110,14 +110,14 @@ func TestCmdWithFlags(t *testing.T) {
 	set.String("b", "bugzilla_value", "doc")
 	set.String("cve", "cve_value", "doc")
 	set.String("to-ignore", "to_ignore_value", "doc")
-	set.String("date", "", "doc")
+	set.String("issues", "", "doc")
 	set.Bool("l", true, "doc")
 	set.Bool("no-recommends", true, "doc")
 	err := set.Parse([]string{
 		"-b", "bugzilla_value",
 		"--cve", "cve_value",
 		"--to-ignore", "to_ignore_value",
-		"--date", "",
+		"--issues", "",
 		"-l",
 		"--no-recommends",
 	})
@@ -131,7 +131,7 @@ func TestCmdWithFlags(t *testing.T) {
 	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends"}
 	toIgnore := []string{"to-ignore"}
 	actual := cmdWithFlags("cmd", ctx, boolFlags, toIgnore)
-	expected := "cmd -b bugzilla_value --cve cve_value --date  -l --no-recommends"
+	expected := "cmd -b=bugzilla_value --cve=cve_value --issues  -l --no-recommends"
 
 	if expected != actual {
 		t.Fatal("Wrong command")
