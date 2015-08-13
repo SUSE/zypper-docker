@@ -22,7 +22,24 @@ import (
 
 // zypper-docker patch-check [flags] <image>
 func patchCheckCmd(ctx *cli.Context) {
-	err := runStreamedCommand(ctx.Args().First(), "pchk", true)
+	patchCheck(ctx.Args().First(), ctx)
+}
+
+// zypper-docker patch-check-container [flags] <image>
+func patchCheckContainerCmd(ctx *cli.Context) {
+	containerId := ctx.Args().First()
+	container, err := checkContainerRunning(containerId)
+	if err != nil {
+		log.Println(err)
+		exitWithCode(1)
+	}
+
+	patchCheck(container.Image, ctx)
+}
+
+// zypper-docker patch-check [flags] <image>
+func patchCheck(image string, ctx *cli.Context) {
+	err := runStreamedCommand(image, "pchk", true)
 	if err == nil {
 		return
 	}

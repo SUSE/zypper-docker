@@ -22,9 +22,24 @@ import (
 )
 
 func listUpdatesCmd(ctx *cli.Context) {
+	listUpdates(ctx.Args().First(), ctx)
+}
+
+func listUpdatesContainerCmd(ctx *cli.Context) {
+	containerId := ctx.Args().First()
+	container, err := checkContainerRunning(containerId)
+	if err != nil {
+		log.Println(err)
+		exitWithCode(1)
+	}
+
+	listUpdates(container.Image, ctx)
+}
+
+func listUpdates(image string, ctx *cli.Context) {
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
-	_ = runStreamedCommand(ctx.Args().First(), "lu", false)
+	_ = runStreamedCommand(image, "lu", false)
 }
 
 func updateCmd(ctx *cli.Context) {

@@ -160,3 +160,27 @@ func (mc *mockClient) Commit(id string, c *dockerclient.ContainerConfig, repo, t
 	}
 	return "fake image ID", nil
 }
+
+func (mc *mockClient) ListContainers(all bool, size bool, filters string) ([]dockerclient.Container, error) {
+	if mc.listFail {
+		return []dockerclient.Container{},
+			fmt.Errorf("Fake failure while listing containers")
+	}
+
+	if mc.listEmpty {
+		return []dockerclient.Container{}, nil
+	}
+
+	return []dockerclient.Container{
+		dockerclient.Container{
+			Id:    "1",
+			Names: []string{"suse"},
+			Image: "opensuse:13.2",
+		},
+		dockerclient.Container{
+			Id:    "2",
+			Names: []string{"not_suse"},
+			Image: "busybox",
+		},
+	}, nil
+}
