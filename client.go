@@ -125,7 +125,7 @@ func runStreamedCommand(img, cmd string, getError bool) error {
 	}
 
 	cmd = fmt.Sprintf("zypper ref && zypper %v", cmd)
-	id, err := runCommandInContainer(img, []string{"/bin/sh", "-c", cmd}, true)
+	id, err := runCommandInContainer(img, []string{cmd}, true)
 	removeContainer(id)
 
 	if getError {
@@ -246,7 +246,8 @@ func createContainer(img string, cmd []string) (string, error) {
 	// First of all we create a container in which we will run the command.
 	config := &dockerclient.ContainerConfig{
 		Image:        img,
-		Entrypoint:   cmd,
+		Cmd:          cmd,
+		Entrypoint:   []string{"/bin/sh", "-c"},
 		AttachStdout: true,
 		AttachStderr: true,
 		// required to avoid garbage when cmd overwrites the terminal
@@ -284,7 +285,7 @@ func commitContainerToImage(containerId, repo, tag, comment, author string) erro
 // The container is always deleted.
 // If something goes wrong an error message is returned.
 func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, author string) error {
-	containerId, err := runCommandInContainer(img, []string{"/bin/sh", "-c", cmd}, true)
+	containerId, err := runCommandInContainer(img, []string{cmd}, true)
 	if err != nil {
 		return err
 	}
