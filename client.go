@@ -299,7 +299,7 @@ func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, auth
 	return err
 }
 
-// Looks for the specified running container and makes suse it's running either
+// Looks for the specified running container and makes sure it's running either
 // SUSE or openSUSE.
 func checkContainerRunning(id string) (*dockerclient.Container, error) {
 	client := getDockerClient()
