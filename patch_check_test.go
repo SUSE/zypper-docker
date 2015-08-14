@@ -101,3 +101,35 @@ func TestPatchCheckOk(t *testing.T) {
 		t.Fatalf("Something went wrong")
 	}
 }
+
+func TestPatchCheckContainerFailure(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{listFail: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+
+	capture.All(func() {
+		patchCheckContainerCmd(testContext([]string{"opensuse:13.2"}, false))
+	})
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+}
+
+func TestPatchCheckContainerCheckContainerSuccess(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+
+	capture.All(func() {
+		patchCheckContainerCmd(testContext([]string{"suse"}, false))
+	})
+
+	if exitInvocations != 0 {
+		t.Fatalf("Should not have exited with error")
+	}
+}

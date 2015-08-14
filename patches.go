@@ -21,12 +21,31 @@ import (
 	"github.com/codegangsta/cli"
 )
 
+// zypper-docker list-patches-container [flags] <container>
+func listPatchesContainerCmd(ctx *cli.Context) {
+	containerId := ctx.Args().First()
+	container, err := checkContainerRunning(containerId)
+	if err != nil {
+		log.Println(err)
+		exitWithCode(1)
+	}
+
+	listPatches(container.Image, ctx)
+}
+
 // zypper-docker list-patches [flags] <image>
 func listPatchesCmd(ctx *cli.Context) {
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
+	listPatches(ctx.Args().First(), ctx)
+}
+
+// zypper-docker list-patches [flags] <image>
+func listPatches(image string, ctx *cli.Context) {
+	// It's safe to ignore the returned error because we set to false the
+	// `getError` parameter of this function.
 	_ = runStreamedCommand(
-		ctx.Args().First(),
+		image,
 		cmdWithFlags("lp", ctx, []string{}, []string{}), false)
 }
 

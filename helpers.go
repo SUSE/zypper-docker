@@ -27,6 +27,15 @@ var specialFlags = []string{
 	"--issues",
 }
 
+func arrayIncludeString(arr []string, s string) bool {
+	for _, i := range arr {
+		if i == s {
+			return true
+		}
+	}
+	return false
+}
+
 // It appends the set flags with the given command.
 // `boolFlags` is a list of strings containing the names of the boolean
 // command line options. These have to be handled in a slightly different
@@ -37,17 +46,8 @@ var specialFlags = []string{
 //  command, this is useful to prevent zypper-docker only parameters to be
 // forwarded to zypper (eg: `--author` or `--message`).
 func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags, toIgnore []string) string {
-	arrayInclude := func(arr []string, s string) bool {
-		for _, i := range arr {
-			if i == s {
-				return true
-			}
-		}
-		return false
-	}
-
 	for _, name := range ctx.FlagNames() {
-		if arrayInclude(toIgnore, name) {
+		if arrayIncludeString(toIgnore, name) {
 			continue
 		}
 
@@ -59,10 +59,10 @@ func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags, toIgnore []string) st
 				dash = "--"
 			}
 
-			if arrayInclude(boolFlags, name) {
+			if arrayIncludeString(boolFlags, name) {
 				cmd += fmt.Sprintf(" %v%s", dash, name)
 			} else {
-				if arrayInclude(specialFlags, fmt.Sprintf("%v%s", dash, name)) && value != "" {
+				if arrayIncludeString(specialFlags, fmt.Sprintf("%v%s", dash, name)) && value != "" {
 					cmd += fmt.Sprintf(" %v%s=%s", dash, name, value)
 				} else {
 					cmd += fmt.Sprintf(" %v%s %s", dash, name, value)

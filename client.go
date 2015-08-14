@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/SUSE/dockerclient"
@@ -45,6 +46,7 @@ func (de dockerError) Error() string {
 // read the documentation for each function.
 type DockerClient interface {
 	ListImages(all bool, filter string, filters *dockerclient.ListFilter) ([]*dockerclient.Image, error)
+	ListContainers(all bool, size bool, filters string) ([]dockerclient.Container, error)
 
 	CreateContainer(config *dockerclient.ContainerConfig, name string) (string, error)
 	StartContainer(id string, config *dockerclient.HostConfig) error
@@ -296,4 +298,46 @@ func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, auth
 	removeContainer(containerId)
 
 	return err
+}
+
+// Looks for the specified running container and makes sure it's running either
+// SUSE or openSUSE.
+func checkContainerRunning(id string) (*dockerclient.Container, error) {
+	client := getDockerClient()
+	var container *dockerclient.Container
+
+	containers, err := client.ListContainers(false, false, "")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, c := range containers {
+		if id == c.Id {
+			container = &c
+			break
+		}
+		// look also for the short version of the container ID
+		if len(id) >= 12 && strings.Index(c.Id, id) == 0 {
+			container = &c
+			break
+		}
+		// for some reason the daemon has all the names prefixed by "/"
+		if arrayIncludeString(c.Names, "/"+id) {
+			container = &c
+			break
+		}
+	}
+
+	if container == nil {
+		return nil, fmt.Errorf("Cannot find running container %s", id)
+	}
+
+	cache := getCacheFile()
+	if !cache.isSUSE(container.Image) {
+		return nil, fmt.Errorf(
+			"The container %s is based on the Docker image %s which is not a SUSE system",
+			id, container.Image)
+	}
+
+	return container, nil
 }

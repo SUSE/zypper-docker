@@ -28,7 +28,7 @@ func TestNewApp(t *testing.T) {
 	if len(app.Flags) != 4 {
 		t.Fatal("Wrong number of global flags")
 	}
-	if len(app.Commands) != 7 {
+	if len(app.Commands) != 10 {
 		t.Fatal("Wrong number of subcommands")
 	}
 }

@@ -74,6 +74,12 @@ func newApp() *cli.App {
 			Action:  listUpdatesCmd,
 		},
 		{
+			Name:    "list-updates-container",
+			Aliases: []string{"luc"},
+			Usage:   "List all the available updates",
+			Action:  listUpdatesContainerCmd,
+		},
+		{
 			Name:    "update",
 			Aliases: []string{"up"},
 			Usage:   "Install the available updates",
@@ -111,6 +117,39 @@ func newApp() *cli.App {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "bugzilla",
+					Value: "",
+					Usage: "List available needed patches for all Bugzilla issues, or issues whose number matches the given string (--bugzilla=#).",
+				},
+				cli.StringFlag{
+					Name:  "cve",
+					Value: "",
+					Usage: "List available needed patches for all CVE issues, or issues whose number matches the given string (--cve=#).",
+				},
+				cli.StringFlag{
+					Name:  "date",
+					Value: "",
+					Usage: "List patches issued up to, but not including, the specified date (YYYY-MM-DD).",
+				},
+				cli.StringFlag{
+					Name:  "issues",
+					Value: "",
+					Usage: "Look for issues whose number, summary, or description matches the specified string (--issue=string).",
+				},
+				cli.StringFlag{
+					Name:  "g, category",
+					Value: "",
+					Usage: "List only patches with this category.",
+				},
+			},
+		},
+		{
+			Name:    "list-patches-container",
+			Aliases: []string{"lpc"},
+			Usage:   "List all the available patches",
+			Action:  listPatchesContainerCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "b, bugzilla",
 					Value: "",
 					Usage: "List available needed patches for all Bugzilla issues, or issues whose number matches the given string (--bugzilla=#).",
 				},
@@ -190,6 +229,12 @@ func newApp() *cli.App {
 			Aliases: []string{"pchk"},
 			Usage:   "Check for patches (to do)",
 			Action:  patchCheckCmd,
+		},
+		{
+			Name:    "patch-check-container",
+			Aliases: []string{"pchkc"},
+			Usage:   "Check for patches (to do)",
+			Action:  patchCheckContainerCmd,
 		},
 		{
 			Name:   "ps",
