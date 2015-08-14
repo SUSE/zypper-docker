@@ -91,7 +91,7 @@ func (mc *mockClient) CreateContainer(config *dockerclient.ContainerConfig, name
 		return "", errors.New("Create failed")
 	}
 	name = fmt.Sprintf("zypper-docker-private-%s", config.Image)
-	mc.lastCmd = config.Entrypoint
+	mc.lastCmd = config.Cmd
 
 	return name, nil
 }

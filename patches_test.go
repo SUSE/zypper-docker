@@ -45,13 +45,12 @@ func testPatchContext(source, destination string) *cli.Context {
 
 func testCommand() string {
 	cmd := dockerClient.(*mockClient).lastCmd
-	if len(cmd) != 3 {
+	if len(cmd) != 1 {
 		return ""
 	}
 
-	// [0]: "/bin/sh", [1]: "-c", [2]: the actual command.
 	// The command is basically: "zypper ref && actual command".
-	return strings.TrimSpace(strings.Split(cmd[2], "&&")[1])
+	return strings.TrimSpace(strings.Split(cmd[0], "&&")[1])
 }
 
 func TestListPatchesNoImageSpecified(t *testing.T) {
