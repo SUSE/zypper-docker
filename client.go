@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/SUSE/dockerclient"
@@ -314,7 +315,13 @@ func checkContainerRunning(id string) (*dockerclient.Container, error) {
 			container = &c
 			break
 		}
-		if arrayIncludeString(c.Names, id) {
+		// look also for the short version of the container ID
+		if len(id) >= 12 && strings.Index(c.Id, id) == 0 {
+			container = &c
+			break
+		}
+		// for some reason the daemon has all the names prefixed by "/"
+		if arrayIncludeString(c.Names, "/"+id) {
 			container = &c
 			break
 		}

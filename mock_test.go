@@ -173,13 +173,13 @@ func (mc *mockClient) ListContainers(all bool, size bool, filters string) ([]doc
 
 	return []dockerclient.Container{
 		dockerclient.Container{
-			Id:    "1",
-			Names: []string{"suse"},
+			Id:    "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01",
+			Names: []string{"/suse"},
 			Image: "opensuse:13.2",
 		},
 		dockerclient.Container{
 			Id:    "2",
-			Names: []string{"not_suse"},
+			Names: []string{"/not_suse"},
 			Image: "busybox",
 		},
 	}, nil

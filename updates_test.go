@@ -139,7 +139,7 @@ func TestListUpdatesContainerCheckContainerSuccess(t *testing.T) {
 	log.SetOutput(buffer)
 
 	capture.All(func() {
-		listUpdatesContainerCmd(testContext([]string{"1"}, false))
+		listUpdatesContainerCmd(testContext([]string{"suse"}, false))
 	})
 
 	if exitInvocations != 0 {

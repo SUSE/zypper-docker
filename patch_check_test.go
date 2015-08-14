@@ -126,7 +126,7 @@ func TestPatchCheckContainerCheckContainerSuccess(t *testing.T) {
 	log.SetOutput(buffer)
 
 	capture.All(func() {
-		patchCheckContainerCmd(testContext([]string{"1"}, false))
+		patchCheckContainerCmd(testContext([]string{"suse"}, false))
 	})
 
 	if exitInvocations != 0 {

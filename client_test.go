@@ -363,7 +363,7 @@ func TestCheckContainerRunningListContainersFailure(t *testing.T) {
 func TestCheckContainerRunningNoRunningContainer(t *testing.T) {
 	dockerClient = &mockClient{listEmpty: true}
 
-	container, err := checkContainerRunning("1")
+	container, err := checkContainerRunning("35ae93c88cf8")
 
 	if container != nil {
 		t.Fatal("Wasn't supposed to find container")
@@ -414,7 +414,7 @@ func TestCheckContainerRunningNotSUSESystem(t *testing.T) {
 	}
 }
 
-func TestCheckContainerRunningSuccess(t *testing.T) {
+func TestCheckContainerRunningByNameSuccess(t *testing.T) {
 	dockerClient = &mockClient{}
 
 	container, err := checkContainerRunning("suse")
@@ -427,7 +427,43 @@ func TestCheckContainerRunningSuccess(t *testing.T) {
 		t.Fatal("Wasn't supposed to have an error")
 	}
 
-	if container.Id != "1" {
+	if container.Id != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
+		t.Fatal("Wrong container found")
+	}
+}
+
+func TestCheckContainerRunningByFullIDSuccess(t *testing.T) {
+	dockerClient = &mockClient{}
+
+	container, err := checkContainerRunning("35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01")
+
+	if container == nil {
+		t.Fatal("Was supposed to find container")
+	}
+
+	if err != nil {
+		t.Fatal("Wasn't supposed to have an error")
+	}
+
+	if container.Id != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
+		t.Fatal("Wrong container found")
+	}
+}
+
+func TestCheckContainerRunningByShortIDSuccess(t *testing.T) {
+	dockerClient = &mockClient{}
+
+	container, err := checkContainerRunning("35ae93c88cf8")
+
+	if container == nil {
+		t.Fatal("Was supposed to find container")
+	}
+
+	if err != nil {
+		t.Fatal("Wasn't supposed to have an error")
+	}
+
+	if container.Id != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
 		t.Fatal("Wrong container found")
 	}
 }

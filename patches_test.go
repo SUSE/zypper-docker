@@ -173,7 +173,7 @@ func TestListPatchesContainerCheckContainerSuccess(t *testing.T) {
 	log.SetOutput(buffer)
 
 	capture.All(func() {
-		listPatchesContainerCmd(testContext([]string{"1"}, false))
+		listPatchesContainerCmd(testContext([]string{"suse"}, false))
 	})
 
 	if exitInvocations != 0 {
