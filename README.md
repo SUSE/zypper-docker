@@ -7,6 +7,8 @@ Docker Images based on either SUSE Linux Enterprise or openSUSE.
 application relies on `zypper` to perform the actual operations against Docker
 images.
 
+[![asciicast](https://asciinema.org/a/25309.png)](https://asciinema.org/a/25309)
+
 **NOTE**: this application is still WIP. Here's a list of the features that
 have been implemented:
 
@@ -17,6 +19,8 @@ have been implemented:
 - [x] Checking patches.
 - [x] Installing patches.
 - [x] Install updates.
+
+
 
 ## Generic operations
 
@@ -74,6 +78,8 @@ $ zypper docker list-updates (lu) [options] image
 Note that even if zypper supports some options, we don't because they do not
 really apply to this tool.
 
+[![asciicast](https://asciinema.org/a/25310.png)](https://asciinema.org/a/25310)
+
 ### Install updates
 
 Install all available updates.
@@ -106,6 +112,8 @@ The available options are:
   other, already installed, packages. Default is to treat file conflicts as an
   error.
 
+[![asciicast](https://asciinema.org/a/25312.png)](https://asciinema.org/a/25312)
+
 ### List patches available
 
 We can list the patches available with the following command:
@@ -126,6 +134,8 @@ The available options are:
   matches the specified string. Issues found by number are displayed
   separately from those found by descriptions. In the latter case, use zypper
   patch-info patchname to get information about issues the patch fixes.
+
+[![asciicast](https://asciinema.org/a/25311.png)](https://asciinema.org/a/25311)
 
 ### Check for patches
 
@@ -180,6 +190,8 @@ Options we might drop:
 
 **TODO investigate:** This command also accepts the download-and-install mode options described in the install command description.
 **TODO:** handle interactive mode
+
+[![asciicast](https://asciinema.org/a/25315.png)](https://asciinema.org/a/25315)
 
 ## Operations available against Docker containers
 
