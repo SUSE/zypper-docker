@@ -184,3 +184,8 @@ func (mc *mockClient) ListContainers(all bool, size bool, filters string) ([]doc
 		},
 	}, nil
 }
+
+func (mc *mockClient) ResizeContainer(id string, isExec bool, width, height int) error {
+	// Do nothing
+	return nil
+}
