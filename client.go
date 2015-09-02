@@ -52,6 +52,7 @@ type DockerClient interface {
 	StartContainer(id string, config *dockerclient.HostConfig) error
 	RemoveContainer(id string, force, volume bool) error
 	KillContainer(id, signal string) error
+	ResizeContainer(id string, isExec bool, width, height int) error
 	Commit(id string, c *dockerclient.ContainerConfig, repo, tag, comment, author string) (string, error)
 
 	Wait(id string) <-chan dockerclient.WaitResult
@@ -176,6 +177,7 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 		// want to add noise to the log.
 		return id, err
 	}
+	resizeTty(id)
 
 	sc := make(chan bool)
 

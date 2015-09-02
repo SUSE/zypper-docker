@@ -4,7 +4,7 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/SUSE/dockerclient",
-			"Rev": "db6f695f08f672ab85ca4f38fe9689fa9b72e8b0"
+			"Rev": "52d33b5ad01ef4ca4c2b5c163620047ad16ef0f8"
 		},
 		{
 			"ImportPath": "github.com/codegangsta/cli",
