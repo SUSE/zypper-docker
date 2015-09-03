@@ -29,11 +29,9 @@ func setupTestExitStatus() {
 	exitInvocations = 0
 	lastCode = 0
 
-	if exitWithCode == nil {
-		exitWithCode = func(code int) {
-			lastCode = code
-			exitInvocations += 1
-		}
+	exitWithCode = func(code int) {
+		lastCode = code
+		exitInvocations += 1
 	}
 }
 
