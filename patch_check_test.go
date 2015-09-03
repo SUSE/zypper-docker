@@ -82,6 +82,12 @@ func TestPatchCheckSupportedNonZeroExit(t *testing.T) {
 	if len(strings.Split(buffer.String(), "\n")) != 2 {
 		t.Fatalf("Something went wrong")
 	}
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+	if lastCode != 100 {
+		t.Fatalf("Expected exit code: 100, got %v", lastCode)
+	}
 }
 
 func TestPatchCheckOk(t *testing.T) {
