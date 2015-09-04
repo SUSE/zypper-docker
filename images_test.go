@@ -93,7 +93,55 @@ func TestImagesListOk(t *testing.T) {
 	res := capture.All(func() { imagesCmd(testContext([]string{}, false)) })
 
 	lines := strings.Split(string(res.Stdout), "\n")
-	if len(lines) != 6 {
+	if len(lines) != 7 {
+		t.Fatal("Wrong number of lines")
+	}
+	if !strings.HasPrefix(lines[1], "REPOSITORY") {
+		t.Fatal("Wrong contents")
+	}
+	str := "opensuse            latest              1                   Less than a second ago   254.5 MB"
+	if lines[2] != str {
+		t.Fatal("Wrong contents")
+	}
+	str = "opensuse            tag                 1                   Less than a second ago   254.5 MB"
+	if lines[3] != str {
+		t.Fatal("Wrong contents")
+	}
+	str = "opensuse            13.2                2                   Less than a second ago   254.5 MB"
+	if lines[4] != str {
+		t.Fatal("Wrong contents")
+	}
+	if exitInvocations != 1 && lastCode != 0 {
+		t.Fatal("Wrong exit code")
+	}
+}
+
+func TestImagesListUsingCache(t *testing.T) {
+	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+	setupTestExitStatus()
+
+	cache := os.Getenv("XDG_CACHE_HOME")
+	abs, _ := filepath.Abs(".")
+	test := filepath.Join(abs, "test")
+
+	defer func() {
+		_ = os.Setenv("XDG_CACHE_HOME", cache)
+	}()
+	_ = os.Setenv("XDG_CACHE_HOME", test)
+
+	// Dump some dummy value.
+	cd := getCacheFile()
+	cd.Suse = []string{"1"}
+	cd.Other = []string{"3"}
+	cd.flush()
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+
+	res := capture.All(func() { imagesCmd(testContext([]string{}, false)) })
+
+	lines := strings.Split(string(res.Stdout), "\n")
+	if len(lines) != 7 {
 		t.Fatal("Wrong number of lines")
 	}
 	if !strings.HasPrefix(lines[1], "REPOSITORY") {

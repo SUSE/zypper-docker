@@ -28,15 +28,42 @@ func TestParseImageName(t *testing.T) {
 	data := make(map[string][]string)
 	data["opensuse:13.2"] = []string{"opensuse", "13.2"}
 	data["opensuse"] = []string{"opensuse", "latest"}
+	data["registry.test.lan:8080/opensuse:13.2"] = []string{"opensuse", "13.2"}
 
 	for name, expected := range data {
-		repo, tag := parseImageName(name)
+		repo, tag, err := parseImageName(name)
 		if repo != expected[0] {
 			t.Fatalf("repository %s is different from the expected %s", repo, expected[0])
 		}
 		if tag != expected[1] {
 			t.Fatalf("tag %s is different from the expected %s", tag, expected[1])
 		}
+		if err != nil {
+			t.Fatalf("Unexpected error")
+		}
+	}
+}
+
+func TestParseImageNameWrongFormat(t *testing.T) {
+	data := []string{
+		"openSUSE",
+		"opensuse!",
+		"opensuse:LATEST",
+	}
+
+	for _, name := range data {
+		_, _, err := parseImageName(name)
+		if err == nil {
+			t.Fatalf("Should have failed while processing %s", name)
+		}
+	}
+}
+
+func TestGetImageIdErrorWhileParsingName(t *testing.T) {
+	_, err := getImageId("OPENSUSE")
+
+	if err == nil {
+		t.Fatalf("Should have failed")
 	}
 }
 

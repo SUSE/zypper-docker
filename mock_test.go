@@ -26,19 +26,20 @@ import (
 )
 
 type mockClient struct {
-	createFail  bool
-	removeFail  bool
-	startFail   bool
-	waitSleep   time.Duration
-	waitFail    bool
-	commandFail bool
-	commandExit int
-	listFail    bool
-	listEmpty   bool
-	logFail     bool
-	lastCmd     []string
-	killFail    bool
-	commitFail  bool
+	createFail         bool
+	removeFail         bool
+	startFail          bool
+	waitSleep          time.Duration
+	waitFail           bool
+	commandFail        bool
+	commandExit        int
+	listFail           bool
+	listEmpty          bool
+	listReturnOneImage bool
+	logFail            bool
+	lastCmd            []string
+	killFail           bool
+	commitFail         bool
 }
 
 func (mc *mockClient) ListImages(all bool, filter string, filters *dockerclient.ListFilter) ([]*dockerclient.Image, error) {
@@ -50,40 +51,61 @@ func (mc *mockClient) ListImages(all bool, filter string, filters *dockerclient.
 	}
 
 	// Let's return some more or less realistic images.
-	return []*dockerclient.Image{
-		&dockerclient.Image{
-			Id:          "1",
-			ParentId:    "0",       // Not used
-			Size:        0,         // Not used
-			VirtualSize: 254515796, // 254.5 MB
-			RepoTags:    []string{"opensuse:latest", "opensuse:tag"},
-			Created:     time.Now().UnixNano(),
-		},
-		&dockerclient.Image{
-			Id:          "2",
-			ParentId:    "0",       // Not used
-			Size:        0,         // Not used
-			VirtualSize: 254515796, // 254.5 MB
-			RepoTags:    []string{"opensuse:13.2"},
-			Created:     time.Now().UnixNano(),
-		},
-		&dockerclient.Image{
-			Id:          "3",
-			ParentId:    "0",       // Not used
-			Size:        0,         // Not used
-			VirtualSize: 254515796, // 254.5 MB
-			RepoTags:    []string{"ubuntu:latest"},
-			Created:     time.Now().UnixNano(),
-		},
-		&dockerclient.Image{
-			Id:          "4",
-			ParentId:    "0",        // Not used
-			Size:        0,          // Not used
-			VirtualSize: 254515796,  // 254.5 MB
-			RepoTags:    []string{}, // Invalid image
-			Created:     time.Now().UnixNano(),
-		},
-	}, nil
+	if mc.listReturnOneImage {
+		return []*dockerclient.Image{
+			&dockerclient.Image{
+				Id:          "2",
+				ParentId:    "0",       // Not used
+				Size:        0,         // Not used
+				VirtualSize: 254515796, // 254.5 MB
+				RepoTags:    []string{"opensuse:13.2"},
+				Created:     time.Now().UnixNano(),
+			},
+		}, nil
+	} else {
+		return []*dockerclient.Image{
+			&dockerclient.Image{
+				Id:          "1",
+				ParentId:    "0",       // Not used
+				Size:        0,         // Not used
+				VirtualSize: 254515796, // 254.5 MB
+				RepoTags:    []string{"opensuse:latest", "opensuse:tag"},
+				Created:     time.Now().UnixNano(),
+			},
+			&dockerclient.Image{
+				Id:          "2",
+				ParentId:    "0",       // Not used
+				Size:        0,         // Not used
+				VirtualSize: 254515796, // 254.5 MB
+				RepoTags:    []string{"opensuse:13.2"},
+				Created:     time.Now().UnixNano(),
+			},
+			&dockerclient.Image{
+				Id:          "3",
+				ParentId:    "0",       // Not used
+				Size:        0,         // Not used
+				VirtualSize: 254515796, // 254.5 MB
+				RepoTags:    []string{"ubuntu:latest"},
+				Created:     time.Now().UnixNano(),
+			},
+			&dockerclient.Image{
+				Id:          "4",
+				ParentId:    "0",        // Not used
+				Size:        0,          // Not used
+				VirtualSize: 254515796,  // 254.5 MB
+				RepoTags:    []string{}, // Invalid image
+				Created:     time.Now().UnixNano(),
+			},
+			&dockerclient.Image{
+				Id:          "5",
+				ParentId:    "0",                        // Not used
+				Size:        0,                          // Not used
+				VirtualSize: 254515796,                  // 254.5 MB
+				RepoTags:    []string{"busybox:latest"}, // Invalid image
+				Created:     time.Now().UnixNano(),
+			},
+		}, nil
+	}
 }
 
 func (mc *mockClient) CreateContainer(config *dockerclient.ContainerConfig, name string) (string, error) {
@@ -180,7 +202,17 @@ func (mc *mockClient) ListContainers(all bool, size bool, filters string) ([]doc
 		dockerclient.Container{
 			Id:    "2",
 			Names: []string{"/not_suse"},
-			Image: "busybox",
+			Image: "busybox:latest",
+		},
+		dockerclient.Container{
+			Id:    "3",
+			Names: []string{"/ubuntu"},
+			Image: "ubuntu:latest",
+		},
+		dockerclient.Container{
+			Id:    "4",
+			Names: []string{"/unknown_image"},
+			Image: "foo",
 		},
 	}, nil
 }
