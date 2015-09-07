@@ -16,8 +16,10 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/SUSE/dockerclient"
 	"github.com/codegangsta/cli"
 )
 
@@ -127,17 +129,24 @@ func fixArgsForZypper(args []string) []string {
 // Examples:
 //   * suse/sles11sp3:1.0.0 -> repo is suse/sles11sp3, tag is 1.0.0
 //   * suse/sles11sp3 -> repo is suse/sles11sp3, tag is latest
-func parseImageName(name string) (string, string) {
+func parseImageName(name string) (string, string, error) {
 	var repo, tag string
-	target := strings.SplitN(name, ":", 2)
-	repo = target[0]
-	if len(target) != 2 {
+
+	re := regexp.MustCompile("([a-z0-9\\._-]+(:[a-z0-9\\._-]+)?\\z)")
+	match := re.FindAllString(name, -1)
+	if match == nil || len(match) == 0 {
+		return "", "", fmt.Errorf("Cannot parse image name")
+	}
+	repoAndTag := strings.SplitN(match[0], ":", 2)
+	repo = repoAndTag[0]
+
+	if len(repoAndTag) != 2 {
 		tag = "latest"
 	} else {
-		tag = target[1]
+		tag = repoAndTag[1]
 	}
 
-	return repo, tag
+	return repo, tag, nil
 }
 
 // Exists with error if the image identified by repo and tag already exists
@@ -151,4 +160,32 @@ func preventImageOverwrite(repo, tag string) error {
 		return fmt.Errorf("Cannot overwrite an existing image. Please use a different repository/tag.")
 	}
 	return nil
+}
+
+func getImageId(name string) (string, error) {
+	client := getDockerClient()
+
+	repo, tag, err := parseImageName(name)
+	if err != nil {
+		return "", err
+	}
+	if tag == "latest" && !strings.Contains(name, tag) {
+		name = name + ":" + tag
+	}
+
+	images, err := client.ListImages(true, repo, &dockerclient.ListFilter{})
+	if err != nil {
+		return "", err
+	}
+
+	if len(images) == 0 {
+		return "", fmt.Errorf("Cannot find image %s", name)
+	}
+	for _, image := range images {
+		if arrayIncludeString(image.RepoTags, name) {
+			return image.Id, nil
+		}
+	}
+
+	return "", fmt.Errorf("Cannot find image %s", name)
 }

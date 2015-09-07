@@ -99,7 +99,34 @@ func TestUpdateCommandRunAndCommitFailure(t *testing.T) {
 	}
 }
 
+func TestUpdateCommandInvalidTargetName(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{}
+
+	capture.All(func() { updateCmd(testContext([]string{"ori", "WRONG"}, false)) })
+
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
+	}
+}
+
 func TestUpdateCommandCommitSuccess(t *testing.T) {
+	setupTestExitStatus()
+	dockerClient = &mockClient{listReturnOneImage: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	capture.All(func() { updateCmd(testContext([]string{"opensuse:13.2", "new:1.0.0"}, false)) })
+
+	if exitInvocations != 0 {
+		t.Fatalf("Expected to have exited successfully")
+	}
+	if !strings.Contains(buffer.String(), "new:1.0.0 successfully created") {
+		t.Fatal("It should've logged something\n")
+	}
+}
+
+func TestUpdateCommandCannotUpdateCache(t *testing.T) {
 	setupTestExitStatus()
 	dockerClient = &mockClient{}
 
@@ -107,11 +134,14 @@ func TestUpdateCommandCommitSuccess(t *testing.T) {
 	log.SetOutput(buffer)
 	capture.All(func() { updateCmd(testContext([]string{"ori", "new:1.0.0"}, false)) })
 
-	if exitInvocations != 0 {
-		t.Fatalf("Expected to have exited successfully")
+	if exitInvocations != 1 {
+		t.Fatalf("Expected to have exited with error")
 	}
 	if !strings.Contains(buffer.String(), "new:1.0.0 successfully created") {
-		t.Fatal("It should've logged something\n")
+		t.Fatal("The new image should have been successfully created\n")
+	}
+	if !strings.Contains(buffer.String(), "This will break the") {
+		t.Fatal("We should warn users zypper-docker ps is not going to work\n")
 	}
 }
 

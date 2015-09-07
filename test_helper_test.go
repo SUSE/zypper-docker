@@ -14,7 +14,35 @@
 
 package main
 
-import "github.com/codegangsta/cli"
+import (
+	"strings"
+	"testing"
+)
 
-func psCmd(ctx *cli.Context) {
+func TestCompareStringSlicesDifferentItems(t *testing.T) {
+	s1 := []string{"1"}
+	s2 := []string{"2"}
+
+	err := compareStringSlices(s1, s2)
+	if err == nil {
+		t.Fatal("It should've failed")
+	}
+
+	if !strings.ContainsAny(err.Error(), "item at position") {
+		t.Fatal("Wrong error message")
+	}
+}
+
+func TestCompareStringSlicesDifferentSize(t *testing.T) {
+	s1 := []string{"1", "2"}
+	s2 := []string{"2"}
+
+	err := compareStringSlices(s1, s2)
+	if err == nil {
+		t.Fatal("It should've failed")
+	}
+
+	if !strings.ContainsAny(err.Error(), "different size") {
+		t.Fatal("Wrong error message")
+	}
 }

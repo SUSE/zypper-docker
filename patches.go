@@ -58,10 +58,16 @@ func patchCmd(ctx *cli.Context) {
 	}
 
 	img := ctx.Args()[0]
-	repo, tag := parseImageName(ctx.Args()[1])
-	if err := preventImageOverwrite(repo, tag); err != nil {
+	repo, tag, err := parseImageName(ctx.Args()[1])
+	if err != nil {
 		log.Println(err)
 		exitWithCode(1)
+		return
+	}
+	if err = preventImageOverwrite(repo, tag); err != nil {
+		log.Println(err)
+		exitWithCode(1)
+		return
 	}
 
 	comment := ctx.String("message")
@@ -74,7 +80,7 @@ func patchCmd(ctx *cli.Context) {
 	cmd := fmt.Sprintf(
 		"zypper ref && zypper -n %v",
 		cmdWithFlags("patch", ctx, boolFlags, toIgnore))
-	err := runCommandAndCommitToImage(
+	err = runCommandAndCommitToImage(
 		img,
 		repo,
 		tag,
@@ -84,7 +90,16 @@ func patchCmd(ctx *cli.Context) {
 	if err != nil {
 		log.Println(err)
 		exitWithCode(1)
+		return
 	}
 
 	log.Printf("%s:%s successfully created", repo, tag)
+
+	cache := getCacheFile()
+	if err := cache.addImageToListOfOutdatedOnes(img); err != nil {
+		log.Println("Cannot add image details to zypper-docker cache")
+		log.Println("This will break the \"zypper-docker ps\" feature")
+		log.Println(err)
+		exitWithCode(1)
+	}
 }

@@ -152,13 +152,26 @@ func TestCacheGoodJson(t *testing.T) {
 	_ = os.Rename(filepath.Join(test, "ok.json"), filepath.Join(test, cacheName))
 
 	file := getCacheFile()
+
 	if !file.Valid {
 		t.Fatal("It should be valid")
 	}
 	if file.Path != filepath.Join(test, cacheName) {
 		t.Fatal("Wrong path")
 	}
-	elements := append(file.Suse, file.Other[0], file.Other[1])
+
+	if len(file.Suse) != 2 {
+		t.Fatal("Wrong value")
+	}
+	if len(file.Other) != 2 {
+		t.Fatal("Wrong value")
+	}
+	if len(file.Outdated) != 0 {
+		t.Fatal("Wrong value")
+	}
+
+	elements := append(file.Suse, file.Other...)
+	elements = append(elements, file.Outdated...)
 	for i, value := range elements {
 		if value != fmt.Sprintf("%v", i+1) {
 			t.Fatal("Wrong value")
@@ -172,14 +185,16 @@ func TestFlush(t *testing.T) {
 	path := filepath.Join(test, "testflush.json")
 
 	cd := &cachedData{
-		Path:  path,
-		Valid: false,
-		Suse:  []string{},
-		Other: []string{},
+		Path:     path,
+		Valid:    false,
+		Suse:     []string{},
+		Other:    []string{},
+		Outdated: []string{},
 	}
 
 	// Now put some contents there.
-	err := ioutil.WriteFile(path, []byte("{\"suse\": [\"1\"], \"other\": []}"), 0666)
+	expected := "{\"suse\": [\"1\"], \"other\": [], \"outdated\": []}"
+	err := ioutil.WriteFile(path, []byte(expected), 0666)
 	if err != nil {
 		t.Fatal("Failed on writing a file")
 	}
@@ -191,18 +206,20 @@ func TestFlush(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed on reading a file")
 	}
-	if strings.TrimSpace(string(contents)) != "{\"suse\": [\"1\"], \"other\": []}" {
+	if strings.TrimSpace(string(contents)) != expected {
 		t.Fatal("Wrong contents")
 	}
 
 	// Now it will overwrite the file.
 	cd.Valid = true
 	cd.flush()
+	expected = "{\"suse\":[],\"other\":[],\"outdated\":[]}"
 	contents, err = ioutil.ReadFile(path)
 	if err != nil {
 		t.Fatal("Failed on reading a file")
 	}
-	if strings.TrimSpace(string(contents)) != "{\"suse\":[],\"other\":[]}" {
+	if strings.TrimSpace(string(contents)) != expected {
+		fmt.Println("got", string(contents), "instead of", expected)
 		t.Fatal("Wrong contents")
 	}
 
@@ -216,5 +233,39 @@ func TestFlush(t *testing.T) {
 	cd.flush()
 	if !strings.Contains(buffer.String(), "Cannot write to the cache file") {
 		t.Fatal("Didn't logged what it was expected")
+	}
+}
+
+func TestAddImageToListOfOutdatedOnesFailsBecauseOfListError(t *testing.T) {
+	cache := cachedData{}
+
+	dockerClient = &mockClient{listFail: true}
+	err := cache.addImageToListOfOutdatedOnes("1")
+	if err == nil {
+		t.Fatal("Expected failure")
+	}
+}
+
+func TestAddImageToListOfOutdatedOnesFailsBecauseOfListEmpty(t *testing.T) {
+	cache := cachedData{}
+
+	dockerClient = &mockClient{listEmpty: true}
+	err := cache.addImageToListOfOutdatedOnes("1")
+	if err == nil {
+		t.Fatal("Expected failure")
+	}
+}
+
+func TestAddImageToListOfOutdatedOnesNothingDoneWhenTheImageIsAlreadyKnown(t *testing.T) {
+	cache := cachedData{
+		Outdated: []string{"35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01"}}
+
+	dockerClient = &mockClient{listEmpty: true}
+	err := cache.addImageToListOfOutdatedOnes("opensuse:13.2")
+	if err == nil {
+		t.Fatal("Expected failure")
+	}
+	if len(cache.Outdated) != 1 {
+		t.Fatal("Nothing should have changed")
 	}
 }

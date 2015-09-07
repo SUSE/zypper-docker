@@ -35,6 +35,10 @@ type cachedData struct {
 	// Contains all the IDs that are known to be non-openSUSE/SLE images.
 	Other []string `json:"other"`
 
+	// Contains all the IDs of the images that have been either patched or
+	// upgraded or patched using zypper-docker
+	Outdated []string `json:"outdated"`
+
 	// Whether this data comes from a valid file or not.
 	Valid bool `json:"-"`
 }
@@ -43,17 +47,16 @@ type cachedData struct {
 //  - Whether it exists or not.
 //  - If it exists, whether it is a SUSE image or not.
 func (cd *cachedData) idExists(id string) (bool, bool) {
-	for _, v := range cd.Suse {
-		if v == id {
-			return true, true
-		}
-	}
-	for _, v := range cd.Other {
-		if v == id {
-			return true, false
-		}
-	}
-	return false, false
+	suse := arrayIncludeString(cd.Suse, id)
+	other := arrayIncludeString(cd.Other, id)
+
+	return suse || other, suse
+}
+
+// Returns whether the given ID matches an image that has been
+// updated via zypper-docker patch|update
+func (cd *cachedData) isImageOutdated(id string) bool {
+	return arrayIncludeString(cd.Outdated, id)
 }
 
 // Returns whether the given ID matches an image that is based on SUSE.
@@ -99,6 +102,21 @@ func (cd *cachedData) flush() {
 func (cd *cachedData) reset() {
 	cd.Suse, cd.Other = []string{}, []string{}
 	cd.flush()
+}
+
+// Add the ID of the image identified by the provided name to the list
+// of the outdated images.
+func (cd *cachedData) addImageToListOfOutdatedOnes(name string) error {
+	imageId, err := getImageId(name)
+	if err != nil {
+		return err
+	}
+
+	if !arrayIncludeString(cd.Outdated, imageId) {
+		cd.Outdated = append(cd.Outdated, imageId)
+		cd.flush()
+	}
+	return nil
 }
 
 // Retrieves the path for the cache file. It checks the following directories
