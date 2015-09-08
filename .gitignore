@@ -1,2 +1,6 @@
-zypper-docker
+.bundle
+Gemfile.lock
+.ruby-version
+spec/reports
 .vagrant
+zypper-docker

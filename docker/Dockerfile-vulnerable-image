@@ -1,0 +1,15 @@
+# This Dockerfile produces the "opensuse-old-alsa" image that is being used in
+# some tests.
+
+FROM opensuse:13.2
+MAINTAINER Miquel Sabaté Solà <msabate@suse.com>
+
+RUN zypper --non-interactive --gpg-auto-import-keys ref
+
+# This image has to be out-dated so tests can work on it. That's why we are
+# installing an old version of a package that we know that has received
+# updates.
+RUN zypper in -y --repo OSS alsa-utils
+
+# No entry point, no workdir, no nothing; this is just an image used for
+# testing purposes.

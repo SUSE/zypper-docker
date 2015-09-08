@@ -245,6 +245,37 @@ type:
 $ make test
 ```
 
+## Testing
+
+This project is covered both by unit and integration tests.
+
+### Unit tests
+
+Unit tests are written in Go and can be invoked by doing:
+
+```
+make test
+```
+
+This will build `zypper-docker` using different Go versions and trigger the unit tests.
+
+### Integration tests
+
+The integration tests invoke the `zypper-docker` binary and test different scenarios.
+
+They are written using RSpec and are located under `/spec`.
+
+The integration tests can be started by doing:
+
+```
+make test_integration
+```
+
+This will build a Docker image containing all the software (RSpec, plus other
+Ruby gems) required to run the tests.
+The image will be started, the socket used by the Docker daemon on the host will
+be mounted inside of the new container. That makes possible to invoke the docker
+client from within the container itself.
 
 ## License
 
