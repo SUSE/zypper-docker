@@ -4,10 +4,10 @@ MAINTAINER Flavio Castelli <fcastelli@suse.com>
 RUN zypper -n in --no-recommends \
   docker \
   ruby \
-  ruby-devel
-# libffi-devel-gcc5 \
-# make \
-# gcc
+  ruby-devel \
+  libffi-devel-gcc5 \
+  make \
+  gcc
 
 WORKDIR /code
 

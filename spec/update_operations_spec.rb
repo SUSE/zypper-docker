@@ -1,6 +1,6 @@
 require_relative "helper"
 
-describe "update operations", bug: true do
+describe "update operations", quick: true do
   let(:author) { "zypper-docker test suite" }
   let(:message) { "this is a test" }
 
@@ -23,6 +23,10 @@ describe "update operations", bug: true do
 
   context "applying updates" do
     it "creates a new image with all the updates applied" do
+      if docker_image_exists?(@patched_image_repo, @patched_image_tag)
+        remove_docker_image(@patched_image)
+      end
+
       Cheetah.run(
         "zypper-docker", "up",
         "--author", author,
@@ -63,30 +67,16 @@ describe "update operations", bug: true do
       @not_suse_container      = "not_suse_container"
       @containers_to_terminate = []
 
-      Cheetah.run(
-        "docker", "run",
-        "-d",
-        "--name", @vul_container,
-        Settings::VULNERABLE_IMAGE,
-        "sleep", "1h")
+      start_background_container(Settings::VULNERABLE_IMAGE, @vul_container)
       @containers_to_terminate << @vul_container
 
       expect(docker_image_exists?(@patched_image_repo, @patched_image_tag)).to be true
-      Cheetah.run(
-        "docker", "run",
-        "-d",
-        "--name", @patched_container,
-        @patched_image,
-        "sleep", "1h")
+      start_background_container(@patched_image, @patched_container)
       @containers_to_terminate << @patched_container
 
-      Cheetah.run(
-        "docker", "run",
-        "-d",
-        "--name", @not_suse_container,
-        "alpine:latest",
-        "sleep", "1h")
+      start_background_container("alpine:latest", @not_suse_container)
       @containers_to_terminate << @not_suse_container
+
     end
 
     after :all do
@@ -95,9 +85,6 @@ describe "update operations", bug: true do
       end
 
       remove_docker_image("alpine:latest") unless @keep_alpine
-      if docker_image_exists?(@patched_image_repo, @patched_image_tag)
-        remove_docker_image(@patched_image)
-      end
     end
 
     it "finds the pending updates of a SUSE-based image" do
@@ -121,7 +108,7 @@ describe "update operations", bug: true do
       end
       expect(exception).not_to be_nil
       expect(exception.status.exitstatus).to eq(1)
-      expect(exception.stdout).to include("alpine which is not a SUSE system")
+      expect(exception.stderr).to include("alpine:latest which is not a SUSE system")
     end
   end
 end
