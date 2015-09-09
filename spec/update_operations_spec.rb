@@ -1,6 +1,6 @@
 require_relative "helper"
 
-describe "update operations", quick: true do
+describe "update operations" do
   let(:author) { "zypper-docker test suite" }
   let(:message) { "this is a test" }
 
@@ -58,9 +58,7 @@ describe "update operations", quick: true do
   context "analyze a running container" do
     before :all do
       @keep_alpine = docker_image_exists?("alpine", "latest")
-      if !@keep_alpine
-        pull_image("alpine:latest")
-      end
+      pull_image("alpine:latest") unless @keep_alpine
 
       @vul_container           = "vulnerable_container"
       @patched_container       = "patched_container"
@@ -76,7 +74,6 @@ describe "update operations", quick: true do
 
       start_background_container("alpine:latest", @not_suse_container)
       @containers_to_terminate << @not_suse_container
-
     end
 
     after :all do
