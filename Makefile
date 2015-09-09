@@ -18,10 +18,23 @@ test_tip ::
 
 test :: test_14 test_15 test_tip
 
+test_integration :: build_zypper_docker build_integration_tests
+	docker run \
+		--rm \
+		--volume="/var/run/docker.sock:/var/run/docker.sock" \
+		--volume="$(CURDIR):/code" \
+		zypper-docker-integration-tests \
+		rake test
+
 clean ::
 	docker rmi zypper-docker-testing-1.4
 	docker rmi zypper-docker-testing-1.5
 	docker rmi zypper-docker-testing-tip
+	docker rmi zypper-docker-integration-tests
+	rm -f zypper-docker
+
+build_zypper_docker :: build_tip
+	docker run --rm -v `pwd`:/go/src/github.com/SUSE/zypper-docker zypper-docker-testing-tip godep go build
 
 build_14 ::
 	@echo Building zypper-docker-testing-1.4
@@ -34,5 +47,9 @@ build_15 ::
 build_tip ::
 	@echo Building zypper-docker-testing-tip
 	docker build -f docker/Dockerfile-tip -t zypper-docker-testing-tip docker
+
+build_integration_tests ::
+	@echo Building zypper-docker-integration-tests
+	docker build -f docker/Dockerfile-integration-tests -t zypper-docker-integration-tests $(CURDIR)
 
 build :: build_14 build_15 build_tip
