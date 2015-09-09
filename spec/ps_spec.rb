@@ -13,8 +13,9 @@ describe "ps operations" do
     @patched_image_tag  = "1.0"
     @patched_image      = "#{@patched_image_repo}:#{@patched_image_tag}"
 
-    @vul_container = "vulnerable_container"
-    @not_suse_container = "not_suse_container"
+    @vul_container           = "vulnerable_container"
+    @not_suse_container      = "not_suse_container"
+    @containers_to_terminate = []
 
     Cheetah.run(
       "docker", "run",
@@ -22,17 +23,21 @@ describe "ps operations" do
       "--name", @vul_container,
       Settings::VULNERABLE_IMAGE,
       "sleep", "1h")
+    @containers_to_terminate << @vul_container
+
     Cheetah.run(
       "docker", "run",
       "-d",
       "--name", @not_suse_container,
       "alpine:latest",
       "sleep", "1h")
+    @containers_to_terminate << @not_suse_container
   end
 
   after :all do
-    kill_and_remove_container(@vul_container)
-    kill_and_remove_container(@not_suse_container)
+    @containers_to_terminate.each do |container|
+      kill_and_remove_container(container)
+    end
 
     remove_docker_image("alpine:latest") unless @keep_alpine
     if docker_image_exists?(@patched_image_repo, @patched_image_tag)
@@ -59,10 +64,4 @@ describe "ps operations" do
     expect(output[0]).to include("Running containers whose images have been updated")
     expect(output[1]).to include(Settings::VULNERABLE_IMAGE)
   end
-
-  def kill_and_remove_container(container)
-    Cheetah.run("docker", "kill", container)
-    Cheetah.run("docker", "rm", container)
-  end
-
 end

@@ -21,6 +21,11 @@ module SpecHelper
     system("docker pull #{image}")
   end
 
+  def kill_and_remove_container(container)
+    Cheetah.run("docker", "kill", container)
+    Cheetah.run("docker", "rm", container)
+  end
+
   def ensure_vulnerable_image_exists
     return if docker_image_exists?(Settings::VULNERABLE_IMAGE_REPO, Settings::VULNERABLE_IMAGE_TAG)
 
