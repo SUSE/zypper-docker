@@ -21,6 +21,16 @@ module SpecHelper
     system("docker pull #{image}")
   end
 
+  def container_running?(container)
+    output = Cheetah.run("docker", "ps", stdout: :capture)
+    output.include?(container)
+  end
+
+  def kill_and_remove_container(container)
+    Cheetah.run("docker", "kill", container) if container_running?(container)
+    Cheetah.run("docker", "rm", "-f", container)
+  end
+
   def ensure_vulnerable_image_exists
     return if docker_image_exists?(Settings::VULNERABLE_IMAGE_REPO, Settings::VULNERABLE_IMAGE_TAG)
 
@@ -36,7 +46,7 @@ module SpecHelper
   end
 
   def remove_docker_image(image)
-    Cheetah.run("docker", "rmi", image)
+    Cheetah.run("docker", "rmi", "-f", image)
   end
 
   def docker_image_commit_details(image)
@@ -50,6 +60,23 @@ module SpecHelper
     actual_author, actual_message = docker_image_commit_details(image)
     expect(expected_author.chomp).to eq(actual_author.chomp)
     expect(expected_message.chomp).to eq(actual_message.chomp)
+  end
+
+  def start_background_container(image, container_name, solve_conflicts=true)
+    begin
+      Cheetah.run(
+        "docker", "run",
+        "-d",
+        "--entrypoint", "env",
+        "--name", container_name,
+        image,
+        "sh", "-c", "sleep 1h")
+    rescue Cheetah::ExecutionFailed => e
+      if e.stderr.include?("is already in use")
+        kill_and_remove_container(container_name)
+        start_background_container(image, container_name, false)
+      end
+    end
   end
 
 end

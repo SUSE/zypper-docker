@@ -189,6 +189,60 @@ describe "patch operations" do
       expect(exception.stdout).to include('security patches')
       expect(exception.stdout).to include('patches needed')
     end
-
   end
+
+  context "analyze a running container" do
+    before :all do
+      @keep_alpine = docker_image_exists?("alpine", "latest")
+      pull_image("alpine:latest") unless @keep_alpine
+
+      @vul_container           = "vulnerable_container"
+      @patched_container       = "patched_container"
+      @not_suse_container      = "not_suse_container"
+      @containers_to_terminate = []
+
+      start_background_container(Settings::VULNERABLE_IMAGE, @vul_container)
+      @containers_to_terminate << @vul_container
+
+      expect(docker_image_exists?(@patched_image_repo, @patched_image_tag)).to be true
+      start_background_container(@patched_image, @patched_container)
+      @containers_to_terminate << @patched_container
+
+      start_background_container("alpine:latest", @not_suse_container)
+      @containers_to_terminate << @not_suse_container
+    end
+
+    after :all do
+      @containers_to_terminate.each do |container|
+        kill_and_remove_container(container)
+      end
+
+      remove_docker_image("alpine:latest") unless @keep_alpine
+    end
+
+    it "finds the pending updates of a SUSE-based image" do
+      output = Cheetah.run("zypper-docker", "lpc", @vul_container, stdout: :capture)
+      expect(output).to include("openSUSE-2015-345")
+    end
+
+    it "does not find updates for patched containers" do
+      output = Cheetah.run("zypper-docker", "lpc", @patched_container, stdout: :capture)
+      expect(output).not_to include("openSUSE-2015-345")
+    end
+
+    it "reports non-SUSE containers" do
+      exception = nil
+
+      begin
+        Cheetah.run(
+          "zypper-docker", "lpc", @not_suse_container)
+      rescue Cheetah::ExecutionFailed => e
+        exception = e
+      end
+      expect(exception).not_to be_nil
+      expect(exception.status.exitstatus).to eq(1)
+      expect(exception.stderr).to include("alpine:latest which is not a SUSE system")
+    end
+  end
+
 end

@@ -26,6 +26,18 @@ test_integration :: build_zypper_docker build_integration_tests
 		zypper-docker-integration-tests \
 		rake test
 
+# Run only the RSpec tests flagged as 'quick', does NOT build the zypper-docker
+# binary or the testing images
+# Note well: "docker -ti" is required to use byebug inside of the ruby tests
+test_integration_quick ::
+	docker run \
+		--rm \
+		-ti \
+		--volume="/var/run/docker.sock:/var/run/docker.sock" \
+		--volume="$(CURDIR):/code" \
+		zypper-docker-integration-tests \
+		rspec -t quick
+
 clean ::
 	docker rmi zypper-docker-testing-1.4
 	docker rmi zypper-docker-testing-1.5
