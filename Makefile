@@ -2,12 +2,12 @@ test ::
 		docker run --rm -v `pwd`:/go/src/github.com/SUSE/zypper-docker zypper-docker /opt/test.sh
 
 test_integration :: build_zypper_docker build_integration_tests
-		docker run \
-						--rm \
-						--volume="/var/run/docker.sock:/var/run/docker.sock" \
-						--volume="$(CURDIR):/code" \
-						zypper-docker-integration-tests \
-						rake test
+	docker run \
+		--rm \
+		--volume="/var/run/docker.sock:/var/run/docker.sock" \
+		--volume="$(CURDIR):/code" \
+		zypper-docker-integration-tests \
+		rake test
 
 # Run only the RSpec tests flagged as 'quick', does NOT build the zypper-docker
 # binary or the testing images
