@@ -8,7 +8,7 @@ RUN go get github.com/kisielk/errcheck
 RUN go get github.com/tools/godep
 RUN curl -sL -o /usr/bin/gimme https://raw.githubusercontent.com/travis-ci/gimme/master/gimme
 RUN chmod +x /usr/bin/gimme
-ADD ./test.sh /opt/test.sh
+COPY ./test.sh /opt/test.sh
 RUN chmod +x /opt/test.sh
 
 WORKDIR /go/src/github.com/SUSE/zypper-docker
@@ -19,4 +19,3 @@ ENV GIMME_ARCH=amd64
 
 RUN useradd -m travis
 USER travis
-

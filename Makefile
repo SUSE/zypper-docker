@@ -1,10 +1,5 @@
-VERSIONS = 1.4 1.5 tip
-
 test ::
-		for version in $(VERSIONS);do \
-			echo Running unit tests inside of Go $${version} ...; \
-			docker run --rm -v `pwd`:/go/src/github.com/SUSE/zypper-docker zypper-docker /bin/bash -c "/opt/test.sh -v=$${version}"; \
-		done
+		docker run --rm -v `pwd`:/go/src/github.com/SUSE/zypper-docker zypper-docker /opt/test.sh
 
 test_integration :: build_zypper_docker build_integration_tests
 		docker run \
@@ -13,14 +8,6 @@ test_integration :: build_zypper_docker build_integration_tests
 						--volume="$(CURDIR):/code" \
 						zypper-docker-integration-tests \
 						rake test
-
-test_integration :: build_zypper_docker build_integration_tests
-	docker run \
-		--rm \
-		--volume="/var/run/docker.sock:/var/run/docker.sock" \
-		--volume="$(CURDIR):/code" \
-		zypper-docker-integration-tests \
-		rake test
 
 clean ::
 		docker rmi zypper-docker
@@ -44,3 +31,4 @@ help ::
 		@echo build: Creates the dockerimage.
 		@echo clean: Remove the dockerimage.
 		@echo test: Testing zypper-docker.
+		@echo test_intetgration: Integration Tests
