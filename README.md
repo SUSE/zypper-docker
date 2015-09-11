@@ -20,8 +20,6 @@ have been implemented:
 - [x] Installing patches.
 - [x] Install updates.
 
-
-
 ## Generic operations
 
 This tool supports some of the global options as defined by zypper. They are
@@ -31,6 +29,8 @@ all set to false by default:
 * `--no-gpg-checks`
 * `--gpg-auto-import-keys`
 * `-f`, `--force`: ignore cached values.
+
+## Local cache
 
 Note that some of these commands might be expensive. That's why some of the
 needed data is cached into a single file. This file is named
@@ -43,6 +43,18 @@ needed data is cached into a single file. This file is named
 
 The application will first try to allocate the cache on `$XDG_CACHE_HOME`. If
 it fails, it will try it on the next location, and so on.
+
+## Targetting Docker daemons running on remote machines
+
+`zypper-docker` can interact with docker daemons running on remote machines.
+To do that it uses the same environment variables of the
+[docker client](https://docs.docker.com/reference/commandline/cli/#environment-variables).
+
+[docker-machine](https://docs.docker.com/machine/) can be used to configure the
+remote Docker host and setup the local environment variables.
+
+[![asciicast](https://asciinema.org/a/26244.png)](https://asciinema.org/a/26244)
+
 
 ### List all the available images:
 
