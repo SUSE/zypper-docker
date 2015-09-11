@@ -7,7 +7,7 @@ Docker Images based on either SUSE Linux Enterprise or openSUSE.
 application relies on `zypper` to perform the actual operations against Docker
 images.
 
-[![asciicast](https://asciinema.org/a/25309.png)](https://asciinema.org/a/25309)
+[![asciicast](https://asciinema.org/a/26248.png)](https://asciinema.org/a/26248)
 
 **NOTE**: this application is still WIP. Here's a list of the features that
 have been implemented:
