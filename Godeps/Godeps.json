@@ -1,10 +1,15 @@
 {
 	"ImportPath": "github.com/SUSE/zypper-docker",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.5",
 	"Deps": [
 		{
 			"ImportPath": "github.com/SUSE/dockerclient",
 			"Rev": "52d33b5ad01ef4ca4c2b5c163620047ad16ef0f8"
+		},
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.8.7",
+			"Rev": "418b41d23a1bf978c06faea5313ba194650ac088"
 		},
 		{
 			"ImportPath": "github.com/codegangsta/cli",
@@ -12,14 +17,24 @@
 			"Rev": "bca61c476e3c752594983e4c9bcd5f62fb09f157"
 		},
 		{
+			"ImportPath": "github.com/docker/docker/pkg/random",
+			"Comment": "v1.4.1-6134-g7064fe2",
+			"Rev": "7064fe283f1d63785f2812b8a23c8b4d80b58178"
+		},
+		{
 			"ImportPath": "github.com/docker/docker/pkg/stringid",
-			"Comment": "v1.4.1-4684-gac3f7c7",
-			"Rev": "ac3f7c71b8e82b5faf014b13138219723f6a0c67"
+			"Comment": "v1.4.1-6134-g7064fe2",
+			"Rev": "7064fe283f1d63785f2812b8a23c8b4d80b58178"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/tlsconfig",
+			"Comment": "v1.4.1-6134-g7064fe2",
+			"Rev": "7064fe283f1d63785f2812b8a23c8b4d80b58178"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/units",
-			"Comment": "v1.4.1-4684-gac3f7c7",
-			"Rev": "ac3f7c71b8e82b5faf014b13138219723f6a0c67"
+			"Comment": "v1.4.1-6134-g7064fe2",
+			"Rev": "7064fe283f1d63785f2812b8a23c8b4d80b58178"
 		},
 		{
 			"ImportPath": "github.com/mssola/capture",
