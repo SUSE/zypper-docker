@@ -15,14 +15,17 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/SUSE/dockerclient"
+	"github.com/docker/docker/pkg/tlsconfig"
 )
 
 // dockerError encapsulates a dockerclient.WaitResult that has an exit status
@@ -70,6 +73,12 @@ const (
 	// The timeout in which the container is allowed to run a command as given
 	// to the `startContainer` function.
 	containerTimeout = 2 * time.Second
+
+	// tls-related files, code taken from docker/common.go
+	defaultTrustKeyFile = "key.json"
+	defaultCaFile       = "ca.pem"
+	defaultKeyFile      = "key.pem"
+	defaultCertFile     = "cert.pem"
 )
 
 // Use this function to safely retrieve the singleton instance of the Docker
@@ -89,9 +98,33 @@ func getDockerClient() DockerClient {
 	//
 	// The only time it will return an error will be if the given URL has a bad
 	// format, which won't happen.
-	dockerClient, _ = dockerclient.NewDockerClientTimeout(dockerSocket, nil,
+
+	daemonUrl := dockerSocket
+	if os.Getenv("DOCKER_HOST") != "" {
+		daemonUrl = os.Getenv("DOCKER_HOST")
+	}
+
+	tlsConfig, err := setupTlsConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	dockerClient, _ = dockerclient.NewDockerClientTimeout(daemonUrl, tlsConfig,
 		containerTimeout)
 	return dockerClient
+}
+
+func setupTlsConfig() (*tls.Config, error) {
+	if os.Getenv("DOCKER_TLS_VERIFY") == "" {
+		return &tls.Config{}, nil
+	}
+	dockerCertPath := os.Getenv("DOCKER_CERT_PATH")
+
+	var tlsOptions tlsconfig.Options
+	tlsOptions.CAFile = filepath.Join(dockerCertPath, defaultCaFile)
+	tlsOptions.CertFile = filepath.Join(dockerCertPath, defaultCertFile)
+	tlsOptions.KeyFile = filepath.Join(dockerCertPath, defaultKeyFile)
+	return tlsconfig.Client(tlsOptions)
 }
 
 // Looks for the specified command inside of a Docker image.
