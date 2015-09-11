@@ -1,11 +1,11 @@
-FROM opensuse:tumbleweed
+FROM opensuse:13.2
 MAINTAINER Flavio Castelli <fcastelli@suse.com>
 
 RUN zypper -n in --no-recommends \
   docker \
   ruby \
   ruby-devel \
-  libffi-devel-gcc5 \
+  libffi48-devel \
   make \
   gcc
 
@@ -13,6 +13,6 @@ WORKDIR /code
 
 COPY Gemfile /code/Gemfile
 RUN gem install bundle
-RUN bundler.ruby2.2 install --retry=3
+RUN bundler.ruby2.1 install --retry=3
 
 ENV PATH=/code:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

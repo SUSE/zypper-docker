@@ -10,27 +10,17 @@ describe "ps operations" do
       pull_image("alpine:latest")
     end
     @patched_image_repo = "zypper-docker-patched-image"
-    @patched_image_tag  = "1.0"
+    @patched_image_tag  = unique_name("1.0")
     @patched_image      = "#{@patched_image_repo}:#{@patched_image_tag}"
 
-    @vul_container           = "vulnerable_container"
-    @not_suse_container      = "not_suse_container"
+    @vul_container           = unique_name("vulnerable_container")
+    @not_suse_container      = unique_name("not_suse_container")
     @containers_to_terminate = []
 
-    Cheetah.run(
-      "docker", "run",
-      "-d",
-      "--name", @vul_container,
-      Settings::VULNERABLE_IMAGE,
-      "sleep", "1h")
+    start_background_container(Settings::VULNERABLE_IMAGE, @vul_container)
     @containers_to_terminate << @vul_container
 
-    Cheetah.run(
-      "docker", "run",
-      "-d",
-      "--name", @not_suse_container,
-      "alpine:latest",
-      "sleep", "1h")
+    start_background_container("alpine:latest", @not_suse_container)
     @containers_to_terminate << @not_suse_container
   end
 

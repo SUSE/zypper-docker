@@ -1,3 +1,7 @@
+sudo: required
+services:
+  - docker
+
 language: go
 go:
   - 1.4
@@ -8,13 +12,21 @@ matrix:
   allow_failures:
     - go: tip
 
+before_install:
+  - docker pull opensuse:13.2
+  - docker pull alpine:latest
+  - docker pull busybox:latest
+  - make build_integration_tests
+
 before_script:
   - go get github.com/mssola/climate
   - go get golang.org/x/tools/cmd/cover
   - go get golang.org/x/tools/cmd/vet
   - go get github.com/golang/lint/golint
   - go get github.com/kisielk/errcheck
+  - go get github.com/tools/godep
 
 script:
   - go test -v ./...
   - climate -open=false -threshold=80.0 -errcheck -vet -fmt -race .
+  - make test_integration
