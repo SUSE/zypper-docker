@@ -29,6 +29,10 @@ module SpecHelper
   def kill_and_remove_container(container)
     Cheetah.run("docker", "kill", container) if container_running?(container)
     Cheetah.run("docker", "rm", "-f", container)
+  rescue Cheetah::ExecutionFailed => e
+    puts "Error while running: #{e.commands}"
+    puts "Stdout: #{e.stdout}"
+    puts "Stderr: #{e.stderr}"
   end
 
   def ensure_vulnerable_image_exists
@@ -62,21 +66,20 @@ module SpecHelper
     expect(expected_message.chomp).to eq(actual_message.chomp)
   end
 
+  # Makes the given name unique by adding the current time to it.
+  def unique_name(name)
+    "#{name}_#{Time.now.to_i}"
+  end
+
+  # Start a container running in the background doing a NOP (a simple sleep)
   def start_background_container(image, container_name, solve_conflicts=true)
-    begin
-      Cheetah.run(
-        "docker", "run",
-        "-d",
-        "--entrypoint", "env",
-        "--name", container_name,
-        image,
-        "sh", "-c", "sleep 1h")
-    rescue Cheetah::ExecutionFailed => e
-      if e.stderr.include?("is already in use")
-        kill_and_remove_container(container_name)
-        start_background_container(image, container_name, false)
-      end
-    end
+    Cheetah.run(
+      "docker", "run",
+      "-d",
+      "--entrypoint", "env",
+      "--name", container_name,
+      image,
+      "sh", "-c", "sleep 1h")
   end
 
 end

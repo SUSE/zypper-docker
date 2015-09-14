@@ -6,7 +6,7 @@ describe "update operations" do
 
   before :all do
     @patched_image_repo = "zypper-docker-patched-image"
-    @patched_image_tag  = "1.0"
+    @patched_image_tag  = unique_name("1.0")
     @patched_image      = "#{@patched_image_repo}:#{@patched_image_tag}"
   end
 
@@ -60,9 +60,9 @@ describe "update operations" do
       @keep_alpine = docker_image_exists?("alpine", "latest")
       pull_image("alpine:latest") unless @keep_alpine
 
-      @vul_container           = "vulnerable_container"
-      @patched_container       = "patched_container"
-      @not_suse_container      = "not_suse_container"
+      @vul_container           = unique_name("vulnerable_container")
+      @patched_container       = unique_name("patched_container")
+      @not_suse_container      = unique_name("not_suse_container")
       @containers_to_terminate = []
 
       start_background_container(Settings::VULNERABLE_IMAGE, @vul_container)

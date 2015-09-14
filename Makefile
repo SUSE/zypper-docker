@@ -30,8 +30,8 @@ build ::
 	@echo Building zypper-docker
 	docker build -f docker/Dockerfile -t zypper-docker docker
 
-build_zypper_docker :: build
-	docker run --rm -v `pwd`:/go/src/github.com/SUSE/zypper-docker zypper-docker godep go build
+build_zypper_docker ::
+	godep go build
 
 build_integration_tests ::
 	@echo Building zypper-docker-integration-tests
