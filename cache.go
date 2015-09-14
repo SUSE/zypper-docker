@@ -121,23 +121,14 @@ func (cd *cachedData) addImageToListOfOutdatedOnes(name string) error {
 
 // Retrieves the path for the cache file. It checks the following directories
 // in this specific order:
-//  1. $XDG_CACHE_HOME
-//  2. $XDG_DATA_DIRS
-//  3. $HOME/.cache
-//  4. /tmp
+//  1. $HOME/.cache
+//  2. /tmp
 // It will try to open (or create if it doesn't exist) the cache file in each
 // directory until it finds a directory that is accessible.
 func cachePath() *os.File {
-	candidates := []string{
-		os.Getenv("XDG_CACHE_HOME"), os.Getenv("XDG_DATA_DIRS"),
-		filepath.Join(os.Getenv("HOME"), ".cache"), "/tmp",
-	}
+	candidates := []string{filepath.Join(os.Getenv("HOME"), ".cache"), "/tmp"}
 
 	for _, dir := range candidates {
-		if dir == "" {
-			continue
-		}
-
 		dirs := strings.Split(dir, ":")
 		for _, d := range dirs {
 			name := filepath.Join(d, cacheName)

@@ -30,18 +30,19 @@ import (
 // so there's no point to add more tests in this specific file.
 
 func TestCachePath(t *testing.T) {
-	cache, data := os.Getenv("XDG_CACHE_HOME"), os.Getenv("XDG_DATA_DIRS")
-	umask := syscall.Umask(0)
+	home, umask := os.Getenv("HOME"), syscall.Umask(0)
+	abs, _ := filepath.Abs(".")
 
 	defer func() {
 		syscall.Umask(umask)
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-		_ = os.Setenv("XDG_DATA_DIRS", data)
+		_ = os.RemoveAll(filepath.Join(abs, ".cache"))
+		_ = os.Setenv("HOME", home)
 	}()
 
-	_ = os.Setenv("XDG_CACHE_HOME", "")
-	abs, _ := filepath.Abs(".")
-	_ = os.Setenv("XDG_DATA_DIRS", abs)
+	_ = os.Setenv("HOME", abs)
+	if err := os.Mkdir(filepath.Join(abs, ".cache"), 0777); err != nil {
+		t.Fatal("Could not initialize test")
+	}
 
 	file := cachePath()
 	if file == nil {
@@ -54,7 +55,7 @@ func TestCachePath(t *testing.T) {
 	name, mode := file.Name(), info.Mode().Perm()
 	_ = file.Close()
 	_ = os.Remove(name)
-	if name != filepath.Join(abs, cacheName) {
+	if name != filepath.Join(abs, ".cache", cacheName) {
 		t.Fatal("Unexpected name")
 	}
 	if mode != 0666 {
@@ -63,19 +64,13 @@ func TestCachePath(t *testing.T) {
 }
 
 func TestCachePathFail(t *testing.T) {
-	cache, data := os.Getenv("XDG_CACHE_HOME"), os.Getenv("XDG_DATA_DIRS")
-	home := os.Getenv("HOME")
-	umask := syscall.Umask(0)
+	home, umask := os.Getenv("HOME"), syscall.Umask(0)
 
 	defer func() {
 		syscall.Umask(umask)
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-		_ = os.Setenv("XDG_DATA_DIRS", data)
 		_ = os.Setenv("HOME", home)
 	}()
 
-	_ = os.Setenv("XDG_CACHE_HOME", "")
-	_ = os.Setenv("XDG_DATA_DIRS", "")
 	_ = os.Setenv("HOME", "")
 	file, _ := os.OpenFile(filepath.Join("/tmp", cacheName), os.O_RDONLY|os.O_CREATE, 0000)
 	_ = file.Close()
@@ -91,41 +86,21 @@ func TestCachePathFail(t *testing.T) {
 	}
 }
 
-func TestCachePathMultiple(t *testing.T) {
-	cache := os.Getenv("XDG_CACHE_HOME")
-	abs, _ := filepath.Abs(".")
-	test := filepath.Join(abs, "test")
-
-	defer func() {
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-	}()
-
-	_ = os.Setenv("XDG_CACHE_HOME", fmt.Sprintf("%v:%v", test, abs))
-	file := cachePath()
-	if file == nil {
-		t.Fatal("It should've been successful")
-	}
-	name, path := file.Name(), filepath.Join(test, cacheName)
-	_ = file.Close()
-	_ = os.Remove(path)
-
-	if name != path {
-		t.Fatal("Wrong name!")
-	}
-}
-
 func TestCacheBadJson(t *testing.T) {
-	cache := os.Getenv("XDG_CACHE_HOME")
+	home, umask := os.Getenv("HOME"), syscall.Umask(0)
 	abs, _ := filepath.Abs(".")
 	test := filepath.Join(abs, "test")
 
 	defer func() {
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-		_ = os.Rename(filepath.Join(test, cacheName), filepath.Join(test, "bad.json"))
+		syscall.Umask(umask)
+		_ = os.Setenv("HOME", home)
+		_ = os.Rename(filepath.Join(test, ".cache", cacheName),
+			filepath.Join(test, ".cache", "bad.json"))
 	}()
 
-	_ = os.Setenv("XDG_CACHE_HOME", test)
-	_ = os.Rename(filepath.Join(test, "bad.json"), filepath.Join(test, cacheName))
+	_ = os.Setenv("HOME", test)
+	_ = os.Rename(filepath.Join(test, ".cache", "bad.json"),
+		filepath.Join(test, ".cache", cacheName))
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -139,35 +114,38 @@ func TestCacheBadJson(t *testing.T) {
 }
 
 func TestCacheGoodJson(t *testing.T) {
-	cache := os.Getenv("XDG_CACHE_HOME")
+	home, umask := os.Getenv("HOME"), syscall.Umask(0)
 	abs, _ := filepath.Abs(".")
 	test := filepath.Join(abs, "test")
 
 	defer func() {
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-		_ = os.Rename(filepath.Join(test, cacheName), filepath.Join(test, "ok.json"))
+		syscall.Umask(umask)
+		_ = os.Setenv("HOME", home)
+		_ = os.Rename(filepath.Join(test, ".cache", cacheName),
+			filepath.Join(test, ".cache", "ok.json"))
 	}()
 
-	_ = os.Setenv("XDG_CACHE_HOME", test)
-	_ = os.Rename(filepath.Join(test, "ok.json"), filepath.Join(test, cacheName))
+	_ = os.Setenv("HOME", test)
+	_ = os.Rename(filepath.Join(test, ".cache", "ok.json"),
+		filepath.Join(test, ".cache", cacheName))
 
 	file := getCacheFile()
 
 	if !file.Valid {
 		t.Fatal("It should be valid")
 	}
-	if file.Path != filepath.Join(test, cacheName) {
+	if file.Path != filepath.Join(test, ".cache", cacheName) {
 		t.Fatal("Wrong path")
 	}
 
 	if len(file.Suse) != 2 {
-		t.Fatal("Wrong value")
+		t.Fatal("Wrong value for SUSE")
 	}
 	if len(file.Other) != 2 {
-		t.Fatal("Wrong value")
+		t.Fatal("Wrong value for Other")
 	}
 	if len(file.Outdated) != 0 {
-		t.Fatal("Wrong value")
+		t.Fatal("Wrong value for Outdated")
 	}
 
 	elements := append(file.Suse, file.Other...)
