@@ -76,7 +76,7 @@ func newApp() *cli.App {
 		{
 			Name:    "list-updates-container",
 			Aliases: []string{"luc"},
-			Usage:   "List all the available updates",
+			Usage:   "List all the available updates for the given container",
 			Action:  listUpdatesContainerCmd,
 		},
 		{
@@ -145,7 +145,7 @@ func newApp() *cli.App {
 		{
 			Name:    "list-patches-container",
 			Aliases: []string{"lpc"},
-			Usage:   "List all the available patches",
+			Usage:   "List all the available patches for the given container",
 			Action:  listPatchesContainerCmd,
 			Flags: []cli.Flag{
 				cli.StringFlag{
@@ -227,13 +227,13 @@ func newApp() *cli.App {
 		{
 			Name:    "patch-check",
 			Aliases: []string{"pchk"},
-			Usage:   "Check for patches (to do)",
+			Usage:   "Check for patches",
 			Action:  patchCheckCmd,
 		},
 		{
 			Name:    "patch-check-container",
 			Aliases: []string{"pchkc"},
-			Usage:   "Check for patches (to do)",
+			Usage:   "Check for patches available for the given container",
 			Action:  patchCheckContainerCmd,
 		},
 		{
