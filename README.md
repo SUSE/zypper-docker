@@ -9,17 +9,6 @@ images.
 
 [![asciicast](https://asciinema.org/a/26248.png)](https://asciinema.org/a/26248)
 
-**NOTE**: this application is still WIP. Here's a list of the features that
-have been implemented:
-
-- [ ] Global options should be respected. (the implemented commands do it)
-- [x] List all the available images.
-- [x] List all the available updates.
-- [x] List all the available patches.
-- [x] Checking patches.
-- [x] Installing patches.
-- [x] Install updates.
-
 ## Generic operations
 
 This tool supports some of the global options as defined by zypper. They are
