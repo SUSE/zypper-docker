@@ -25,6 +25,10 @@ clean ::
 	docker rmi zypper-docker
 	docker rmi zypper-docker-integration-tests
 	rm -f zypper-docker
+	rm -f man/man1
+
+man ::
+	@ cd man && godep go run generate.go
 
 build ::
 	@echo Building zypper-docker
