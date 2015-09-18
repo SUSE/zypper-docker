@@ -16,6 +16,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os/user"
 
 	"github.com/codegangsta/cli"
 )
@@ -27,6 +29,19 @@ func version() string {
 		minor = 1
 	)
 	return fmt.Sprintf("%v.%v", major, minor)
+}
+
+func defaultCommitAuthor() string {
+	current, err := user.Current()
+	if err != nil {
+		log.Printf("Cannot determine current user: %s", err)
+		return ""
+	}
+
+	if current.Name != "" {
+		return current.Name
+	}
+	return current.Username
 }
 
 // It returns an application with all the flags and subcommands already in
@@ -98,9 +113,9 @@ func newApp() *cli.App {
 					Usage: "Install the packages even if they replace files from other, already installed, packages. Default is to treat file conflicts as an error.",
 				},
 				cli.StringFlag{
-					Name:   "author",
-					EnvVar: "USERNAME",
-					Usage:  "Commit author to associate with the new layer (e.g., \"John Doe <john.doe@example.com>\")",
+					Name:  "author",
+					Value: defaultCommitAuthor(),
+					Usage: "Commit author to associate with the new layer (e.g., \"John Doe <john.doe@example.com>\")",
 				},
 				cli.StringFlag{
 					Name:  "message",
@@ -213,9 +228,9 @@ func newApp() *cli.App {
 					Usage: "Install the packages even if they replace files from other, already installed, packages. Default is to treat file conflicts as an error.",
 				},
 				cli.StringFlag{
-					Name:   "author",
-					EnvVar: "USERNAME",
-					Usage:  "Commit author to associate with the new layer (e.g., \"John Doe <john.doe@example.com>\")",
+					Name:  "author",
+					Value: defaultCommitAuthor(),
+					Usage: "Commit author to associate with the new layer (e.g., \"John Doe <john.doe@example.com>\")",
 				},
 				cli.StringFlag{
 					Name:  "message",
