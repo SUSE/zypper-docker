@@ -17,8 +17,6 @@ package main
 import (
 	"bytes"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -59,16 +57,6 @@ func TestPsCommandListContaienrsEmpty(t *testing.T) {
 }
 
 func TestPsCommandNoMatches(t *testing.T) {
-	cache := os.Getenv("XDG_CACHE_HOME")
-	abs, _ := filepath.Abs(".")
-	test := filepath.Join(abs, "test")
-
-	defer func() {
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-	}()
-
-	_ = os.Setenv("XDG_CACHE_HOME", test)
-
 	setupTestExitStatus()
 	dockerClient = &mockClient{}
 
@@ -85,16 +73,6 @@ func TestPsCommandNoMatches(t *testing.T) {
 }
 
 func TestPsCommandMatches(t *testing.T) {
-	cache := os.Getenv("XDG_CACHE_HOME")
-	abs, _ := filepath.Abs(".")
-	test := filepath.Join(abs, "test")
-
-	defer func() {
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-	}()
-
-	_ = os.Setenv("XDG_CACHE_HOME", test)
-
 	cacheFile := getCacheFile()
 	cacheFile.Outdated = []string{"2"} // this is the Id of the opensuse:13.2 image
 	cacheFile.Other = []string{"3"}    // this is the Id of the ubuntu:latest image
