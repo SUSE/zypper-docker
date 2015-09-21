@@ -127,6 +127,27 @@ func setupTlsConfig() (*tls.Config, error) {
 	return tlsconfig.Client(tlsOptions)
 }
 
+// humanizeCommandError tries to print an explicit and useful message for a
+// failing command inside of a docker container (based on the given image).
+func humanizeCommandError(cmd, image string, err error) {
+	var reason string
+
+	switch err.(type) {
+	case dockerError:
+		de := err.(dockerError)
+		if de.ExitCode == 127 {
+			reason = "command not found"
+		} else {
+			reason = err.Error()
+		}
+	default:
+		reason = err.Error()
+	}
+
+	msg := "Could not execute command '%s' successfully in image '%s': %v.\n"
+	log.Printf(msg, cmd, image, reason)
+}
+
 // Looks for the specified command inside of a Docker image.
 // The given image string is just the ID of said image.
 // It returns true if the command was successful, false otherwise.
@@ -136,7 +157,7 @@ func checkCommandInImage(img, cmd string) bool {
 	defer removeContainer(containerId)
 
 	if err != nil {
-		log.Println(err)
+		humanizeCommandError(cmd, img, err)
 		return false
 	}
 	return true

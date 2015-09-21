@@ -27,7 +27,7 @@ func psCmd(ctx *cli.Context) {
 	client := getDockerClient()
 	containers, err := client.ListContainers(false, false, "")
 	if err != nil {
-		log.Println("Cannot list running containers", err)
+		log.Printf("Cannot list running containers: %v\n", err)
 		exitWithCode(1)
 		return
 	}

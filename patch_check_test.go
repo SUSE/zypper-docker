@@ -58,7 +58,7 @@ func TestPatchCheckInvalidError(t *testing.T) {
 	if testCommand() != "zypper pchk" {
 		t.Fatalf("Wrong command!")
 	}
-	if !strings.Contains(buffer.String(), "Error: Command exited with status 2") {
+	if !strings.Contains(buffer.String(), "Could not execute command 'zypper pchk' successfully in image 'opensuse:13.2': Command exited with status 2.") {
 		t.Fatalf("Wrong error message")
 	}
 	if exitInvocations != 1 {

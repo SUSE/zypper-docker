@@ -58,6 +58,8 @@ func newApp() *cli.App {
 		cli.ShowAppHelp(context)
 	}
 
+	app.Before = setupLogger
+
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "n, non-interactive",
@@ -75,30 +77,50 @@ func newApp() *cli.App {
 			Name:  "f, force",
 			Usage: "Ignore all the local caches",
 		},
+		cli.BoolFlag{
+			Name:  "d, debug",
+			Usage: "Show all the logged messages on stdout",
+		},
 	}
 	app.Commands = []cli.Command{
 		{
-			Name:   "images",
-			Usage:  "List all the images based on either OpenSUSE or SLES",
+			Name:  "images",
+			Usage: "List all the images based on either OpenSUSE or SLES",
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[images] ")
+				return nil
+			},
 			Action: imagesCmd,
 		},
 		{
 			Name:    "list-updates",
 			Aliases: []string{"lu"},
 			Usage:   "List all the available updates",
-			Action:  listUpdatesCmd,
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[list-updates] ")
+				return nil
+			},
+			Action: listUpdatesCmd,
 		},
 		{
 			Name:    "list-updates-container",
 			Aliases: []string{"luc"},
 			Usage:   "List all the available updates for the given container",
-			Action:  listUpdatesContainerCmd,
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[list-updates-container] ")
+				return nil
+			},
+			Action: listUpdatesContainerCmd,
 		},
 		{
 			Name:    "update",
 			Aliases: []string{"up"},
 			Usage:   "Install the available updates",
 			Action:  updateCmd,
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[update] ")
+				return nil
+			},
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "l, auto-agree-with-licenses",
@@ -129,6 +151,10 @@ func newApp() *cli.App {
 			Aliases: []string{"lp"},
 			Usage:   "List all the available patches",
 			Action:  listPatchesCmd,
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[list-patches] ")
+				return nil
+			},
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "bugzilla",
@@ -162,6 +188,10 @@ func newApp() *cli.App {
 			Aliases: []string{"lpc"},
 			Usage:   "List all the available patches for the given container",
 			Action:  listPatchesContainerCmd,
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[list-patches-container] ")
+				return nil
+			},
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "b, bugzilla",
@@ -194,6 +224,10 @@ func newApp() *cli.App {
 			Name:   "patch",
 			Usage:  "Install the available patches",
 			Action: patchCmd,
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[patch] ")
+				return nil
+			},
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "bugzilla",
@@ -243,17 +277,29 @@ func newApp() *cli.App {
 			Name:    "patch-check",
 			Aliases: []string{"pchk"},
 			Usage:   "Check for patches",
-			Action:  patchCheckCmd,
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[patch-check] ")
+				return nil
+			},
+			Action: patchCheckCmd,
 		},
 		{
 			Name:    "patch-check-container",
 			Aliases: []string{"pchkc"},
 			Usage:   "Check for patches available for the given container",
-			Action:  patchCheckContainerCmd,
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[patch-check-container] ")
+				return nil
+			},
+			Action: patchCheckContainerCmd,
 		},
 		{
-			Name:   "ps",
-			Usage:  "List all the containers that are outdated",
+			Name:  "ps",
+			Usage: "List all the containers that are outdated",
+			Before: func(ctx *cli.Context) error {
+				log.SetPrefix("[ps] ")
+				return nil
+			},
 			Action: psCmd,
 		},
 	}
