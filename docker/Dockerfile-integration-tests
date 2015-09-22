@@ -4,12 +4,14 @@ MAINTAINER Flavio Castelli <fcastelli@suse.com>
 RUN zypper ar obs://Virtualization:containers/openSUSE_13.2 containers
 RUN zypper --gpg-auto-import-keys ref
 RUN zypper -n in --no-recommends \
+  ca-certificates-mozilla \
   docker-client \
   ruby \
   ruby-devel \
   libffi48-devel \
   make \
   gcc
+RUN zypper -n up ca-certificates-mozilla ca-certificates
 
 WORKDIR /code
 
