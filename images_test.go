@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -29,18 +30,18 @@ import (
 func TestMain(m *testing.M) {
 	status := 0
 
-	cache := os.Getenv("XDG_CACHE_HOME")
+	home, umask := os.Getenv("HOME"), syscall.Umask(0)
 	abs, _ := filepath.Abs(".")
 	test := filepath.Join(abs, "test")
-	path := filepath.Join(test, cacheName)
-
-	_ = os.Setenv("XDG_CACHE_HOME", test)
 
 	defer func() {
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-		_ = os.Remove(path)
+		_ = os.Setenv("HOME", home)
+		syscall.Umask(umask)
+		_ = os.Remove(filepath.Join(test, ".cache", cacheName))
 		os.Exit(status)
 	}()
+
+	_ = os.Setenv("HOME", test)
 
 	status = m.Run()
 }
@@ -120,15 +121,6 @@ func TestImagesListUsingCache(t *testing.T) {
 	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
 	setupTestExitStatus()
 
-	cache := os.Getenv("XDG_CACHE_HOME")
-	abs, _ := filepath.Abs(".")
-	test := filepath.Join(abs, "test")
-
-	defer func() {
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-	}()
-	_ = os.Setenv("XDG_CACHE_HOME", test)
-
 	// Dump some dummy value.
 	cd := getCacheFile()
 	cd.Suse = []string{"1"}
@@ -167,15 +159,6 @@ func TestImagesListUsingCache(t *testing.T) {
 func TestImagesForce(t *testing.T) {
 	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
 	setupTestExitStatus()
-
-	cache := os.Getenv("XDG_CACHE_HOME")
-	abs, _ := filepath.Abs(".")
-	test := filepath.Join(abs, "test")
-
-	defer func() {
-		_ = os.Setenv("XDG_CACHE_HOME", cache)
-	}()
-	_ = os.Setenv("XDG_CACHE_HOME", test)
 
 	// Dump some dummy value.
 	cd := getCacheFile()

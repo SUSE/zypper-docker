@@ -23,15 +23,9 @@ all set to false by default:
 
 Note that some of these commands might be expensive. That's why some of the
 needed data is cached into a single file. This file is named
-`docker-zypper.json` and it can be located in either of these locations:
-
-1. $XDG\_CACHE\_HOME
-2. $XDG\_DATA\_DIRS
-3. $HOME/.cache
-4. /tmp
-
-The application will first try to allocate the cache on `$XDG_CACHE_HOME`. If
-it fails, it will try it on the next location, and so on.
+`docker-zypper.json`. This cache file normally resides inside of the
+`$HOME/.cache` directory. However, if there is some problem with this
+directory, it might get saved inside of the `/tmp` directory.
 
 ## Targetting Docker daemons running on remote machines
 
@@ -61,12 +55,6 @@ opensuse            latest              c7ff47bc7ebb        13 days ago         
 ```
 
 ## Operations available against Docker images
-
-**TODO**
-
-  * Specify the name of the final image `-t` like `docker build` maybe?
-  * Should we handle non-interactive stuff?
-
 
 ### List all the updates available
 
