@@ -307,13 +307,14 @@ func removeContainer(id string) {
 	}
 }
 
-// Create a Docker image from the container specified by containerId
+// Create a Docker image from the container specified by containerId and
+// returns the image ID of the created one.
 // repo is the name of the reposity, hence it includes also the namespace (eg: suse/sle11sp3)
 // tag is the version of the image (eg: 1.0.0)
-func commitContainerToImage(containerId, repo, tag, comment, author string) error {
+func commitContainerToImage(containerId, repo, tag, comment, author string) (string, error) {
 	client := getDockerClient()
-	_, err := client.Commit(containerId, &dockerclient.ContainerConfig{}, repo, tag, comment, author)
-	return err
+	imageId, err := client.Commit(containerId, &dockerclient.ContainerConfig{}, repo, tag, comment, author)
+	return imageId, err
 }
 
 // Spawns a container from the specified image, runs the specified command inside
@@ -321,18 +322,19 @@ func commitContainerToImage(containerId, repo, tag, comment, author string) erro
 // The name of the new image is specified via target_repo and target_tag.
 // The container is always deleted.
 // If something goes wrong an error message is returned.
-func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, author string) error {
+// Returns the ID of the new image on success.
+func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, author string) (string, error) {
 	containerId, err := runCommandInContainer(img, []string{cmd}, true)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	err = commitContainerToImage(containerId, target_repo, target_tag, comment, author)
+	imageId, err := commitContainerToImage(containerId, target_repo, target_tag, comment, author)
 
 	// always remove the container
 	removeContainer(containerId)
 
-	return err
+	return imageId, err
 }
 
 // Looks for the specified running container and makes sure it's running either

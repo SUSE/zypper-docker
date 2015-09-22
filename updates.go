@@ -74,7 +74,7 @@ func updateCmd(ctx *cli.Context) {
 	cmd := fmt.Sprintf(
 		"zypper ref && zypper -n %v",
 		cmdWithFlags("up", ctx, boolFlags, toIgnore))
-	err = runCommandAndCommitToImage(
+	newImgId, err := runCommandAndCommitToImage(
 		img,
 		repo,
 		tag,
@@ -90,7 +90,7 @@ func updateCmd(ctx *cli.Context) {
 	log.Printf("%s:%s successfully created", repo, tag)
 
 	cache := getCacheFile()
-	if err := cache.addImageToListOfOutdatedOnes(img); err != nil {
+	if err := cache.updateCacheAfterUpdate(img, newImgId); err != nil {
 		log.Println("Cannot add image details to zypper-docker cache")
 		log.Println("This will break the \"zypper-docker ps\" feature")
 		log.Println(err)
