@@ -1,8 +1,10 @@
 FROM opensuse:13.2
 MAINTAINER Flavio Castelli <fcastelli@suse.com>
 
+RUN zypper ar obs://Virtualization:containers/openSUSE_13.2 containers
+RUN zypper --gpg-auto-import-keys ref
 RUN zypper -n in --no-recommends \
-  docker \
+  docker-client \
   ruby \
   ruby-devel \
   libffi48-devel \
