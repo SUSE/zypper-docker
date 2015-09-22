@@ -284,7 +284,7 @@ func TestRunCommandAndCommitToImageSuccess(t *testing.T) {
 	var err error
 
 	capture.All(func() {
-		err = runCommandAndCommitToImage(
+		_, err = runCommandAndCommitToImage(
 			"source",
 			"new_repo",
 			"new_tag",
@@ -303,7 +303,7 @@ func TestRunCommandAndCommitToImageRunFailure(t *testing.T) {
 	var err error
 
 	capture.All(func() {
-		err = runCommandAndCommitToImage(
+		_, err = runCommandAndCommitToImage(
 			"source",
 			"new_repo",
 			"new_tag",
@@ -325,7 +325,7 @@ func TestRunCommandAndCommitToImageCommitFailure(t *testing.T) {
 	var err error
 
 	capture.All(func() {
-		err = runCommandAndCommitToImage(
+		_, err = runCommandAndCommitToImage(
 			"source",
 			"new_repo",
 			"new_tag",

@@ -214,36 +214,40 @@ func TestFlush(t *testing.T) {
 	}
 }
 
-func TestAddImageToListOfOutdatedOnesFailsBecauseOfListError(t *testing.T) {
+func TestUpdateCacheAfterUpdateFailsBecauseOfListError(t *testing.T) {
 	cache := cachedData{}
 
 	dockerClient = &mockClient{listFail: true}
-	err := cache.addImageToListOfOutdatedOnes("1")
+	err := cache.updateCacheAfterUpdate("1", "2")
 	if err == nil {
 		t.Fatal("Expected failure")
 	}
 }
 
-func TestAddImageToListOfOutdatedOnesFailsBecauseOfListEmpty(t *testing.T) {
+func TestUpdateCacheAfterUpdateFailsBecauseOfListEmpty(t *testing.T) {
 	cache := cachedData{}
 
 	dockerClient = &mockClient{listEmpty: true}
-	err := cache.addImageToListOfOutdatedOnes("1")
+	err := cache.updateCacheAfterUpdate("1", "2")
 	if err == nil {
 		t.Fatal("Expected failure")
 	}
 }
 
-func TestAddImageToListOfOutdatedOnesNothingDoneWhenTheImageIsAlreadyKnown(t *testing.T) {
+func TestUpdateCacheAfterUpdateNothingDoneWhenTheImageIsAlreadyKnown(t *testing.T) {
 	cache := cachedData{
-		Outdated: []string{"35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01"}}
+		Outdated: []string{"35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01"},
+		Suse:     []string{"2"}}
 
 	dockerClient = &mockClient{listEmpty: true}
-	err := cache.addImageToListOfOutdatedOnes("opensuse:13.2")
+	err := cache.updateCacheAfterUpdate("opensuse:13.2", "2")
 	if err == nil {
 		t.Fatal("Expected failure")
 	}
 	if len(cache.Outdated) != 1 {
+		t.Fatal("Nothing should have changed")
+	}
+	if len(cache.Suse) != 1 {
 		t.Fatal("Nothing should have changed")
 	}
 }
