@@ -108,7 +108,7 @@ func TestCacheBadJson(t *testing.T) {
 	if !file.Valid {
 		t.Fatal("It should be valid")
 	}
-	if !strings.Contains(buffer.String(), "Cache file has a bad format!") {
+	if !strings.Contains(buffer.String(), "Decoding of cache file failed") {
 		t.Fatal("Wrong log")
 	}
 }

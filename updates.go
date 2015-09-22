@@ -21,10 +21,12 @@ import (
 	"github.com/codegangsta/cli"
 )
 
+// zypper-docker list-updates [flags] <image>
 func listUpdatesCmd(ctx *cli.Context) {
 	listUpdates(ctx.Args().First(), ctx)
 }
 
+// zypper-docker list-updates-container [flags] <container>
 func listUpdatesContainerCmd(ctx *cli.Context) {
 	containerId := ctx.Args().First()
 	container, err := checkContainerRunning(containerId)
@@ -37,12 +39,15 @@ func listUpdatesContainerCmd(ctx *cli.Context) {
 	listUpdates(container.Image, ctx)
 }
 
+// listUpdates lists all the updates available for the given image with the
+// given arguments.
 func listUpdates(image string, ctx *cli.Context) {
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
 	_ = runStreamedCommand(image, "lu", false)
 }
 
+// zypper-docker update [flags] image new-image
 func updateCmd(ctx *cli.Context) {
 	if len(ctx.Args()) != 2 {
 		log.Println("Wrong invocation")

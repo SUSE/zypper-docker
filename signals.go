@@ -34,10 +34,10 @@ func listenSignals() {
 			switch sig {
 			case syscall.SIGQUIT, syscall.SIGINT, syscall.SIGTSTP,
 				syscall.SIGTERM:
-				log.Printf("Shutting down gracefully.")
+				log.Printf("Signal '%v' received: shutting down gracefully.", sig)
 				killChannel <- true
 			default:
-				log.Printf("Signal not handled. Doing nothing...")
+				log.Printf("Signal '%v' not handled. Doing nothing...", sig)
 			}
 		}
 	}()

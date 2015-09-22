@@ -40,7 +40,8 @@ func listPatchesCmd(ctx *cli.Context) {
 	listPatches(ctx.Args().First(), ctx)
 }
 
-// zypper-docker list-patches [flags] <image>
+// listParches calls the `zypper lp` command for the given image and the given
+// arguments.
 func listPatches(image string, ctx *cli.Context) {
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.

@@ -37,7 +37,8 @@ func patchCheckContainerCmd(ctx *cli.Context) {
 	patchCheck(container.Image, ctx)
 }
 
-// zypper-docker patch-check [flags] <image>
+// patchCheck calls the `zypper pchk` command for the given image and the given
+// arguments.
 func patchCheck(image string, ctx *cli.Context) {
 	err := runStreamedCommand(image, "pchk", true)
 	if err == nil {
@@ -57,6 +58,6 @@ func patchCheck(image string, ctx *cli.Context) {
 			return
 		}
 	}
-	log.Printf("Error: %v\n", err)
+	humanizeCommandError("zypper pchk", image, err)
 	exitWithCode(1)
 }
