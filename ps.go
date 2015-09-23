@@ -44,19 +44,24 @@ func psCmd(ctx *cli.Context) {
 	}
 
 	for _, container := range containers {
-		imageId, err := getImageId(container.Image)
-		if err != nil {
-			log.Printf("Cannot analyze container %s [%s]: %s", container.Id, container.Image, err)
-			unknown = append(unknown, container)
-			continue
-		}
+		select {
+		case <-killChannel:
+			return
+		default:
+			imageId, err := getImageId(container.Image)
+			if err != nil {
+				log.Printf("Cannot analyze container %s [%s]: %s", container.Id, container.Image, err)
+				unknown = append(unknown, container)
+				continue
+			}
 
-		if exists, suse := cache.idExists(imageId); exists && !suse {
-			notSuse = append(notSuse, container)
-		} else if cache.isImageOutdated(imageId) {
-			matches = append(matches, container)
-		} else {
-			unknown = append(unknown, container)
+			if exists, suse := cache.idExists(imageId); exists && !suse {
+				notSuse = append(notSuse, container)
+			} else if cache.isImageOutdated(imageId) {
+				matches = append(matches, container)
+			} else {
+				unknown = append(unknown, container)
+			}
 		}
 	}
 
