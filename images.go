@@ -43,18 +43,23 @@ func printImages(imgs []*dockerclient.Image) {
 
 	cache := getCacheFile()
 	for counter, img := range imgs {
-		fmt.Printf("Inspecting image %d/%d\r", (counter + 1), len(imgs))
-		if cache.isSUSE(img.Id) {
-			if len(img.RepoTags) < 1 {
-				continue
-			}
+		select {
+		case <-killChannel:
+			return
+		default:
+			fmt.Printf("Inspecting image %d/%d\r", (counter + 1), len(imgs))
+			if cache.isSUSE(img.Id) {
+				if len(img.RepoTags) < 1 {
+					continue
+				}
 
-			id := stringid.TruncateID(img.Id)
-			size := units.HumanSize(float64(img.VirtualSize))
-			for _, tag := range img.RepoTags {
-				t := strings.SplitN(tag, ":", 2)
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s ago\t%s\n", t[0], t[1], id,
-					timeAgo(img.Created), size)
+				id := stringid.TruncateID(img.Id)
+				size := units.HumanSize(float64(img.VirtualSize))
+				for _, tag := range img.RepoTags {
+					t := strings.SplitN(tag, ":", 2)
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s ago\t%s\n", t[0], t[1], id,
+						timeAgo(img.Created), size)
+				}
 			}
 		}
 	}
