@@ -9,24 +9,6 @@ images.
 
 [![asciicast](https://asciinema.org/a/26248.png)](https://asciinema.org/a/26248)
 
-## Generic operations
-
-This tool supports some of the global options as defined by zypper. They are
-all set to false by default:
-
-* `-n`, `--non-interactive`
-* `--no-gpg-checks`
-* `--gpg-auto-import-keys`
-* `-f`, `--force`: ignore cached values.
-
-## Local cache
-
-Note that some of these commands might be expensive. That's why some of the
-needed data is cached into a single file. This file is named
-`docker-zypper.json`. This cache file normally resides inside of the
-`$HOME/.cache` directory. However, if there is some problem with this
-directory, it might get saved inside of the `/tmp` directory.
-
 ## Targetting Docker daemons running on remote machines
 
 `zypper-docker` can interact with docker daemons running on remote machines.
@@ -38,11 +20,13 @@ remote Docker host and setup the local environment variables.
 
 [![asciicast](https://asciinema.org/a/26244.png)](https://asciinema.org/a/26244)
 
+## Commands
 
-### List all the available images:
+### Listing images
 
-List all the Docker images that are based on openSUSE or SLE (that is, any
-system with the `zypper` command installed). Here's an example:
+The **images** command is similar to the one from Docker, but this one only
+lists images that are based on either openSUSE or SUSE Linux Enterprise. Here's
+an example:
 
 ```
 mssola:~ $ docker images
@@ -54,32 +38,34 @@ REPOSITORY          TAG                 IMAGE ID            CREATED             
 opensuse            latest              c7ff47bc7ebb        13 days ago          254.5 MB
 ```
 
-## Operations available against Docker images
+### Updates
 
-### List all the updates available
-
-We can list the updates available with the following command:
+First of all, you can check whether an image has pending updates or not by
+using the **list-updates** command. The usage is as follows:
 
 ```
-$ zypper docker list-updates (lu) [options] image
+$ zypper docker list-updates (lu) <image>
 ```
 
-Note that even if zypper supports some options, we don't because they do not
-really apply to this tool.
+Similarly, there is the **list-updates-container** that does the same but
+targeting an already running container. Note that this command does *not* touch
+the running container, but it just detects the image in which the running
+container is based on, and then it just performs **list-updates** for the
+according image. There's a short video about **list-updates** in action here:
 
 [![asciicast](https://asciinema.org/a/25310.png)](https://asciinema.org/a/25310)
 
-### Install updates
-
-Install all available updates.
+But more important than listing updates is to actually install them. You can do
+this with the **update** command. It has the following usage:
 
 ```
-$ zypper docker update (up) [options] image target
+$ zypper docker update (up) [options] <image> <new-image>
 ```
 
-The command will create a new Docker image as specified by `target` (e.g.: `flavio/redis:1.1.0`).
-
-The command will refuse to overwrite an already existing Docker image.
+If there are updates, this command will create a new Docker image based on
+the given image, but with the needed updates already installed. Therefore, note
+that `zypper-docker` will *never* change anything from the old image. More than
+that, this command will refuse to overwrite an already existing Docker image.
 
 The available options are:
 
@@ -100,98 +86,124 @@ The available options are:
 * `--replacefiles`: Install the packages even if they replace files from
   other, already installed, packages. Default is to treat file conflicts as an
   error.
+* `--author`: commit author to associate with the new layer. By default it
+  uses the canonical name of the current user.
+* `--message`: commit message to be associated with the new layer. If no
+  message was provided, zypper-docker will write: "[zypper-docker] update".
+
+You can find a small video about the **update** Command here:
 
 [![asciicast](https://asciinema.org/a/25312.png)](https://asciinema.org/a/25312)
 
-### List patches available
+### Patches
 
-We can list the patches available with the following command:
+The operations that can be done for patches is very similar to the ones that
+can be done for updates. Therefore, the **list-patches** and the
+**list-patches-container** commands are almost identical to the ones for
+updates. In particular, these are their usage:
 
 ```
-zypper docker list-patches (lp) [options] image
+$ zypper docker list-patches (lp) [options] image
+
+$ zypper docker list-patches-container (lpc) [options] image
 ```
+
+As you will notice, both of these commands accept some options. For these
+commands the user can filter the results according to the following attributes:
 
 The available options are:
-* `-b, --bugzilla[=#]`: List available needed patches for all Bugzilla issues,
+* `--bugzilla[=#]`: List available needed patches for all Bugzilla issues,
   or issues whose number matches the given string.
 * `--cve[=#]`: List available needed patches for all CVE issues, or issues
   whose number matches the given string.
 * `--date YYYY-MM-DD`: List patches issued up to, but not including, the
   specified date.
-* `-g, --category category`: List available patches in the specified category.
 * `--issues[=string]`: Look for issues whose number, summary, or description
   matches the specified string. Issues found by number are displayed
   separately from those found by descriptions. In the latter case, use zypper
   patch-info patchname to get information about issues the patch fixes.
+* `-g, --category category`: List available patches in the specified category.
+
+You can find a small video on listing patches here:
 
 [![asciicast](https://asciinema.org/a/25311.png)](https://asciinema.org/a/25311)
 
-### Check for patches
-
-Check for patches. Displays a count of applicable patches and how many of them
-have the security category.
-
-### Install patches
-
-Install all available needed patches.
+Interestingly enough, `zypper` can also just check whether there are patches
+available at all. This is really convenient for using `zypper` inside of
+scripts. `zypper-docker` also implements this in the form of the
+**patch-check** command. This is its usage:
 
 ```
-zypper docker patch [options] image
+$ zypper docker patch-check (pchk) image
 ```
 
-**NOTE WELL**
-If there are patches that affect the package management itself, those will be
-installed first and you will be asked to run the patch command again.
+This command will exit with a status code of **100** if there are patches
+available, and **101** if there are not.
 
+Besides listing and checking for patches, you can also of course install them.
+You do that with the **patch** command. It has the following usage:
 
-Options to port:
-  * `-b, --bugzilla #`: Install patch fixing a Bugzilla issue specified by
-    number. Use list-patches --bugzilla command to get a list of available
-    needed patches for specific issues.
-  * `--cve #`: Install patch fixing a MITRE’s CVE issue specified by number.
-    Use list-patches --cve command to get a list of available needed patches for
-    specific issues.
-  * `--date YYYY-MM-DD`: Install patches issued up to, but not including, the
-    specified date.
-  * `-g, --category category`: Install all patches in the specified category.
-    Use list-patches --category command to get a list of available patches for
-    a specific category.
-  * `--skip-interactive`: Skip interactive patches.
-  * `--with-interactive`: Avoid skipping of interactive patches when in
-    non-interactive mode.
-  * `-l, --auto-agree-with-licenses`: See the update command for description of
-    this option.
-  * `--no-recommends`: By default, zypper installs also packages recommended by
-    the requested ones. This option causes the recommended packages to be
-    ignored and only the required ones to be installed.
-  * `--replacefiles`: Install the packages even if they replace files from
-    other, already installed, packages. Default is to treat file conflicts as an
-    error.
-  * `--download-as-needed`: disables the fileconflict check because access tos
-     all packages filelists is needed in advance in order to perform the check.
+```
+$ zypper docker patch [options] image new-image
+```
 
-Options to drop:
-  * `-r, --repo alias|name|#|URI`: Work only with the repository specified by
-    the alias, name, number, or URI. This option can be used multiple times.
+Similarly to the **update** command, this command will not change the original
+change, but it creates a new patched image. This command also takes into
+account that the new image does not overwrite an already existing one. The
+arguments that can be passed to this command are as follows:
 
-Options we might drop:
-  * `--details`: Show the detailed installation summary.
+* `--bugzilla #`: Install patch fixing a Bugzilla issue specified by
+  number. Use list-patches --bugzilla command to get a list of available
+  needed patches for specific issues.
+* `--cve #`: Install patch fixing a MITRE’s CVE issue specified by number.
+  Use list-patches --cve command to get a list of available needed patches for
+  specific issues.
+* `--date YYYY-MM-DD`: Install patches issued up to, but not including, the
+  specified date.
+* `-g, --category category`: Install all patches in the specified category.
+  Use list-patches --category command to get a list of available patches for
+  a specific category.
+* `--skip-interactive`: Skip interactive patches.
+* `--with-interactive`: Avoid skipping of interactive patches when in
+  non-interactive mode.
+* `-l, --auto-agree-with-licenses`: See the update command for description of
+  this option.
+* `--no-recommends`: By default, zypper installs also packages recommended by
+  the requested ones. This option causes the recommended packages to be
+  ignored and only the required ones to be installed.
+* `--replacefiles`: Install the packages even if they replace files from
+  other, already installed, packages. Default is to treat file conflicts as an
+  error.
+* `--author`: commit author to associate with the new layer. By default it
+  uses the canonical name of the current user.
+* `--message`: commit message to be associated with the new layer. If no
+  message was provided, zypper-docker will write: "[zypper-docker] patch".
 
-**TODO investigate:** This command also accepts the download-and-install mode options described in the install command description.
-**TODO:** handle interactive mode
+You can find a small video showing off the **patch** command here:
 
 [![asciicast](https://asciinema.org/a/25315.png)](https://asciinema.org/a/25315)
 
-## Operations available against Docker containers
+### List all the missing updates
 
-### List all the missing updates:
+Lastly, `zypper-docker` also has the **ps** command. This command traverses
+through all the running containers and investigates which of them are based on
+images that have been recently upgraded. Therefore, this command does *not*
+provide feedback about *all* the possible SUSE containers, only the ones that
+have been updated/patched with the **update** and **patch** commands.
 
-List all the containers that are based on an image recently upgraded by
-zypper-docker.
+This command doesn't have any options, so the usage is quite straight-forward:
 
 ```
-zypper docker ps
+$ zypper docker ps
 ```
+
+## Local cache
+
+Note that some of these commands might be expensive. That's why some of the
+needed data is cached into a single file. This file is named
+`docker-zypper.json`. This cache file normally resides inside of the
+`$HOME/.cache` directory. However, if there is some problem with this
+directory, it might get saved inside of the `/tmp` directory.
 
 ## Development environment
 
@@ -209,62 +221,30 @@ To build these docker images type:
 $ make build
 ```
 
-### Run the tests against Go stable
+### Run the tests
 
-To run the test suite and the code analysis tools against Go stable type:
-
-```
-$ make test_stable
-```
-
-### Run the tests against Go tip
-
-To run the test suite and the code analysis tools against Go tip type:
-
-```
-$ make test_tip
-```
-
-### Run the tests against Go stable and Go tip
-
-To run the test suite and the code analysis tools against Go stable and Go tip
+To run the test suite and the code analysis tools against all Go versions,
 type:
 
 ```
 $ make test
 ```
 
-## Testing
-
-This project is covered both by unit and integration tests.
-
-### Unit tests
-
-Unit tests are written in Go and can be invoked by doing:
-
-```
-make test
-```
-
-This will build `zypper-docker` using different Go versions and trigger the unit tests.
-
 ### Integration tests
 
-The integration tests invoke the `zypper-docker` binary and test different scenarios.
-
-They are written using RSpec and are located under `/spec`.
-
-The integration tests can be started by doing:
+The integration tests invoke the `zypper-docker` binary and test different
+scenarios. They are written using RSpec and are located under `/spec`. The
+integration tests can be started by doing:
 
 ```
 make test_integration
 ```
 
 This will build a Docker image containing all the software (RSpec, plus other
-Ruby gems) required to run the tests.
-The image will be started, the socket used by the Docker daemon on the host will
-be mounted inside of the new container. That makes possible to invoke the docker
-client from within the container itself.
+Ruby gems) required to run the tests. The image will be started, the socket
+used by the Docker daemon on the host will be mounted inside of the new
+container. That makes possible to invoke the docker client from within the
+container itself.
 
 ## License
 

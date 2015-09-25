@@ -28,7 +28,7 @@ openSUSE/SUSE Linux Enterprise, use the **images** command.
   Install the packages even if they replace files from other, already installed, packages. Default is to treat file conflicts as an error.
 
 **--author**
-  Commit author to associate with the new layer (e.g., \"John Doe <john.doe@example.com>\").
+  Commit author to associate with the new layer (e.g., \"John Doe <john.doe@example.com>\"). It defaults to the user's system login currently being used.
 
 **--message**
   Commit message to associated with the new layer. If no message was provided, **zypper-docker** will write: "[zypper-docker] update".
