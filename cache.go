@@ -162,7 +162,6 @@ func getCacheFile() *cachedData {
 	_ = file.Close()
 	if err != nil {
 		log.Printf("Decoding of cache file failed: %v\n", err)
-		// TODO: (mssola) shouldn't this be invalid ?
 		return &cachedData{Valid: true, Path: file.Name()}
 	}
 	return cd

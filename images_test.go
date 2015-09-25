@@ -46,45 +46,17 @@ func TestMain(m *testing.M) {
 	status = m.Run()
 }
 
-func TestImagesCmdFail(t *testing.T) {
-	dockerClient = &mockClient{listFail: true}
-	setupTestExitStatus()
+// IMAGES
 
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	imagesCmd(testContext([]string{}, false))
-
-	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 2 {
-		t.Fatal("Wrong number of lines")
+func TestImagesCommand(t *testing.T) {
+	cases := testCases{
+		{"List fail", &mockClient{listFail: true}, 1, []string{}, false, "Cannot proceed safely: List Failed", ""},
+		{"Empty list of images", &mockClient{listEmpty: true}, 0, []string{}, false, "", "REPOSITORY"},
 	}
-	if !strings.Contains(buffer.String(), "List Failed") {
-		t.Fatal("It should've logged something expected\n")
-	}
-	if exitInvocations != 1 && lastCode != 1 {
-		t.Fatal("Wrong exit code")
-	}
+	cases.run(t, imagesCmd, "", "")
 }
 
-func TestImagesListEmpty(t *testing.T) {
-	dockerClient = &mockClient{listEmpty: true}
-	setupTestExitStatus()
-
-	res := capture.All(func() { imagesCmd(testContext([]string{}, false)) })
-
-	lines := strings.Split(string(res.Stdout), "\n")
-	if len(lines) != 3 {
-		t.Fatal("Wrong number of lines")
-	}
-	if !strings.HasPrefix(lines[1], "REPOSITORY") {
-		t.Fatal("Wrong contents")
-	}
-	if exitInvocations != 1 && lastCode != 0 {
-		t.Fatal("Wrong exit code")
-	}
-}
-
-func TestImagesListOk(t *testing.T) {
+func TestImagesCommandList(t *testing.T) {
 	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
 	setupTestExitStatus()
 
@@ -116,6 +88,8 @@ func TestImagesListOk(t *testing.T) {
 		t.Fatal("Wrong exit code")
 	}
 }
+
+// Special tests for the IMAGES command.
 
 func TestImagesListUsingCache(t *testing.T) {
 	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
@@ -190,6 +164,8 @@ func TestImagesForce(t *testing.T) {
 		t.Fatal("Wrong exit code")
 	}
 }
+
+// Helper functions in the images.go file.
 
 func TestCheckImageListFail(t *testing.T) {
 	dockerClient = &mockClient{listFail: true}

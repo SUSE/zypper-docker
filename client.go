@@ -168,16 +168,15 @@ func checkCommandInImage(img, cmd string) bool {
 // burden of removing the resulting container, etc.
 //
 // The image has to be provided, otherwise this function will exit with 1 as
-// the status code and it will log that no image was provided. The given
-// command will be executed as "zypper ref && zypper <command>".
+// the status code and it will both log and print that no image was provided.
+// The given command will be executed as "zypper ref && zypper <command>".
 //
 // If getError is set to false, then this function will always return nil.
 // Otherwise, it will return the error as given by the `runCommandInContainer`
 // function.
 func runStreamedCommand(img, cmd string, getError bool) error {
 	if img == "" {
-		log.Println("Error: no image name specified.")
-		exitWithCode(1)
+		logAndFatalf("Error: no image name specified.\n")
 		return nil
 	}
 
@@ -366,7 +365,7 @@ func checkContainerRunning(id string) (*dockerclient.Container, error) {
 
 	containers, err := client.ListContainers(false, false, "")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error while fetching running containers: %v", err)
 	}
 
 	for _, c := range containers {
@@ -387,7 +386,7 @@ func checkContainerRunning(id string) (*dockerclient.Container, error) {
 	}
 
 	if container == nil {
-		return nil, fmt.Errorf("Cannot find running container %s", id)
+		return nil, fmt.Errorf("Cannot find running container: %s", id)
 	}
 
 	cache := getCacheFile()

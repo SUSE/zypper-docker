@@ -15,12 +15,16 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/codegangsta/cli"
 )
+
+// Whether zypper-docker is running in debug mode or not.
+var debugMode = false
 
 // logFileName stores the name of the log file when logging is not done through
 // the standard output.
@@ -31,6 +35,7 @@ func setupLogger(ctx *cli.Context) error {
 	// If the debug flag is set, just print the log to stdout.
 	if ctx.GlobalBool("debug") {
 		log.SetOutput(os.Stdout)
+		debugMode = true
 		return nil
 	}
 
@@ -45,4 +50,19 @@ func setupLogger(ctx *cli.Context) error {
 		log.SetOutput(file)
 	}
 	return nil
+}
+
+// Log and print to the stdout with the same message. If the `-d, --debug` flag
+// has been set, then the message is only printed once to stdout.
+func logAndPrintf(fmtString string, args ...interface{}) {
+	log.Printf(fmtString, args...)
+	if !debugMode {
+		fmt.Printf(fmtString, args...)
+	}
+}
+
+// logAndFatalf acts just like logAndPrintf but calls `exitWithCode(1)`.
+func logAndFatalf(fmtString string, args ...interface{}) {
+	logAndPrintf(fmtString, args...)
+	exitWithCode(1)
 }

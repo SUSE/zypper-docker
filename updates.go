@@ -23,20 +23,19 @@ import (
 
 // zypper-docker list-updates [flags] <image>
 func listUpdatesCmd(ctx *cli.Context) {
+	log.SetPrefix("[list-updates] ")
 	listUpdates(ctx.Args().First(), ctx)
 }
 
 // zypper-docker list-updates-container [flags] <container>
 func listUpdatesContainerCmd(ctx *cli.Context) {
+	log.SetPrefix("[list-updates-container] ")
 	containerId := ctx.Args().First()
-	container, err := checkContainerRunning(containerId)
-	if err != nil {
-		log.Println(err)
-		exitWithCode(1)
-		return
+	if container, err := checkContainerRunning(containerId); err != nil {
+		logAndFatalf("%v.\n", err)
+	} else {
+		listUpdates(container.Image, ctx)
 	}
-
-	listUpdates(container.Image, ctx)
 }
 
 // listUpdates lists all the updates available for the given image with the
@@ -49,23 +48,21 @@ func listUpdates(image string, ctx *cli.Context) {
 
 // zypper-docker update [flags] image new-image
 func updateCmd(ctx *cli.Context) {
+	log.SetPrefix("[update] ")
 	if len(ctx.Args()) != 2 {
-		log.Println("Wrong invocation")
-		exitWithCode(1)
+		logAndFatalf("Wrong invocation: expected 2 arguments, %d given.\n", len(ctx.Args()))
 		return
 	}
 
 	img := ctx.Args()[0]
 	repo, tag, err := parseImageName(ctx.Args()[1])
 	if err != nil {
-		log.Println(err)
-		exitWithCode(1)
+		logAndFatalf("%v\n", err)
 		return
 	}
 
 	if err := preventImageOverwrite(repo, tag); err != nil {
-		log.Println(err)
-		exitWithCode(1)
+		logAndFatalf("%v\n", err)
 		return
 	}
 
@@ -87,12 +84,11 @@ func updateCmd(ctx *cli.Context) {
 		comment,
 		author)
 	if err != nil {
-		log.Println(err)
-		exitWithCode(1)
+		logAndFatalf("Could not commit to the new image: %v.\n", err)
 		return
 	}
 
-	log.Printf("%s:%s successfully created", repo, tag)
+	logAndPrintf("%s:%s successfully created", repo, tag)
 
 	cache := getCacheFile()
 	if err := cache.updateCacheAfterUpdate(img, newImgId); err != nil {

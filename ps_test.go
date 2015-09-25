@@ -23,38 +23,19 @@ import (
 	"github.com/mssola/capture"
 )
 
-func TestPsCommandListContaienrsFailure(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{listFail: true}
+// PS
 
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { psCmd(testContext([]string{}, false)) })
-
-	if !strings.Contains(buffer.String(), "Cannot list running containers") {
-		t.Fatal("It should've logged something\n")
+func TestPsCommand(t *testing.T) {
+	cases := testCases{
+		{"List fail", &mockClient{listFail: true}, 1, []string{}, true,
+			"Error while fetching running containers: Fake failure while listing containers", ""},
+		{"Empty list of containers", &mockClient{listEmpty: true}, 0, []string{}, false, "",
+			"There are no running containers"},
 	}
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-
+	cases.run(t, psCmd, "", "")
 }
 
-func TestPsCommandListContaienrsEmpty(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{listEmpty: true}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { psCmd(testContext([]string{}, false)) })
-
-	if !strings.Contains(buffer.String(), "There are no running containers") {
-		t.Fatal("It should've logged something\n")
-	}
-	if exitInvocations != 0 {
-		t.Fatalf("Should not have exited with an error")
-	}
-}
+// Special checks for the PS command.
 
 func TestPsCommandNoMatches(t *testing.T) {
 	setupTestExitStatus()
@@ -69,6 +50,9 @@ func TestPsCommandNoMatches(t *testing.T) {
 	}
 	if exitInvocations != 0 {
 		t.Fatalf("Should not have exited with an error")
+	}
+	if lastCode != 0 {
+		t.Fatalf("Exit status should be 1, %v given", lastCode)
 	}
 }
 
@@ -102,5 +86,8 @@ func TestPsCommandMatches(t *testing.T) {
 	}
 	if exitInvocations != 0 {
 		t.Fatalf("Should not have exited with an error")
+	}
+	if lastCode != 0 {
+		t.Fatalf("Exit status should be 1, %v given", lastCode)
 	}
 }

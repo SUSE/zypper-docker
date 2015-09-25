@@ -14,198 +14,40 @@
 
 package main
 
-import (
-	"bytes"
-	"flag"
-	"log"
-	"strings"
-	"testing"
+import "testing"
 
-	"github.com/codegangsta/cli"
-	"github.com/mssola/capture"
-)
+// PATCH
 
-func testPatchContext(source, destination string) *cli.Context {
-	set := flag.NewFlagSet("test", 0)
-	c := cli.NewContext(nil, set, nil)
-	args := []string{}
-
-	if source != "" {
-		args = append(args, source)
+func TestPatchCommand(t *testing.T) {
+	cases := testCases{
+		{"Wrong number of arguments", &mockClient{}, 1, []string{}, true, "Wrong invocation: expected 2 arguments, 0 given.", ""},
+		{"Wrong format of image name", &mockClient{}, 1, []string{"ori", "dollar$$"}, true, "Cannot parse image name", ""},
+		{"List Command fails", &mockClient{listFail: true}, 1, []string{"ori", "opensuse:13.2"}, true, "Cannot proceed safely: List Failed.", ""},
+		{"Overwrite detected", &mockClient{}, 1, []string{"ori", "opensuse:13.2"}, true, "Cannot overwrite an existing image. Please use a different repository/tag.", ""},
+		{"Start fail on commit", &mockClient{startFail: true}, 1, []string{"ori", "new:1.0.0"}, true, "Could not commit to the new image: Start failed.", ""},
+		{"Cannot update cache", &mockClient{}, 1, []string{"ori", "new:1.0.0"}, false, "Cannot add image details to zypper-docker cache", ""},
+		{"Patch success", &mockClient{listReturnOneImage: true}, 0, []string{"opensuse:13.2", "new:1.0.0"}, true, "new:1.0.0 successfully created", ""},
 	}
-	if destination != "" {
-		args = append(args, destination)
-	}
-
-	if err := set.Parse(args); err != nil {
-		log.Fatalf("Cannot parse args: %s", err)
-	}
-	return c
+	cases.run(t, patchCmd, "zypper -n patch", "")
 }
 
-func testCommand() string {
-	cmd := dockerClient.(*mockClient).lastCmd
-	if len(cmd) != 1 {
-		return ""
-	}
+// LIST PATCHES
 
-	// The command is basically: "zypper ref && actual command".
-	return strings.TrimSpace(strings.Split(cmd[0], "&&")[1])
+func TestListPatchesCommand(t *testing.T) {
+	cases := testCases{
+		{"No image specified", &mockClient{}, 1, []string{}, true, "no image name specified", ""},
+		{"Command fail", &mockClient{commandFail: true}, 1, []string{"opensuse:13.2"}, false, "Error: Command exited with status 1", ""},
+		{"List patches", &mockClient{}, 0, []string{"opensuse:13.2"}, false, "Removed container zypper-docker-private-opensuse:13.2", "streaming buffer initialized"},
+	}
+	cases.run(t, listPatchesCmd, "zypper lp", "")
 }
 
-func TestListPatchesNoImageSpecified(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
+// LIST PATCHES CONTAINER
 
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { listPatchesCmd(testContext([]string{}, false)) })
-
-	if testCommand() != "" {
-		t.Fatalf("The command should not have been executed")
+func TestListPatchesContainerCommand(t *testing.T) {
+	cases := testCases{
+		{"List fails on list patch container", &mockClient{listFail: true}, 1, []string{"opensuse:13.2"}, true, "Error while fetching running containers: Fake failure while listing containers", ""},
+		{"Patches container successfully", &mockClient{}, 0, []string{"suse"}, false, "Removed container zypper-docker-private-opensuse:13.2", "streaming buffer initialized"},
 	}
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-	if !strings.Contains(buffer.String(), "Error: no image name specified") {
-		t.Fatal("It should've logged something\n")
-	}
-}
-
-func TestListPatchesCommandFailure(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{commandFail: true}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-
-	capture.All(func() {
-		listPatchesCmd(testContext([]string{"opensuse:13.2"}, false))
-	})
-
-	if testCommand() != "zypper lp" {
-		t.Fatalf("Wrong command!")
-	}
-	if !strings.Contains(buffer.String(), "Error: Command exited with status 1") {
-		t.Fatal("It should've logged something\n")
-	}
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-}
-
-func TestPatchCommandWrongInvocation(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { patchCmd(testPatchContext("", "")) })
-
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-	if !strings.Contains(buffer.String(), "Wrong invocation") {
-		t.Fatal("It should've logged something\n")
-	}
-}
-
-func TestPatchCommandImageOverwriteDetected(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{listFail: true}
-
-	capture.All(func() { patchCmd(testPatchContext("ori", "new:1.0.0")) })
-
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-}
-
-func TestPatchCommandRunAndCommitFailure(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{startFail: true}
-
-	capture.All(func() { patchCmd(testPatchContext("ori", "new:1.0.0")) })
-
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-}
-
-func TestPatchCommandInvalidTargetName(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
-
-	capture.All(func() { patchCmd(testPatchContext("ori", "WRONG")) })
-
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-}
-
-func TestPatchCommandCommitSuccess(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{listReturnOneImage: true}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { patchCmd(testPatchContext("opensuse:13.2", "new:1.0.0")) })
-
-	if exitInvocations != 0 {
-		t.Fatal(buffer.String())
-	}
-	if !strings.Contains(buffer.String(), "new:1.0.0 successfully created") {
-		t.Fatal("It should've logged something\n")
-	}
-}
-
-func TestPatchCommandCannotUpdateCache(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { patchCmd(testPatchContext("ori", "new:1.0.0")) })
-
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-	if !strings.Contains(buffer.String(), "new:1.0.0 successfully created") {
-		t.Fatal("The new image should have been successfully created\n")
-	}
-	if !strings.Contains(buffer.String(), "This will break the") {
-		t.Fatal("We should warn users zypper-docker ps is not going to work\n")
-	}
-}
-
-func TestListPatchesContainerCheckContainerFailure(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{listFail: true}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-
-	capture.All(func() {
-		listPatchesContainerCmd(testContext([]string{"opensuse:13.2"}, false))
-	})
-
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-}
-
-func TestListPatchesContainerCheckContainerSuccess(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-
-	capture.All(func() {
-		listPatchesContainerCmd(testContext([]string{"suse"}, false))
-	})
-
-	if exitInvocations != 0 {
-		t.Fatalf("Should not have exited with error")
-	}
+	cases.run(t, listPatchesContainerCmd, "zypper lp", "")
 }

@@ -72,6 +72,7 @@ func printImages(imgs []*dockerclient.Image) {
 
 // The images command prints all the images that are based on SUSE.
 func imagesCmd(ctx *cli.Context) {
+	log.SetPrefix("[images] ")
 	client := getDockerClient()
 
 	// On "force", just cleanup the cache.
@@ -81,8 +82,7 @@ func imagesCmd(ctx *cli.Context) {
 	}
 
 	if imgs, err := client.ListImages(false, "", &dockerclient.ListFilter{}); err != nil {
-		log.Println(err)
-		exitWithCode(1)
+		logAndFatalf("Cannot proceed safely: %v.", err)
 	} else {
 		printImages(imgs)
 		exitWithCode(0)

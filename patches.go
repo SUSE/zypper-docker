@@ -21,23 +21,23 @@ import (
 	"github.com/codegangsta/cli"
 )
 
-// zypper-docker list-patches-container [flags] <container>
-func listPatchesContainerCmd(ctx *cli.Context) {
-	containerId := ctx.Args().First()
-	container, err := checkContainerRunning(containerId)
-	if err != nil {
-		log.Println(err)
-		exitWithCode(1)
-	}
-
-	listPatches(container.Image, ctx)
-}
-
 // zypper-docker list-patches [flags] <image>
 func listPatchesCmd(ctx *cli.Context) {
+	log.SetPrefix("[list-patches] ")
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
 	listPatches(ctx.Args().First(), ctx)
+}
+
+// zypper-docker list-patches-container [flags] <container>
+func listPatchesContainerCmd(ctx *cli.Context) {
+	log.SetPrefix("[list-patches-container] ")
+	containerId := ctx.Args().First()
+	if container, err := checkContainerRunning(containerId); err != nil {
+		logAndFatalf("%v.\n", err)
+	} else {
+		listPatches(container.Image, ctx)
+	}
 }
 
 // listParches calls the `zypper lp` command for the given image and the given
@@ -52,22 +52,20 @@ func listPatches(image string, ctx *cli.Context) {
 
 // zypper-docker patch [flags] image
 func patchCmd(ctx *cli.Context) {
+	log.SetPrefix("[patch] ")
 	if len(ctx.Args()) != 2 {
-		log.Println("Wrong invocation")
-		exitWithCode(1)
+		logAndFatalf("Wrong invocation: expected 2 arguments, %d given.\n", len(ctx.Args()))
 		return
 	}
 
 	img := ctx.Args()[0]
 	repo, tag, err := parseImageName(ctx.Args()[1])
 	if err != nil {
-		log.Println(err)
-		exitWithCode(1)
+		logAndFatalf("%v\n", err)
 		return
 	}
 	if err = preventImageOverwrite(repo, tag); err != nil {
-		log.Println(err)
-		exitWithCode(1)
+		logAndFatalf("%v\n", err)
 		return
 	}
 
@@ -89,12 +87,11 @@ func patchCmd(ctx *cli.Context) {
 		comment,
 		author)
 	if err != nil {
-		log.Println(err)
-		exitWithCode(1)
+		logAndFatalf("Could not commit to the new image: %v.\n", err)
 		return
 	}
 
-	log.Printf("%s:%s successfully created", repo, tag)
+	logAndPrintf("%s:%s successfully created", repo, tag)
 
 	cache := getCacheFile()
 	if err := cache.updateCacheAfterUpdate(img, newImgId); err != nil {
