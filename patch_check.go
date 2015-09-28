@@ -29,12 +29,7 @@ func patchCheckCmd(ctx *cli.Context) {
 // zypper-docker patch-check-container [flags] <image>
 func patchCheckContainerCmd(ctx *cli.Context) {
 	log.SetPrefix("[patch-check-container] ")
-	containerId := ctx.Args().First()
-	if container, err := checkContainerRunning(containerId); err != nil {
-		logAndFatalf("%v.\n", err)
-	} else {
-		patchCheck(container.Image, ctx)
-	}
+	commandInContainer(patchCheck, ctx)
 }
 
 // patchCheck calls the `zypper pchk` command for the given image and the given

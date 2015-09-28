@@ -15,7 +15,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/codegangsta/cli"
@@ -30,12 +29,7 @@ func listUpdatesCmd(ctx *cli.Context) {
 // zypper-docker list-updates-container [flags] <container>
 func listUpdatesContainerCmd(ctx *cli.Context) {
 	log.SetPrefix("[list-updates-container] ")
-	containerId := ctx.Args().First()
-	if container, err := checkContainerRunning(containerId); err != nil {
-		logAndFatalf("%v.\n", err)
-	} else {
-		listUpdates(container.Image, ctx)
-	}
+	commandInContainer(listUpdates, ctx)
 }
 
 // listUpdates lists all the updates available for the given image with the
@@ -49,52 +43,5 @@ func listUpdates(image string, ctx *cli.Context) {
 // zypper-docker update [flags] image new-image
 func updateCmd(ctx *cli.Context) {
 	log.SetPrefix("[update] ")
-	if len(ctx.Args()) != 2 {
-		logAndFatalf("Wrong invocation: expected 2 arguments, %d given.\n", len(ctx.Args()))
-		return
-	}
-
-	img := ctx.Args()[0]
-	repo, tag, err := parseImageName(ctx.Args()[1])
-	if err != nil {
-		logAndFatalf("%v\n", err)
-		return
-	}
-
-	if err := preventImageOverwrite(repo, tag); err != nil {
-		logAndFatalf("%v\n", err)
-		return
-	}
-
-	comment := ctx.String("message")
-	author := ctx.String("author")
-
-	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends",
-		"replacefiles"}
-	toIgnore := []string{"author", "message"}
-
-	cmd := fmt.Sprintf(
-		"zypper ref && zypper -n %v",
-		cmdWithFlags("up", ctx, boolFlags, toIgnore))
-	newImgId, err := runCommandAndCommitToImage(
-		img,
-		repo,
-		tag,
-		cmd,
-		comment,
-		author)
-	if err != nil {
-		logAndFatalf("Could not commit to the new image: %v.\n", err)
-		return
-	}
-
-	logAndPrintf("%s:%s successfully created", repo, tag)
-
-	cache := getCacheFile()
-	if err := cache.updateCacheAfterUpdate(img, newImgId); err != nil {
-		log.Println("Cannot add image details to zypper-docker cache")
-		log.Println("This will break the \"zypper-docker ps\" feature")
-		log.Println(err)
-		exitWithCode(1)
-	}
+	updatePatchCmd("up", ctx)
 }
