@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"io/ioutil"
 	"log"
@@ -91,4 +92,50 @@ func TestSetupLoggerWrongHome(t *testing.T) {
 	if strings.Index(string(res.Stdout), "Test") == -1 {
 		t.Fatalf("There should be a 'Test' string\n")
 	}
+}
+
+func TestLogAndPrintfAndFatalf(t *testing.T) {
+	setupTestExitStatus()
+	dm := debugMode
+
+	// Debug mode: false
+
+	debugMode = false
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+
+	res := capture.All(func() { logAndFatalf("Here") })
+
+	if !strings.Contains(buffer.String(), "Here") {
+		t.Fatalf("Wrong logged value!")
+	}
+	if !strings.Contains(string(res.Stdout), "Here") {
+		t.Fatalf("Wrong logged value!")
+	}
+	if lastCode != 1 {
+		t.Fatalf("It should've failed!")
+	}
+
+	// Debug mode: true
+
+	debugMode = true
+	lastCode = 0
+
+	buffer = bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+
+	res = capture.All(func() { logAndPrintf("Here") })
+
+	if !strings.Contains(buffer.String(), "Here") {
+		t.Fatalf("Wrong logged value!")
+	}
+	if len(res.Stdout) != 0 {
+		t.Fatalf("Should've been empty!")
+	}
+	if lastCode != 0 {
+		t.Fatalf("lastCode should've not been changed")
+	}
+
+	debugMode = dm
 }

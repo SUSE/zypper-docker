@@ -5,7 +5,6 @@ class Settings
   VULNERABLE_IMAGE_REPO = "zypper-docker-tests-vulnerable-image"
   VULNERABLE_IMAGE_TAG = "0.1"
   VULNERABLE_IMAGE = "#{VULNERABLE_IMAGE_REPO}:#{VULNERABLE_IMAGE_TAG}"
-
 end
 
 module SpecHelper

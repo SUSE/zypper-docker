@@ -234,14 +234,13 @@ describe "patch operations" do
       exception = nil
 
       begin
-        Cheetah.run(
-          "zypper-docker", "lpc", @not_suse_container)
+        output = Cheetah.run("zypper-docker", "lpc", @not_suse_container, stdout: :capture)
+        expect(output).to include("alpine:latest which is not a SUSE system")
       rescue Cheetah::ExecutionFailed => e
         exception = e
       end
       expect(exception).not_to be_nil
       expect(exception.status.exitstatus).to eq(1)
-      expect(exception.stderr).to include("alpine:latest which is not a SUSE system")
     end
   end
 

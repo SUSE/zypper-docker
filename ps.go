@@ -24,11 +24,11 @@ import (
 
 // zypper-docker ps
 func psCmd(ctx *cli.Context) {
+	log.SetPrefix("[ps] ")
 	client := getDockerClient()
 	containers, err := client.ListContainers(false, false, "")
 	if err != nil {
-		log.Printf("Cannot list running containers: %v\n", err)
-		exitWithCode(1)
+		logAndFatalf("Error while fetching running containers: %v\n", err)
 		return
 	}
 
@@ -39,7 +39,7 @@ func psCmd(ctx *cli.Context) {
 	unknown := []dockerclient.Container{}
 
 	if len(containers) == 0 {
-		log.Println("There are no running containers to analyze")
+		fmt.Println("There are no running containers to analyze.")
 		return
 	}
 

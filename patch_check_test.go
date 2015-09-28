@@ -14,128 +14,33 @@
 
 package main
 
-import (
-	"bytes"
-	"log"
-	"strings"
-	"testing"
+import "testing"
 
-	"github.com/mssola/capture"
-)
+// PATCH-CHECK
 
-func TestPatchCheckNoImageSpecified(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() { patchCheckCmd(testContext([]string{}, false)) })
-
-	if testCommand() != "" {
-		t.Fatalf("The command should not have been executed")
+func TestPatchCheckCommand(t *testing.T) {
+	cases := testCases{
+		{"Image not specified", &mockClient{}, 1, []string{}, true, "Error: no image name specified.", ""},
+		{"Invalid error", &mockClient{commandFail: true, commandExit: 2}, 1, []string{"opensuse:13.2"}, false,
+			"Could not execute command 'zypper pchk' successfully in image 'opensuse:13.2': Command exited with status 2.",
+			"streaming buffer initialized"},
+		{"Supported non-zero exit", &mockClient{commandFail: true, commandExit: 100}, 100, []string{"opensuse:13.2"}, false,
+			"Removed container zypper-docker-private-opensuse:13.2",
+			"streaming buffer initialized"},
+		{"Ok", &mockClient{}, 0, []string{"opensuse:13.2"}, false, "Removed container zypper-docker-private-opensuse:13.2",
+			"streaming buffer initialized"},
 	}
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-	if !strings.Contains(buffer.String(), "Error: no image name specified") {
-		t.Fatal("It should've logged something\n")
-	}
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
+	cases.run(t, patchCheckCmd, "zypper pchk", "")
 }
 
-func TestPatchCheckInvalidError(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{commandFail: true, commandExit: 2}
+// PATCH-CHECK-CONTAINER
 
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() {
-		patchCheckCmd(testContext([]string{"opensuse:13.2"}, false))
-	})
-
-	if testCommand() != "zypper pchk" {
-		t.Fatalf("Wrong command!")
+func TestPatchCheckContainerCommand(t *testing.T) {
+	cases := testCases{
+		{"List Command fails", &mockClient{listFail: true}, 1, []string{"opensuse:13.2"}, true,
+			"Error while fetching running containers: Fake failure while listing containers.", ""},
+		{"Ok", &mockClient{}, 0, []string{"suse"}, false, "Removed container zypper-docker-private-opensuse:13.2",
+			"streaming buffer initialized"},
 	}
-	if !strings.Contains(buffer.String(), "Could not execute command 'zypper pchk' successfully in image 'opensuse:13.2': Command exited with status 2.") {
-		t.Fatalf("Wrong error message")
-	}
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-}
-
-func TestPatchCheckSupportedNonZeroExit(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{commandFail: true, commandExit: 100}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() {
-		patchCheckCmd(testContext([]string{"opensuse:13.2"}, false))
-	})
-
-	if testCommand() != "zypper pchk" {
-		t.Fatalf("Wrong command!")
-	}
-	if len(strings.Split(buffer.String(), "\n")) != 2 {
-		t.Fatalf("Something went wrong")
-	}
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-	if lastCode != 100 {
-		t.Fatalf("Expected exit code: 100, got %v", lastCode)
-	}
-}
-
-func TestPatchCheckOk(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-	capture.All(func() {
-		patchCheckCmd(testContext([]string{"opensuse:13.2"}, false))
-	})
-
-	if testCommand() != "zypper pchk" {
-		t.Fatalf("Wrong command!")
-	}
-	if len(strings.Split(buffer.String(), "\n")) != 2 {
-		t.Fatalf("Something went wrong")
-	}
-}
-
-func TestPatchCheckContainerFailure(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{listFail: true}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-
-	capture.All(func() {
-		patchCheckContainerCmd(testContext([]string{"opensuse:13.2"}, false))
-	})
-
-	if exitInvocations != 1 {
-		t.Fatalf("Expected to have exited with error")
-	}
-}
-
-func TestPatchCheckContainerCheckContainerSuccess(t *testing.T) {
-	setupTestExitStatus()
-	dockerClient = &mockClient{}
-
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
-
-	capture.All(func() {
-		patchCheckContainerCmd(testContext([]string{"suse"}, false))
-	})
-
-	if exitInvocations != 0 {
-		t.Fatalf("Should not have exited with error")
-	}
+	cases.run(t, patchCheckContainerCmd, "zypper pchk", "")
 }
