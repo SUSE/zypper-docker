@@ -15,7 +15,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/codegangsta/cli"
@@ -32,12 +31,7 @@ func listPatchesCmd(ctx *cli.Context) {
 // zypper-docker list-patches-container [flags] <container>
 func listPatchesContainerCmd(ctx *cli.Context) {
 	log.SetPrefix("[list-patches-container] ")
-	containerId := ctx.Args().First()
-	if container, err := checkContainerRunning(containerId); err != nil {
-		logAndFatalf("%v.\n", err)
-	} else {
-		listPatches(container.Image, ctx)
-	}
+	commandInContainer(listPatches, ctx)
 }
 
 // listParches calls the `zypper lp` command for the given image and the given
@@ -53,51 +47,5 @@ func listPatches(image string, ctx *cli.Context) {
 // zypper-docker patch [flags] image
 func patchCmd(ctx *cli.Context) {
 	log.SetPrefix("[patch] ")
-	if len(ctx.Args()) != 2 {
-		logAndFatalf("Wrong invocation: expected 2 arguments, %d given.\n", len(ctx.Args()))
-		return
-	}
-
-	img := ctx.Args()[0]
-	repo, tag, err := parseImageName(ctx.Args()[1])
-	if err != nil {
-		logAndFatalf("%v\n", err)
-		return
-	}
-	if err = preventImageOverwrite(repo, tag); err != nil {
-		logAndFatalf("%v\n", err)
-		return
-	}
-
-	comment := ctx.String("message")
-	author := ctx.String("author")
-
-	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends",
-		"replacefiles"}
-	toIgnore := []string{"author", "message"}
-
-	cmd := fmt.Sprintf(
-		"zypper ref && zypper -n %v",
-		cmdWithFlags("patch", ctx, boolFlags, toIgnore))
-	newImgId, err := runCommandAndCommitToImage(
-		img,
-		repo,
-		tag,
-		cmd,
-		comment,
-		author)
-	if err != nil {
-		logAndFatalf("Could not commit to the new image: %v.\n", err)
-		return
-	}
-
-	logAndPrintf("%s:%s successfully created", repo, tag)
-
-	cache := getCacheFile()
-	if err := cache.updateCacheAfterUpdate(img, newImgId); err != nil {
-		log.Println("Cannot add image details to zypper-docker cache")
-		log.Println("This will break the \"zypper-docker ps\" feature")
-		log.Println(err)
-		exitWithCode(1)
-	}
+	updatePatchCmd("patch", ctx)
 }
