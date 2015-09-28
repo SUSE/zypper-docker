@@ -16,9 +16,20 @@ describe "update operations" do
     end
   end
 
-  it "lists updates of an image" do
-    output = Cheetah.run("zypper-docker", "lu", Settings::VULNERABLE_IMAGE, stdout: :capture)
-    expect(output).to include("alsa-utils")
+  context "listing updates" do
+    it "lists updates of an image" do
+      output = Cheetah.run("zypper-docker", "lu", Settings::VULNERABLE_IMAGE, stdout: :capture)
+      expect(output).to include("alsa-utils")
+    end
+
+    # See issue: https://github.com/SUSE/zypper-docker/issues/66
+    it "does not crash when the --bugzilla flag is set after the image" do
+      begin
+        output = Cheetah.run("zypper-docker", "lu", Settings::VULNERABLE_IMAGE, "--bugzilla", stdout: :capture)
+      rescue Cheetah::ExecutionFailed => e
+        expect(e.message).to include "failed with status 1: flag provided but not defined: -bugzilla."
+      end
+    end
   end
 
   context "applying updates" do

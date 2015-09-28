@@ -104,7 +104,7 @@ func fixArgsForZypper(args []string) []string {
 				sanitizedArgs = append(sanitizedArgs, "")
 				special = true
 
-				if len(args) >= (pos+1) && args[pos+1] == "" {
+				if len(args) > (pos+1) && args[pos+1] == "" {
 					skip = true
 				}
 				break
