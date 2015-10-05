@@ -249,5 +249,5 @@ container itself.
 ## License
 
 Licensed under the Apache License, Version 2.0. See
-[LICENSE](https://gitlab.suse.de/docker/zypper-docker/blob/master/LICENSE) for
+[LICENSE](https://github.com/SUSE/zypper-docker/blob/master/LICENSE) for
 the full license text.
