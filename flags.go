@@ -25,10 +25,11 @@ import (
 // Returns the version string
 func version() string {
 	const (
-		major = 0
-		minor = 1
+		major = 1
+		minor = 0
+		patch = 0
 	)
-	return fmt.Sprintf("%v.%v", major, minor)
+	return fmt.Sprintf("%v.%v.%v", major, minor, patch)
 }
 
 func defaultCommitAuthor() string {
