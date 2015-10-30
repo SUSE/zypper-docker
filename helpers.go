@@ -48,8 +48,8 @@ func globalFlags() string {
 		return ""
 	}
 
-	res := ""
-	flags := []string{"non-interactive", "no-gpg-checks", "gpg-auto-import-keys"}
+	res := "--non-interactive "
+	flags := []string{"no-gpg-checks", "gpg-auto-import-keys"}
 
 	for _, v := range flags {
 		if currentContext.GlobalBool(v) {

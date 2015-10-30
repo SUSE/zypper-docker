@@ -209,7 +209,7 @@ func TestFormatZypperCommand(t *testing.T) {
 		os.Args = originalArgs
 		currentContext = nil
 	}()
-	os.Args = []string{"exe", "--non-interactive", "--add-host", "host:ip", "test"}
+	os.Args = []string{"exe", "--add-host", "host:ip", "test"}
 
 	app := newApp()
 	app.Commands = []cli.Command{{Name: "test", Action: getCmd("test", func(*cli.Context) {})}}

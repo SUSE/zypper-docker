@@ -64,10 +64,6 @@ func newApp() *cli.App {
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
-			Name:  "n, non-interactive",
-			Usage: "Switches to non-interactive mode",
-		},
-		cli.BoolFlag{
 			Name:  "no-gpg-checks",
 			Usage: "Ignore GPG check failures and continue",
 		},
