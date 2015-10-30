@@ -1,3 +1,10 @@
+Fri Oct 30 17:15:52 CET 2015  Flavio Castelli <flavio@castelli.name>
+
+	* Release v1.1.0:
+		- make it possible to add extra hosts at runtime
+		- always run in non-interactive mode
+		- take global options into consideration when invoking zypper
+
 Wed Oct 14 17:09:28 CET 2015  Flavio Castelli <fcastelli@suse.com>
 
 	* Initial release: v1.0.0
