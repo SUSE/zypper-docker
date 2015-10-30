@@ -204,6 +204,14 @@ func runCommandInContainer(img string, cmd []string, streaming bool) (string, er
 	return startContainer(img, cmd, streaming, true)
 }
 
+// Get the host config to be used for starting containers.
+func getHostConfig() *dockerclient.HostConfig {
+	if currentContext == nil {
+		return &dockerclient.HostConfig{}
+	}
+	return &dockerclient.HostConfig{ExtraHosts: currentContext.GlobalStringSlice("add-host")}
+}
+
 // Start a container from the specified image and then runs the given command
 // inside of it. The given image string is just the ID of said image.
 // The STDOUT and STDERR of the container can be streamed to the host's STDOUT
@@ -225,7 +233,7 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 	}
 
 	client := getDockerClient()
-	if err = client.StartContainer(id, &dockerclient.HostConfig{}); err != nil {
+	if err = client.StartContainer(id, getHostConfig()); err != nil {
 		// Silently fail, since it might be "zypper" not existing and we don't
 		// want to add noise to the log.
 		return id, err

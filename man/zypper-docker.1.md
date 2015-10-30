@@ -36,6 +36,9 @@ just run **man zypper-docker <command>**.
 **--no-gpg-checks**
   Ignore GPG check failures and continue
 
+**--add-host**
+  You can specify has many additional hosts:ip mappings for the created containers.
+
 **--version**, **-v**
   Print the version.
 

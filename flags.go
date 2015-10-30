@@ -22,6 +22,9 @@ import (
 	"github.com/codegangsta/cli"
 )
 
+// A pointer to the current context.
+var currentContext *cli.Context
+
 // Returns the version string
 func version() string {
 	const (
@@ -59,8 +62,6 @@ func newApp() *cli.App {
 		cli.ShowAppHelp(context)
 	}
 
-	app.Before = setupLogger
-
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "n, non-interactive",
@@ -82,30 +83,34 @@ func newApp() *cli.App {
 			Name:  "d, debug",
 			Usage: "Show all the logged messages on stdout",
 		},
+		cli.StringSliceFlag{
+			Name:  "add-host",
+			Usage: "Add a custom host-to-IP mapping (host:ip)",
+		},
 	}
 	app.Commands = []cli.Command{
 		{
 			Name:   "images",
 			Usage:  "List all the images based on either OpenSUSE or SLES",
-			Action: imagesCmd,
+			Action: getCmd("images", imagesCmd),
 		},
 		{
 			Name:    "list-updates",
 			Aliases: []string{"lu"},
 			Usage:   "List all the available updates",
-			Action:  listUpdatesCmd,
+			Action:  getCmd("list-updates", listUpdatesCmd),
 		},
 		{
 			Name:    "list-updates-container",
 			Aliases: []string{"luc"},
 			Usage:   "List all the available updates for the given container",
-			Action:  listUpdatesContainerCmd,
+			Action:  getCmd("list-updates-container", listUpdatesContainerCmd),
 		},
 		{
 			Name:    "update",
 			Aliases: []string{"up"},
 			Usage:   "Install the available updates",
-			Action:  updateCmd,
+			Action:  getCmd("update", updateCmd),
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "l, auto-agree-with-licenses",
@@ -135,7 +140,7 @@ func newApp() *cli.App {
 			Name:    "list-patches",
 			Aliases: []string{"lp"},
 			Usage:   "List all the available patches",
-			Action:  listPatchesCmd,
+			Action:  getCmd("list-patches", listPatchesCmd),
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "bugzilla",
@@ -200,7 +205,7 @@ func newApp() *cli.App {
 		{
 			Name:   "patch",
 			Usage:  "Install the available patches",
-			Action: patchCmd,
+			Action: getCmd("patch", patchCmd),
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "bugzilla",
@@ -250,18 +255,18 @@ func newApp() *cli.App {
 			Name:    "patch-check",
 			Aliases: []string{"pchk"},
 			Usage:   "Check for patches",
-			Action:  patchCheckCmd,
+			Action:  getCmd("patch-check", patchCheckCmd),
 		},
 		{
 			Name:    "patch-check-container",
 			Aliases: []string{"pchkc"},
 			Usage:   "Check for patches available for the given container",
-			Action:  patchCheckContainerCmd,
+			Action:  getCmd("patch-check-container", patchCheckContainerCmd),
 		},
 		{
 			Name:   "ps",
 			Usage:  "List all the containers that are outdated",
-			Action: psCmd,
+			Action: getCmd("ps", psCmd),
 		},
 	}
 	return app

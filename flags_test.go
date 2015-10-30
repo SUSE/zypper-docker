@@ -25,7 +25,7 @@ func TestVersion(t *testing.T) {
 func TestNewApp(t *testing.T) {
 	app := newApp()
 
-	if len(app.Flags) != 5 {
+	if len(app.Flags) != 6 {
 		t.Fatal("Wrong number of global flags")
 	}
 	if len(app.Commands) != 10 {

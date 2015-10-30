@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -72,7 +71,6 @@ func printImages(imgs []*dockerclient.Image) {
 
 // The images command prints all the images that are based on SUSE.
 func imagesCmd(ctx *cli.Context) {
-	log.SetPrefix("[images] ")
 	client := getDockerClient()
 
 	// On "force", just cleanup the cache.

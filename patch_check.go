@@ -14,21 +14,15 @@
 
 package main
 
-import (
-	"log"
-
-	"github.com/codegangsta/cli"
-)
+import "github.com/codegangsta/cli"
 
 // zypper-docker patch-check [flags] <image>
 func patchCheckCmd(ctx *cli.Context) {
-	log.SetPrefix("[patch-check] ")
 	patchCheck(ctx.Args().First(), ctx)
 }
 
 // zypper-docker patch-check-container [flags] <image>
 func patchCheckContainerCmd(ctx *cli.Context) {
-	log.SetPrefix("[patch-check-container] ")
 	commandInContainer(patchCheck, ctx)
 }
 
