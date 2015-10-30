@@ -42,6 +42,34 @@ func getCmd(name string, f func(ctx *cli.Context)) func(*cli.Context) {
 	}
 }
 
+// Returns a string containing the global flags being used.
+func globalFlags() string {
+	if currentContext == nil {
+		return ""
+	}
+
+	res := ""
+	flags := []string{"non-interactive", "no-gpg-checks", "gpg-auto-import-keys"}
+
+	for _, v := range flags {
+		if currentContext.GlobalBool(v) {
+			res = res + "--" + v + " "
+		}
+	}
+	return res
+}
+
+// Concatenate the given zypper commands, while adding the global flags
+// currently in place.
+func formatZypperCommand(cmds ...string) string {
+	flags := globalFlags()
+
+	for k, v := range cmds {
+		cmds[k] = "zypper " + flags + v
+	}
+	return strings.Join(cmds, " && ")
+}
+
 func arrayIncludeString(arr []string, s string) bool {
 	for _, i := range arr {
 		if i == s {
@@ -175,7 +203,7 @@ func preventImageOverwrite(repo, tag string) error {
 	return nil
 }
 
-func getImageId(name string) (string, error) {
+func getImageID(name string) (string, error) {
 	client := getDockerClient()
 
 	repo, tag, err := parseImageName(name)
@@ -246,10 +274,9 @@ func updatePatchCmd(zypperCmd string, ctx *cli.Context) {
 		"replacefiles"}
 	toIgnore := []string{"author", "message"}
 
-	cmd := fmt.Sprintf(
-		"zypper ref && zypper -n %v",
-		cmdWithFlags(zypperCmd, ctx, boolFlags, toIgnore))
-	newImgId, err := runCommandAndCommitToImage(
+	cmd := formatZypperCommand("ref", fmt.Sprintf("-n %v", zypperCmd))
+	cmd = cmdWithFlags(cmd, ctx, boolFlags, toIgnore)
+	newImgID, err := runCommandAndCommitToImage(
 		img,
 		repo,
 		tag,
@@ -264,7 +291,7 @@ func updatePatchCmd(zypperCmd string, ctx *cli.Context) {
 	logAndPrintf("%s:%s successfully created", repo, tag)
 
 	cache := getCacheFile()
-	if err := cache.updateCacheAfterUpdate(img, newImgId); err != nil {
+	if err := cache.updateCacheAfterUpdate(img, newImgID); err != nil {
 		log.Println("Cannot add image details to zypper-docker cache")
 		log.Println("This will break the \"zypper-docker ps\" feature")
 		log.Println(err)

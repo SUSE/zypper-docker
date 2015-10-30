@@ -16,10 +16,12 @@ package main
 
 import (
 	"flag"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/codegangsta/cli"
+	"github.com/mssola/capture"
 )
 
 func TestParseImageName(t *testing.T) {
@@ -60,7 +62,7 @@ func TestParseImageNameWrongFormat(t *testing.T) {
 }
 
 func TestGetImageIdErrorWhileParsingName(t *testing.T) {
-	_, err := getImageId("OPENSUSE")
+	_, err := getImageID("OPENSUSE")
 
 	if err == nil {
 		t.Fatalf("Should have failed")
@@ -193,5 +195,29 @@ func TestSanitizeStringSpecialFlagUsedAsString(t *testing.T) {
 	actual := fixArgsForZypper(input)
 	if err := compareStringSlices(actual, expected); err != nil {
 		t.Fatalf("Wrong sanitization %v", err)
+	}
+}
+
+func TestFormatZypperCommand(t *testing.T) {
+	cmd := formatZypperCommand("ref", "up")
+	if cmd != "zypper ref && zypper up" {
+		t.Fatalf("Wrong command '%v', expected 'zypper ref && zypper up'", cmd)
+	}
+
+	originalArgs := os.Args
+	defer func() {
+		os.Args = originalArgs
+		currentContext = nil
+	}()
+	os.Args = []string{"exe", "--non-interactive", "--add-host", "host:ip", "test"}
+
+	app := newApp()
+	app.Commands = []cli.Command{{Name: "test", Action: getCmd("test", func(*cli.Context) {})}}
+	capture.All(func() { app.RunAndExitOnError() })
+
+	cmd = formatZypperCommand("ref", "up")
+	expected := "zypper --non-interactive ref && zypper --non-interactive up"
+	if cmd != expected {
+		t.Fatalf("Wrong command '%v', expected '%v'", cmd, expected)
 	}
 }
