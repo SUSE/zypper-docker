@@ -30,9 +30,6 @@ just run **man zypper-docker <command>**.
 **--help**, **-h**
   Show the help message.
 
-**-n**, **--non-interactive**
-  Switches to non-interactive mode. This means that if this option is set to true, zypper\-docker will choose the default option whenever a question is prompted to the user.
-
 **--no-gpg-checks**
   Ignore GPG check failures and continue
 
