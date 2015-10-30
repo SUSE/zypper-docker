@@ -180,7 +180,7 @@ func runStreamedCommand(img, cmd string, getError bool) error {
 		return nil
 	}
 
-	cmd = fmt.Sprintf("zypper ref && zypper %v", cmd)
+	cmd = formatZypperCommand("ref", cmd)
 	id, err := runCommandInContainer(img, []string{cmd}, true)
 	removeContainer(id)
 

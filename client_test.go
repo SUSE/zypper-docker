@@ -477,7 +477,10 @@ func TestHostConfig(t *testing.T) {
 	}
 
 	originalArgs := os.Args
-	defer func() { os.Args = originalArgs }()
+	defer func() {
+		os.Args = originalArgs
+		currentContext = nil
+	}()
 	os.Args = []string{"exe", "--add-host", "host:ip", "test"}
 
 	app := newApp()

@@ -108,7 +108,7 @@ func (cd *cachedData) reset() {
 // The ID of the outdated image will be added to outdated Images and
 // the ID of the new image will be added to the SUSE Images.
 func (cd *cachedData) updateCacheAfterUpdate(outdatedImg, updatedImgId string) error {
-	outdatedImgId, err := getImageId(outdatedImg)
+	outdatedImgId, err := getImageID(outdatedImg)
 	if err != nil {
 		return err
 	}

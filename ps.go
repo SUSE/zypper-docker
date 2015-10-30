@@ -47,7 +47,7 @@ func psCmd(ctx *cli.Context) {
 		case <-killChannel:
 			return
 		default:
-			imageId, err := getImageId(container.Image)
+			imageId, err := getImageID(container.Image)
 			if err != nil {
 				log.Printf("Cannot analyze container %s [%s]: %s", container.Id, container.Image, err)
 				unknown = append(unknown, container)
