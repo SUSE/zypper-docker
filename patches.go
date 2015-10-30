@@ -14,15 +14,10 @@
 
 package main
 
-import (
-	"log"
-
-	"github.com/codegangsta/cli"
-)
+import "github.com/codegangsta/cli"
 
 // zypper-docker list-patches [flags] <image>
 func listPatchesCmd(ctx *cli.Context) {
-	log.SetPrefix("[list-patches] ")
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
 	listPatches(ctx.Args().First(), ctx)
@@ -30,7 +25,6 @@ func listPatchesCmd(ctx *cli.Context) {
 
 // zypper-docker list-patches-container [flags] <container>
 func listPatchesContainerCmd(ctx *cli.Context) {
-	log.SetPrefix("[list-patches-container] ")
 	commandInContainer(listPatches, ctx)
 }
 
@@ -46,6 +40,5 @@ func listPatches(image string, ctx *cli.Context) {
 
 // zypper-docker patch [flags] image
 func patchCmd(ctx *cli.Context) {
-	log.SetPrefix("[patch] ")
 	updatePatchCmd("patch", ctx)
 }

@@ -14,21 +14,15 @@
 
 package main
 
-import (
-	"log"
-
-	"github.com/codegangsta/cli"
-)
+import "github.com/codegangsta/cli"
 
 // zypper-docker list-updates [flags] <image>
 func listUpdatesCmd(ctx *cli.Context) {
-	log.SetPrefix("[list-updates] ")
 	listUpdates(ctx.Args().First(), ctx)
 }
 
 // zypper-docker list-updates-container [flags] <container>
 func listUpdatesContainerCmd(ctx *cli.Context) {
-	log.SetPrefix("[list-updates-container] ")
 	commandInContainer(listUpdates, ctx)
 }
 
@@ -42,6 +36,5 @@ func listUpdates(image string, ctx *cli.Context) {
 
 // zypper-docker update [flags] image new-image
 func updateCmd(ctx *cli.Context) {
-	log.SetPrefix("[update] ")
 	updatePatchCmd("up", ctx)
 }

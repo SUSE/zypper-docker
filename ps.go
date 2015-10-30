@@ -24,7 +24,6 @@ import (
 
 // zypper-docker ps
 func psCmd(ctx *cli.Context) {
-	log.SetPrefix("[ps] ")
 	client := getDockerClient()
 	containers, err := client.ListContainers(false, false, "")
 	if err != nil {

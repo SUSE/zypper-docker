@@ -17,12 +17,14 @@ package main
 import (
 	"bytes"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/SUSE/dockerclient"
+	"github.com/codegangsta/cli"
 	"github.com/mssola/capture"
 )
 
@@ -243,7 +245,7 @@ func TestHandleSignalWhileContainerRuns(t *testing.T) {
 
 	exitInvocations = 0
 	exitWithCode = func(code int) {
-		exitInvocations += 1
+		exitInvocations++
 	}
 
 	dockerClient = &mockClient{}
@@ -265,7 +267,7 @@ func TestHandleSignalWhileContainerRunsEvenWhenKillContainerFails(t *testing.T) 
 
 	exitInvocations = 0
 	exitWithCode = func(code int) {
-		exitInvocations += 1
+		exitInvocations++
 	}
 
 	dockerClient = &mockClient{killFail: true}
@@ -465,5 +467,28 @@ func TestCheckContainerRunningByShortIDSuccess(t *testing.T) {
 
 	if container.Id != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
 		t.Fatal("Wrong container found")
+	}
+}
+
+func TestHostConfig(t *testing.T) {
+	hc := getHostConfig()
+	if len(hc.ExtraHosts) != 0 {
+		t.Fatalf("Wrong number of extra hosts: %v; Expected: 1", len(hc.ExtraHosts))
+	}
+
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+	os.Args = []string{"exe", "--add-host", "host:ip", "test"}
+
+	app := newApp()
+	app.Commands = []cli.Command{{Name: "test", Action: getCmd("test", func(*cli.Context) {})}}
+	capture.All(func() { app.RunAndExitOnError() })
+
+	hc = getHostConfig()
+	if len(hc.ExtraHosts) != 1 {
+		t.Fatalf("Wrong number of extra hosts: %v; Expected: 1", len(hc.ExtraHosts))
+	}
+	if hc.ExtraHosts[0] != "host:ip" {
+		t.Fatalf("Did not expect %v", hc.ExtraHosts[0])
 	}
 }

@@ -30,6 +30,18 @@ var specialFlags = []string{
 	"--issues",
 }
 
+// Decorate the given command so it adds some extra information to it before
+// executing it.
+func getCmd(name string, f func(ctx *cli.Context)) func(*cli.Context) {
+	log.SetPrefix("[" + name + "] ")
+
+	return func(ctx *cli.Context) {
+		setupLogger(ctx)
+		currentContext = ctx
+		f(ctx)
+	}
+}
+
 func arrayIncludeString(arr []string, s string) bool {
 	for _, i := range arr {
 		if i == s {

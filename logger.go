@@ -31,12 +31,12 @@ var debugMode = false
 const logFileName = ".zypper-docker.log"
 
 // setupLogger picks the proper output file for this application.
-func setupLogger(ctx *cli.Context) error {
+func setupLogger(ctx *cli.Context) {
 	// If the debug flag is set, just print the log to stdout.
 	if ctx.GlobalBool("debug") {
 		log.SetOutput(os.Stdout)
 		debugMode = true
-		return nil
+		return
 	}
 
 	// Try to set the log inside of the HOME directory. If this is not
@@ -49,7 +49,6 @@ func setupLogger(ctx *cli.Context) error {
 	} else {
 		log.SetOutput(file)
 	}
-	return nil
 }
 
 // Log and print to the stdout with the same message. If the `-d, --debug` flag
