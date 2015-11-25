@@ -72,7 +72,7 @@ const (
 
 	// The timeout in which the container is allowed to run a command as given
 	// to the `startContainer` function.
-	containerTimeout = 2 * time.Second
+	containerTimeout = 15 * time.Second
 
 	// tls-related files, code taken from docker/common.go
 	defaultTrustKeyFile = "key.json"
