@@ -16,6 +16,7 @@ package main
 
 import (
 	"flag"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -23,6 +24,31 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/mssola/capture"
 )
+
+func TestGetCmd(t *testing.T) {
+	defer func() {
+		currentContext = nil
+	}()
+
+	fn1 := getCmd("images", func(ctx *cli.Context) { log.Printf("Hello") })
+	fn2 := getCmd("ps", func(ctx *cli.Context) { log.Printf("Hello") })
+
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "doc")
+	ctx := cli.NewContext(nil, set, nil)
+
+	all := capture.All(func() { fn1(ctx) })
+	stdout := string(all.Stdout)
+	if !strings.HasPrefix(stdout, "[images]") {
+		t.Fatalf("%s: should've started with [images]", stdout)
+	}
+
+	all = capture.All(func() { fn2(ctx) })
+	stdout = string(all.Stdout)
+	if !strings.HasPrefix(stdout, "[ps]") {
+		t.Fatalf("%s: should've started with [ps]", stdout)
+	}
+}
 
 func TestParseImageName(t *testing.T) {
 	// map with name as value and a string list with two enteries (repo and tag)
