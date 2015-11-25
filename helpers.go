@@ -33,9 +33,8 @@ var specialFlags = []string{
 // Decorate the given command so it adds some extra information to it before
 // executing it.
 func getCmd(name string, f func(ctx *cli.Context)) func(*cli.Context) {
-	log.SetPrefix("[" + name + "] ")
-
 	return func(ctx *cli.Context) {
+		log.SetPrefix("[" + name + "] ")
 		setupLogger(ctx)
 		currentContext = ctx
 		f(ctx)
