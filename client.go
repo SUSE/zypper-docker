@@ -17,15 +17,14 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/SUSE/dockerclient"
+	"github.com/docker/docker/pkg/tlsconfig"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/SUSE/dockerclient"
-	"github.com/docker/docker/pkg/tlsconfig"
 )
 
 // dockerError encapsulates a dockerclient.WaitResult that has an exit status
@@ -354,7 +353,15 @@ func commitContainerToImage(containerId, repo, tag, comment, author string) (str
 func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, author string) (string, error) {
 	containerId, err := runCommandInContainer(img, []string{cmd}, true)
 	if err != nil {
-		return "", err
+		switch err.(type) {
+		case dockerError:
+			de := err.(dockerError)
+			if isZypperExitCodeSevere(de.ExitCode) {
+				return "", err
+			}
+		default:
+			return "", err
+		}
 	}
 
 	imageId, err := commitContainerToImage(containerId, target_repo, target_tag, comment, author)
