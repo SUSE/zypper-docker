@@ -1,3 +1,10 @@
+Thu Nov 26 15:46:57 CET 2015  Flavio Castelli <fcastelli@suse.com>
+
+	* Release v1.1.1:
+		- Fix the prefix of the logger
+		- Increase timeout when spawning containers
+		- Ignore certain exit codes produces by zypper when doing patch and update
+
 Fri Oct 30 17:15:52 CET 2015  Flavio Castelli <flavio@castelli.name>
 
 	* Release v1.1.0:
