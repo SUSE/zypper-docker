@@ -35,7 +35,8 @@ module SpecHelper
   end
 
   def ensure_vulnerable_image_exists
-    return if docker_image_exists?(Settings::VULNERABLE_IMAGE_REPO, Settings::VULNERABLE_IMAGE_TAG)
+    # force pull of latest release of the opensuse:13.2 image
+    system("docker pull opensuse:13.2")
 
     # Do not use cheetah, we want live streaming of what is happening
     puts "Building #{Settings::VULNERABLE_IMAGE}"
