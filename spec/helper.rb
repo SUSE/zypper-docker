@@ -2,9 +2,17 @@ require "cheetah"
 require "pathname"
 
 class Settings
+  BASE_IMAGE_REPO = "opensuse"
+  BASE_IMAGE_TAG  = "13.2"
+  BASE_IMAGE      = "#{BASE_IMAGE_REPO}:#{BASE_IMAGE_TAG}"
+
   VULNERABLE_IMAGE_REPO = "zypper-docker-tests-vulnerable-image"
   VULNERABLE_IMAGE_TAG = "0.1"
   VULNERABLE_IMAGE = "#{VULNERABLE_IMAGE_REPO}:#{VULNERABLE_IMAGE_TAG}"
+
+  ENTRY_CMD_IMAGE_REPO = "zypper-docker-tests-entrypoint-cmd-image"
+  ENTRY_CMD_IMAGE_TAG = "0.1"
+  ENTRY_CMD_IMAGE = "#{ENTRY_CMD_IMAGE_REPO}:#{ENTRY_CMD_IMAGE_TAG}"
 end
 
 module SpecHelper
@@ -34,30 +42,47 @@ module SpecHelper
     puts "Stderr: #{e.stderr}"
   end
 
-  def ensure_vulnerable_image_exists
+  # Make sure that the given image exists. The name parameter corresponds to
+  # the name of the final image with the tag already included in it. The
+  # dockerfile corresponds to the name of the dockerfile. The path to this
+  # dockerfile is assumed to be inside of the "docker" directory of the root of
+  # this project. The dockerfile has to be based on BASE_IMAGE.
+  def ensure_image_exists(name, dockerfile)
     # force pull of latest release of the opensuse:13.2 image
-    system("docker pull opensuse:13.2")
+    system("docker pull #{Settings::BASE_IMAGE}")
 
     # Do not use cheetah, we want live streaming of what is happening
-    puts "Building #{Settings::VULNERABLE_IMAGE}"
+    puts "Building #{name}"
     cmd = "docker build" \
-      " -f #{File.join(Pathname.new(__FILE__).parent.parent, "docker/Dockerfile-vulnerable-image")}" \
-      " -t #{Settings::VULNERABLE_IMAGE}" \
+      " -f #{File.join(Pathname.new(__FILE__).parent.parent, "docker/#{dockerfile}")}" \
+      " -t #{name}" \
       " #{Pathname.new(__FILE__).parent.parent}"
     puts cmd
     system(cmd)
     exit(1) if $? != 0
   end
 
+  def ensure_vulnerable_image_exists
+    ensure_image_exists(Settings::VULNERABLE_IMAGE, "Dockerfile-vulnerable-image")
+  end
+
+  def ensure_entrypoint_cmd_image_exists
+    ensure_image_exists(Settings::ENTRY_CMD_IMAGE, "Dockerfile-entrypoint-and-cmd-set")
+  end
+
   def remove_docker_image(image)
     Cheetah.run("docker", "rmi", "-f", image)
   end
 
-  def docker_image_commit_details(image)
-    author = Cheetah.run("docker", "inspect", "--format='{{.Author}}'",  image, stdout: :capture)
-    message = Cheetah.run("docker", "inspect", "--format='{{.Comment}}'", image, stdout: :capture)
+  # Inspect the given docker image with the given format.
+  def docker_inspect(image, format)
+    res = Cheetah.run("docker", "inspect", "--format='{{#{format}}}'", image, stdout: :capture)
+    return nil if res == "<nil>\n"
+    res.strip
+  end
 
-    return author, message
+  def docker_image_commit_details(image)
+    [docker_inspect(image, ".Author"), docker_inspect(image, ".Comment")]
   end
 
   def check_commit_details(expected_author, expected_message, image)
@@ -89,5 +114,6 @@ RSpec.configure do |config|
 
   config.before :all do
     ensure_vulnerable_image_exists
+    ensure_entrypoint_cmd_image_exists
   end
 end

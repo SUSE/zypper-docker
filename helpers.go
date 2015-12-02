@@ -287,7 +287,7 @@ func updatePatchCmd(zypperCmd string, ctx *cli.Context) {
 		return
 	}
 
-	logAndPrintf("%s:%s successfully created", repo, tag)
+	logAndPrintf("%s:%s successfully created\n", repo, tag)
 
 	cache := getCacheFile()
 	if err := cache.updateCacheAfterUpdate(img, newImgID); err != nil {
@@ -296,4 +296,21 @@ func updatePatchCmd(zypperCmd string, ctx *cli.Context) {
 		log.Println(err)
 		exitWithCode(1)
 	}
+}
+
+// joinAsArray joins the given array of commands so it's compatible to what is
+// expected from a dockerfile syntax.
+func joinAsArray(cmds []string, emptyArray bool) string {
+	if emptyArray && len(cmds) == 0 {
+		return ""
+	}
+
+	str := "["
+	for i, v := range cmds {
+		str += "\"" + v + "\""
+		if i < len(cmds)-1 {
+			str += ", "
+		}
+	}
+	return str + "]"
 }

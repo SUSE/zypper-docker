@@ -17,14 +17,15 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/SUSE/dockerclient"
-	"github.com/docker/docker/pkg/tlsconfig"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/SUSE/dockerclient"
+	"github.com/docker/docker/pkg/tlsconfig"
 )
 
 // dockerError encapsulates a dockerclient.WaitResult that has an exit status
@@ -55,7 +56,8 @@ type DockerClient interface {
 	RemoveContainer(id string, force, volume bool) error
 	KillContainer(id, signal string) error
 	ResizeContainer(id string, isExec bool, width, height int) error
-	Commit(id string, c *dockerclient.ContainerConfig, repo, tag, comment, author string) (string, error)
+	Commit(id string, c *dockerclient.ContainerConfig, repo, tag, comment, author string, changes []string) (string, error)
+	InspectImage(id string) (*dockerclient.ImageInfo, error)
 
 	Wait(id string) <-chan dockerclient.WaitResult
 
@@ -334,13 +336,27 @@ func removeContainer(id string) {
 	}
 }
 
-// Create a Docker image from the container specified by containerId and
-// returns the image ID of the created one.
-// repo is the name of the reposity, hence it includes also the namespace (eg: suse/sle11sp3)
-// tag is the version of the image (eg: 1.0.0)
-func commitContainerToImage(containerId, repo, tag, comment, author string) (string, error) {
+// commitContainerToImage commits the container with the given containerID
+// that is based on the given img into a new image. The given repo should also
+// contain the namespace. Returns the id of the created image.
+func commitContainerToImage(img, containerId, repo, tag, comment, author string) (string, error) {
 	client := getDockerClient()
-	imageId, err := client.Commit(containerId, &dockerclient.ContainerConfig{}, repo, tag, comment, author)
+
+	// First of all, we inspect the parent image and fetch the values for the
+	// entrypoint and the cmd. We do this to preserve them on the committed
+	// image. See issue: https://github.com/SUSE/zypper-docker/issues/75.
+	info, err := client.InspectImage(img)
+	if err != nil {
+		return "", fmt.Errorf("could not inspect image '%s': %v", img, err)
+	}
+	changes := []string{
+		"ENTRYPOINT " + joinAsArray(info.Config.Entrypoint, false),
+		"CMD " + joinAsArray(info.Config.Cmd, true),
+	}
+
+	// And we commit into the new image.
+	cfg := &dockerclient.ContainerConfig{}
+	imageId, err := client.Commit(containerId, cfg, repo, tag, comment, author, changes)
 	return imageId, err
 }
 
@@ -364,7 +380,7 @@ func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, auth
 		}
 	}
 
-	imageId, err := commitContainerToImage(containerId, target_repo, target_tag, comment, author)
+	imageId, err := commitContainerToImage(img, containerId, target_repo, target_tag, comment, author)
 
 	// always remove the container
 	removeContainer(containerId)

@@ -247,3 +247,22 @@ func TestFormatZypperCommand(t *testing.T) {
 		t.Fatalf("Wrong command '%v', expected '%v'", cmd, expected)
 	}
 }
+
+func TestJoinAsArray(t *testing.T) {
+	str := joinAsArray([]string{}, false)
+	if str != "[]" {
+		t.Fatalf("Expected '[]', got: %s", str)
+	}
+	str = joinAsArray([]string{}, true)
+	if str != "" {
+		t.Fatalf("Expected '', got: %s", str)
+	}
+	str = joinAsArray([]string{"one"}, false)
+	if str != "[\"one\"]" {
+		t.Fatalf("Expected '[\"one\"]', got: %s", str)
+	}
+	str = joinAsArray([]string{"one", "two"}, false)
+	if str != "[\"one\", \"two\"]" {
+		t.Fatalf("Expected '[\"one\", \"two\"]', got: %s", str)
+	}
+}

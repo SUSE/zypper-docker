@@ -115,6 +115,8 @@ describe "patch operations" do
         expect(output).not_to include('928394')
 
         check_commit_details(author, message, @patched_image)
+        expect(docker_inspect(@patched_image, ".Config.Entrypoint")).to eq "{[]}"
+        expect(docker_inspect(@patched_image, ".Config.Cmd")).to eq "{[/bin/sh -c]}"
       end
 
       it 'can apply by cve number' do
@@ -133,6 +135,8 @@ describe "patch operations" do
         expect(output).not_to include('CVE-2015-2698')
 
         check_commit_details(author, message, @patched_image)
+        expect(docker_inspect(@patched_image, ".Config.Entrypoint")).to eq "{[]}"
+        expect(docker_inspect(@patched_image, ".Config.Cmd")).to eq "{[/bin/sh -c]}"
       end
 
       it 'can apply by date' do
@@ -153,6 +157,8 @@ describe "patch operations" do
         expect(output).not_to include('openSUSE-2015-526')
 
         check_commit_details(author, message, @patched_image)
+        expect(docker_inspect(@patched_image, ".Config.Entrypoint")).to eq "{[]}"
+        expect(docker_inspect(@patched_image, ".Config.Cmd")).to eq "{[/bin/sh -c]}"
       end
 
       it 'apply by category name' do
@@ -172,6 +178,30 @@ describe "patch operations" do
         expect(output).to include('security')
 
         check_commit_details(author, message, @patched_image)
+        expect(docker_inspect(@patched_image, ".Config.Entrypoint")).to eq "{[]}"
+        expect(docker_inspect(@patched_image, ".Config.Cmd")).to eq "{[/bin/sh -c]}"
+      end
+
+      it "does not overwrite the contents of the cmd and entrypoint" do
+        @image_tag = "1.0"
+        @image = "#{Settings::ENTRY_CMD_IMAGE_REPO}:#{@image_tag}"
+
+        if docker_image_exists?(Settings::ENTRY_CMD_IMAGE_REPO, @image_tag)
+          remove_docker_image(@image)
+        end
+
+        out = Cheetah.run(
+          "zypper-docker", "patch",
+          "--author", author,
+          "--message", message,
+          Settings::ENTRY_CMD_IMAGE,
+          @image)
+
+        expect(docker_image_exists?(Settings::ENTRY_CMD_IMAGE_REPO, @image_tag)).to be true
+
+        check_commit_details(author, message, @image)
+        expect(docker_inspect(@image, ".Config.Entrypoint")).to eq "{[cat]}"
+        expect(docker_inspect(@image, ".Config.Cmd")).to eq "{[/etc/os-release]}"
       end
     end
 
@@ -204,6 +234,10 @@ describe "patch operations" do
       start_background_container(Settings::VULNERABLE_IMAGE, @vul_container)
       @containers_to_terminate << @vul_container
 
+      if !docker_image_exists?(@patched_image_repo, @patched_image_tag)
+        Cheetah.run("zypper-docker", "patch", "--category", "recommended",
+          Settings::VULNERABLE_IMAGE, @patched_image)
+      end
       expect(docker_image_exists?(@patched_image_repo, @patched_image_tag)).to be true
       start_background_container(@patched_image, @patched_container)
       @containers_to_terminate << @patched_container

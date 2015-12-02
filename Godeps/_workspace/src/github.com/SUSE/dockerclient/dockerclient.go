@@ -781,7 +781,7 @@ func (client *DockerClient) BuildImage(image *BuildImage) (io.ReadCloser, error)
 	return client.doStreamRequest("POST", uri, image.Context, headers)
 }
 
-func (client *DockerClient) Commit(id string, c *ContainerConfig, repo, tag, comment, author string) (string, error) {
+func (client *DockerClient) Commit(id string, c *ContainerConfig, repo, tag, comment, author string, changes []string) (string, error) {
 	config, err := json.Marshal(c)
 	if err != nil {
 		return "", err
@@ -793,6 +793,9 @@ func (client *DockerClient) Commit(id string, c *ContainerConfig, repo, tag, com
 	v.Set("tag", tag)
 	v.Set("comment", comment)
 	v.Set("author", author)
+	for _, change := range changes {
+		v.Add("changes", change)
+	}
 
 	uri := fmt.Sprintf("/%s/commit?%s", APIVersion, v.Encode())
 	data, err := client.doRequest("POST", uri, config, nil)
