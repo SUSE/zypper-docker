@@ -40,6 +40,7 @@ type mockClient struct {
 	lastCmd            []string
 	killFail           bool
 	commitFail         bool
+	inspectFail        bool
 }
 
 func (mc *mockClient) ListImages(all bool, filter string, filters *dockerclient.ListFilter) ([]*dockerclient.Image, error) {
@@ -176,7 +177,7 @@ func (mc *mockClient) KillContainer(id, signal string) error {
 	return nil
 }
 
-func (mc *mockClient) Commit(id string, c *dockerclient.ContainerConfig, repo, tag, comment, author string) (string, error) {
+func (mc *mockClient) Commit(id string, c *dockerclient.ContainerConfig, repo, tag, comment, author string, changes []string) (string, error) {
 	if mc.commitFail {
 		return "", fmt.Errorf("Fake failure while committing container")
 	}
@@ -220,4 +221,11 @@ func (mc *mockClient) ListContainers(all bool, size bool, filters string) ([]doc
 func (mc *mockClient) ResizeContainer(id string, isExec bool, width, height int) error {
 	// Do nothing
 	return nil
+}
+
+func (mc *mockClient) InspectImage(id string) (*dockerclient.ImageInfo, error) {
+	if mc.inspectFail {
+		return nil, errors.New("inspect fail!")
+	}
+	return &dockerclient.ImageInfo{Config: &dockerclient.ContainerConfig{Image: "1"}}, nil
 }
