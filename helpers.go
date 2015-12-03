@@ -17,11 +17,11 @@ package main
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"strings"
 
 	"github.com/SUSE/dockerclient"
 	"github.com/codegangsta/cli"
+	"github.com/docker/distribution/reference"
 )
 
 var specialFlags = []string{
@@ -170,23 +170,27 @@ func fixArgsForZypper(args []string) []string {
 //   * suse/sles11sp3:1.0.0 -> repo is suse/sles11sp3, tag is 1.0.0
 //   * suse/sles11sp3 -> repo is suse/sles11sp3, tag is latest
 func parseImageName(name string) (string, string, error) {
-	var repo, tag string
+	// TODO (mssola): The reference package has the Parse function that does
+	// what we want. However, the returned object does not contain the tag
+	// always. This leads into a grammar conflict from a client point of view.
+	// For this reason, instead of using reference.Parse we use the regexpes
+	// provided by the reference package (that Parse is using anyways).
 
-	re := regexp.MustCompile("([a-z0-9\\._-]+(:[a-z0-9\\._-]+)?\\z)")
-	match := re.FindAllString(name, -1)
-	if match == nil || len(match) == 0 {
-		return "", "", fmt.Errorf("Cannot parse image name")
+	matches := reference.ReferenceRegexp.FindStringSubmatch(name)
+	if matches == nil {
+		return "", "",
+			fmt.Errorf("Could not parse '%s': %v", name, reference.ErrReferenceInvalidFormat)
 	}
-	repoAndTag := strings.SplitN(match[0], ":", 2)
-	repo = repoAndTag[0]
-
-	if len(repoAndTag) != 2 {
-		tag = "latest"
-	} else {
-		tag = repoAndTag[1]
+	if matches[1] == "" {
+		return "", "", reference.ErrNameEmpty
 	}
-
-	return repo, tag, nil
+	if len(matches[1]) > reference.NameTotalLengthMax {
+		return "", "", fmt.Errorf("Could not parse '%s': %v", name, reference.ErrNameTooLong)
+	}
+	if matches[2] == "" {
+		matches[2] = "latest"
+	}
+	return matches[1], matches[2], nil
 }
 
 // Exists with error if the image identified by repo and tag already exists

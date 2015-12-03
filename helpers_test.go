@@ -50,13 +50,15 @@ func TestGetCmd(t *testing.T) {
 	}
 }
 
-func TestParseImageName(t *testing.T) {
+func TestParseImageNameSuccess(t *testing.T) {
 	// map with name as value and a string list with two enteries (repo and tag)
 	// as value
 	data := make(map[string][]string)
 	data["opensuse:13.2"] = []string{"opensuse", "13.2"}
 	data["opensuse"] = []string{"opensuse", "latest"}
-	data["registry.test.lan:8080/opensuse:13.2"] = []string{"opensuse", "13.2"}
+	data["registry.test.lan:8080/opensuse:13.2"] = []string{"registry.test.lan:8080/opensuse", "13.2"}
+	data["registry.test.lan:8080/mssola/opensuse:13.2"] = []string{"registry.test.lan:8080/mssola/opensuse", "13.2"}
+	data["registry.test.lan:8080/mssola/opensuse"] = []string{"registry.test.lan:8080/mssola/opensuse", "latest"}
 
 	for name, expected := range data {
 		repo, tag, err := parseImageName(name)
@@ -76,7 +78,7 @@ func TestParseImageNameWrongFormat(t *testing.T) {
 	data := []string{
 		"openSUSE",
 		"opensuse!",
-		"opensuse:LATEST",
+		"opensuse:-asd",
 	}
 
 	for _, name := range data {
