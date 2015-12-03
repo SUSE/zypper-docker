@@ -22,12 +22,27 @@
 			"Rev": "71acacd42f85e5e82f70a55327789582a5200a90"
 		},
 		{
+			"ImportPath": "github.com/docker/distribution/digest",
+			"Comment": "v2.2.0-39-gb66bb12",
+			"Rev": "b66bb1287c49c3ca6649447a968a7df7aa62cc68"
+		},
+		{
+			"ImportPath": "github.com/docker/distribution/reference",
+			"Comment": "v2.2.0-39-gb66bb12",
+			"Rev": "b66bb1287c49c3ca6649447a968a7df7aa62cc68"
+		},
+		{
 			"ImportPath": "github.com/docker/docker/pkg/random",
 			"Comment": "v1.4.1-6134-g7064fe2",
 			"Rev": "7064fe283f1d63785f2812b8a23c8b4d80b58178"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/stringid",
+			"Comment": "v1.4.1-6134-g7064fe2",
+			"Rev": "7064fe283f1d63785f2812b8a23c8b4d80b58178"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/tarsum",
 			"Comment": "v1.4.1-6134-g7064fe2",
 			"Rev": "7064fe283f1d63785f2812b8a23c8b4d80b58178"
 		},
