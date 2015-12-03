@@ -62,7 +62,7 @@ describe "update operations" do
         remove_docker_image(@image)
       end
 
-      out = Cheetah.run(
+      Cheetah.run(
         "zypper-docker", "up",
         "--author", author,
         "--message", message,
@@ -87,6 +87,24 @@ describe "update operations" do
           Settings::VULNERABLE_IMAGE,
         @patched_image)
       }.to raise_error(Cheetah::ExecutionFailed)
+
+      # And now with a namespaced name.
+      @tagged_repo = "suse/tagged"
+      @tagged_tag  = "0.1"
+      @tagged_image = "#{@tagged_repo}:#{@tagged_tag}"
+      Cheetah.run("docker", "tag", Settings::VULNERABLE_IMAGE, @tagged_image)
+      expect(docker_image_exists?(@tagged_repo, @tagged_tag)).to be true
+
+      expect {
+        Cheetah.run(
+          "zypper-docker", "up",
+          "--author", author,
+          "--message", message,
+          Settings::VULNERABLE_IMAGE,
+        @tagged_image)
+      }.to raise_error(Cheetah::ExecutionFailed)
+
+      remove_docker_image(@tagged_image)
     end
   end
 
