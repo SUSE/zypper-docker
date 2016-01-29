@@ -1,4 +1,6 @@
-test ::
+test :: checks unit_test test_integration
+
+unit_test :: build
 	docker run --rm -v `pwd`:/go/src/github.com/SUSE/zypper-docker zypper-docker /opt/test.sh
 
 test_integration :: build_zypper_docker build_integration_tests
@@ -20,6 +22,30 @@ test_integration_quick ::
 		--volume="$(CURDIR):/code" \
 		zypper-docker-integration-tests \
 		rspec -t quick
+
+# TODO: add race
+checks :: vet fmt lint climate
+
+vet ::
+	@echo "+ $@"
+		@godep go vet ./...
+
+fmt ::
+	@echo "+ $@"
+		@test -z "$$(gofmt -l . | grep -v Godeps/_workspace/src/ | tee /dev/stderr)" || \
+					echo "+ please format Go code with 'gofmt'"
+
+lint ::
+	@echo "+ $@"
+		@test -z "$$(golint ./... | grep -v Godeps/_workspace/src/ | tee /dev/stderr)"
+
+climate:
+	@echo "+ $@"
+		@(./scripts/climate -o -a . &> /dev/null)
+
+race:
+	@echo "+ $@"
+		@godep go test -race
 
 clean ::
 	docker rmi zypper-docker

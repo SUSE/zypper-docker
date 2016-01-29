@@ -15,20 +15,22 @@
 package main
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/SUSE/dockerclient"
-	"github.com/docker/docker/pkg/tlsconfig"
+	"github.com/docker/engine-api/client"
+	"github.com/docker/engine-api/types"
+	"github.com/docker/engine-api/types/container"
+	"github.com/docker/engine-api/types/network"
+	"github.com/docker/engine-api/types/strslice"
 )
 
-// dockerError encapsulates a dockerclient.WaitResult that has an exit status
+// dockerError encapsulates a WaitResult that has an exit status
 // different than 0. This is done this way because, for some commands, zypper
 // might set an exit code different than 0, even if there was no error. For
 // example, the patch-check command can set the exit code 100, to determine
@@ -37,95 +39,62 @@ import (
 // of functions such as `startContainer` should only care about this type if
 // the command being implemented has this kind of behavior.
 type dockerError struct {
-	dockerclient.WaitResult
+	waitResult
 }
 
 func (de dockerError) Error() string {
-	return fmt.Sprintf("Command exited with status %d", de.ExitCode)
+	return fmt.Sprintf("Command exited with status %d", de.exitCode)
 }
 
-// The DockerClient interface lists all the functions that we use from Docker clients. Take
-// a look at http://godoc.org/github.com/samalba/dockerclient if you want to
-// read the documentation for each function.
+// DockerClient is an interface listing all the functions that we use from
+// Docker clients.
 type DockerClient interface {
-	ListImages(all bool, filter string, filters *dockerclient.ListFilter) ([]*dockerclient.Image, error)
-	ListContainers(all bool, size bool, filters string) ([]dockerclient.Container, error)
+	ContainerCommit(options types.ContainerCommitOptions) (types.ContainerCommitResponse, error)
+	ContainerCreate(config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (types.ContainerCreateResponse, error)
+	ContainerKill(containerID, signal string) error
+	ContainerList(options types.ContainerListOptions) ([]types.Container, error)
+	ContainerLogs(options types.ContainerLogsOptions) (io.ReadCloser, error)
+	ContainerRemove(options types.ContainerRemoveOptions) error
+	ContainerResize(options types.ResizeOptions) error
+	ContainerStart(id string) error
+	ContainerWait(containerID string) (int, error)
 
-	CreateContainer(config *dockerclient.ContainerConfig, name string) (string, error)
-	StartContainer(id string, config *dockerclient.HostConfig) error
-	RemoveContainer(id string, force, volume bool) error
-	KillContainer(id, signal string) error
-	ResizeContainer(id string, isExec bool, width, height int) error
-	Commit(id string, c *dockerclient.ContainerConfig, repo, tag, comment, author string, changes []string) (string, error)
-	InspectImage(id string) (*dockerclient.ImageInfo, error)
-
-	Wait(id string) <-chan dockerclient.WaitResult
-
-	ContainerLogs(id string, options *dockerclient.LogOptions) (io.ReadCloser, error)
+	ImageInspectWithRaw(imageID string, getSize bool) (types.ImageInspect, []byte, error)
+	ImageList(options types.ImageListOptions) ([]types.Image, error)
 }
 
-// This global variable holds the instance to the docker client.
-var dockerClient DockerClient
+// The timeout in which the container is allowed to run a command as given
+// to the `startContainer` function.
+const containerTimeout = 15 * time.Second
 
-const (
-	// The path in which the Docker client is listening to.
-	dockerSocket = "unix:///var/run/docker.sock"
+// safeClient holds the instance of the docker client and the mutex protecting
+// it from concurrent accesses. Do *not* use this global variable directly to
+// fetch the docker client. For that use the `getDockerClient` function.
+var safeClient struct {
+	sync.Mutex
+	client DockerClient
+}
 
-	// The timeout in which the container is allowed to run a command as given
-	// to the `startContainer` function.
-	containerTimeout = 15 * time.Second
-
-	// tls-related files, code taken from docker/common.go
-	defaultTrustKeyFile = "key.json"
-	defaultCaFile       = "ca.pem"
-	defaultKeyFile      = "key.pem"
-	defaultCertFile     = "cert.pem"
-)
-
-// Use this function to safely retrieve the singleton instance of the Docker
-// client. In order to guarantee such safety, the instance has to be
-// initialized when no goroutines are being executed concurrently (e.g. the
-// `init` or the `main` function).
+// getDockerClient safely returns the singleton instance of the Docker client.
 func getDockerClient() DockerClient {
-	if dockerClient != nil {
-		return dockerClient
+	safeClient.Lock()
+	defer safeClient.Unlock()
+
+	if safeClient.client != nil {
+		return safeClient.client
 	}
 
-	// We can safely discard the error. The connection will be started
-	// successfully because internally `NewDockerClientTimeout` will handle the
-	// connection as a dial for the http package. Therefore, it won't fail even
-	// if the given URL does not exist. This is ok, since this possible error
-	// will appear later on with subsequent commands.
-	//
-	// The only time it will return an error will be if the given URL has a bad
-	// format, which won't happen.
-
-	daemonUrl := dockerSocket
-	if os.Getenv("DOCKER_HOST") != "" {
-		daemonUrl = os.Getenv("DOCKER_HOST")
+	if dc, err := client.NewEnvClient(); err != nil {
+		log.Printf("Could not get a docker client: %v", err)
+	} else {
+		safeClient.client = dc
+		return dc
 	}
 
-	tlsConfig, err := setupTlsConfig()
-	if err != nil {
-		panic(err)
-	}
-
-	dockerClient, _ = dockerclient.NewDockerClientTimeout(daemonUrl, tlsConfig,
-		containerTimeout)
-	return dockerClient
-}
-
-func setupTlsConfig() (*tls.Config, error) {
-	if os.Getenv("DOCKER_TLS_VERIFY") == "" {
-		return &tls.Config{}, nil
-	}
-	dockerCertPath := os.Getenv("DOCKER_CERT_PATH")
-
-	var tlsOptions tlsconfig.Options
-	tlsOptions.CAFile = filepath.Join(dockerCertPath, defaultCaFile)
-	tlsOptions.CertFile = filepath.Join(dockerCertPath, defaultCertFile)
-	tlsOptions.KeyFile = filepath.Join(dockerCertPath, defaultKeyFile)
-	return tlsconfig.Client(tlsOptions)
+	// The return statement is just to make golint happy about this and for
+	// compliance with the API.
+	exitWithCode(1)
+	return nil
 }
 
 // humanizeCommandError tries to print an explicit and useful message for a
@@ -136,7 +105,7 @@ func humanizeCommandError(cmd, image string, err error) {
 	switch err.(type) {
 	case dockerError:
 		de := err.(dockerError)
-		if de.ExitCode == 127 {
+		if de.exitCode == 127 {
 			reason = "command not found"
 		} else {
 			reason = err.Error()
@@ -153,9 +122,9 @@ func humanizeCommandError(cmd, image string, err error) {
 // The given image string is just the ID of said image.
 // It returns true if the command was successful, false otherwise.
 func checkCommandInImage(img, cmd string) bool {
-	containerId, err := startContainer(img, []string{cmd}, false, false)
+	containerID, err := startContainer(img, []string{cmd}, false, false)
 
-	defer removeContainer(containerId)
+	defer removeContainer(containerID)
 
 	if err != nil {
 		humanizeCommandError(cmd, img, err)
@@ -205,14 +174,6 @@ func runCommandInContainer(img string, cmd []string, streaming bool) (string, er
 	return startContainer(img, cmd, streaming, true)
 }
 
-// Get the host config to be used for starting containers.
-func getHostConfig() *dockerclient.HostConfig {
-	if currentContext == nil {
-		return &dockerclient.HostConfig{}
-	}
-	return &dockerclient.HostConfig{ExtraHosts: currentContext.GlobalStringSlice("add-host")}
-}
-
 // Start a container from the specified image and then runs the given command
 // inside of it. The given image string is just the ID of said image.
 // The STDOUT and STDERR of the container can be streamed to the host's STDOUT
@@ -234,7 +195,7 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 	}
 
 	client := getDockerClient()
-	if err = client.StartContainer(id, getHostConfig()); err != nil {
+	if err = client.ContainerStart(id); err != nil {
 		// Silently fail, since it might be "zypper" not existing and we don't
 		// want to add noise to the log.
 		return id, err
@@ -245,10 +206,11 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 
 	if streaming {
 		// setup logging
-		rc, err := dockerClient.ContainerLogs(id, &dockerclient.LogOptions{
-			Follow: true, // required to keep streaming
-			Stdout: true,
-			Stderr: true,
+		rc, err := client.ContainerLogs(types.ContainerLogsOptions{
+			ContainerID: id,
+			Follow:      true, // required to keep streaming
+			ShowStdout:  true,
+			ShowStderr:  true,
 		})
 		if err != nil {
 			log.Println(err)
@@ -276,19 +238,19 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 	}()
 
 	select {
-	case res := <-client.Wait(id):
+	case res := <-containerWait(id):
 		if streaming {
 			<-sc
 		}
-		if res.Error != nil {
-			return id, res.Error
-		} else if res.ExitCode != 0 {
+		if res.err != nil {
+			return id, res.err
+		} else if res.exitCode != 0 {
 			return id, dockerError{res}
 		}
 	case <-timeout:
-		return id, fmt.Errorf("Timed out when waiting for a container.\n")
+		return id, fmt.Errorf("Timed out when waiting for a container")
 	case <-killChannel:
-		if err := client.KillContainer(id, "KILL"); err != nil {
+		if err := client.ContainerKill(id, "KILL"); err != nil {
 			fmt.Println("Error while killing running container:", err)
 		} else {
 			removeContainer(id)
@@ -297,6 +259,34 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 	}
 
 	return id, nil
+}
+
+// waitResult encapsulates the result of the client.ContainerWait function.
+// Defined for the convenience of the containerWait function.
+type waitResult struct {
+	exitCode int
+	err      error
+}
+
+// containerWait is a tiny wrapper on top of the client.ContainerWait function
+// so it returns a channel instead.
+func containerWait(id string) chan waitResult {
+	wr := make(chan waitResult)
+	client := getDockerClient()
+
+	go func() {
+		code, err := client.ContainerWait(id)
+		wr <- waitResult{exitCode: code, err: err}
+	}()
+	return wr
+}
+
+// Get the host config to be used for starting containers.
+func getHostConfig() *container.HostConfig {
+	if currentContext == nil {
+		return &container.HostConfig{}
+	}
+	return &container.HostConfig{ExtraHosts: currentContext.GlobalStringSlice("add-host")}
 }
 
 // Creates a container based on the given image. The given image string is just
@@ -310,28 +300,38 @@ func createContainer(img string, cmd []string) (string, error) {
 	client := getDockerClient()
 
 	// First of all we create a container in which we will run the command.
-	config := &dockerclient.ContainerConfig{
+	config := &container.Config{
 		Image:        img,
-		Cmd:          cmd,
-		Entrypoint:   []string{"/bin/sh", "-c"},
+		Cmd:          strslice.New(cmd...),
+		Entrypoint:   strslice.New("/bin/sh", "-c"),
 		AttachStdout: true,
 		AttachStderr: true,
 		// required to avoid garbage when cmd overwrites the terminal
 		// like "zypper ref" does
 		Tty: true,
 	}
-	id, err := client.CreateContainer(config, "")
+	resp, err := client.ContainerCreate(config, getHostConfig(), nil, "")
 	if err != nil {
 		return "", err
 	}
-	return id, nil
+
+	for _, warning := range resp.Warnings {
+		log.Print(warning)
+	}
+	return resp.ID, nil
 }
 
 // Safely remove the given container. It will deal with the error by logging
 // it.
 func removeContainer(id string) {
 	client := getDockerClient()
-	if err := client.RemoveContainer(id, true, true); err != nil {
+
+	err := client.ContainerRemove(types.ContainerRemoveOptions{
+		ContainerID:   id,
+		RemoveVolumes: true,
+		Force:         true,
+	})
+	if err != nil {
 		log.Println(err)
 	}
 }
@@ -339,25 +339,32 @@ func removeContainer(id string) {
 // commitContainerToImage commits the container with the given containerID
 // that is based on the given img into a new image. The given repo should also
 // contain the namespace. Returns the id of the created image.
-func commitContainerToImage(img, containerId, repo, tag, comment, author string) (string, error) {
+func commitContainerToImage(img, containerID, repo, tag, comment, author string) (string, error) {
 	client := getDockerClient()
 
 	// First of all, we inspect the parent image and fetch the values for the
 	// entrypoint and the cmd. We do this to preserve them on the committed
 	// image. See issue: https://github.com/SUSE/zypper-docker/issues/75.
-	info, err := client.InspectImage(img)
+	info, _, err := client.ImageInspectWithRaw(img, false)
 	if err != nil {
 		return "", fmt.Errorf("could not inspect image '%s': %v", img, err)
 	}
 	changes := []string{
-		"ENTRYPOINT " + joinAsArray(info.Config.Entrypoint, false),
-		"CMD " + joinAsArray(info.Config.Cmd, true),
+		"ENTRYPOINT " + joinAsArray(info.Config.Entrypoint.Slice(), false),
+		"CMD " + joinAsArray(info.Config.Cmd.Slice(), true),
 	}
 
 	// And we commit into the new image.
-	cfg := &dockerclient.ContainerConfig{}
-	imageId, err := client.Commit(containerId, cfg, repo, tag, comment, author, changes)
-	return imageId, err
+	resp, err := client.ContainerCommit(types.ContainerCommitOptions{
+		ContainerID:    containerID,
+		RepositoryName: repo,
+		Tag:            tag,
+		Comment:        comment,
+		Author:         author,
+		Changes:        changes,
+		Config:         &container.Config{},
+	})
+	return resp.ID, err
 }
 
 // Spawns a container from the specified image, runs the specified command inside
@@ -366,13 +373,13 @@ func commitContainerToImage(img, containerId, repo, tag, comment, author string)
 // The container is always deleted.
 // If something goes wrong an error message is returned.
 // Returns the ID of the new image on success.
-func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, author string) (string, error) {
-	containerId, err := runCommandInContainer(img, []string{cmd}, true)
+func runCommandAndCommitToImage(img, targetRepo, targetTag, cmd, comment, author string) (string, error) {
+	containerID, err := runCommandInContainer(img, []string{cmd}, true)
 	if err != nil {
 		switch err.(type) {
 		case dockerError:
 			de := err.(dockerError)
-			if isZypperExitCodeSevere(de.ExitCode) {
+			if isZypperExitCodeSevere(de.exitCode) {
 				return "", err
 			}
 		default:
@@ -380,49 +387,53 @@ func runCommandAndCommitToImage(img, target_repo, target_tag, cmd, comment, auth
 		}
 	}
 
-	imageId, err := commitContainerToImage(img, containerId, target_repo, target_tag, comment, author)
+	imageID, err := commitContainerToImage(img, containerID, targetRepo, targetTag, comment, author)
 
 	// always remove the container
-	removeContainer(containerId)
+	removeContainer(containerID)
 
-	return imageId, err
+	return imageID, err
 }
 
 // Looks for the specified running container and makes sure it's running either
 // SUSE or openSUSE.
-func checkContainerRunning(id string) (*dockerclient.Container, error) {
+func checkContainerRunning(id string) (types.Container, error) {
 	client := getDockerClient()
-	var container *dockerclient.Container
+	var container types.Container
 
-	containers, err := client.ListContainers(false, false, "")
+	containers, err := client.ContainerList(types.ContainerListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("Error while fetching running containers: %v", err)
+		return container, fmt.Errorf("Error while fetching running containers: %v", err)
 	}
 
+	found := false
 	for _, c := range containers {
-		if id == c.Id {
-			container = &c
+		if id == c.ID {
+			container = c
+			found = true
 			break
 		}
 		// look also for the short version of the container ID
-		if len(id) >= 12 && strings.Index(c.Id, id) == 0 {
-			container = &c
+		if len(id) >= 12 && strings.Index(c.ID, id) == 0 {
+			container = c
+			found = true
 			break
 		}
 		// for some reason the daemon has all the names prefixed by "/"
 		if arrayIncludeString(c.Names, "/"+id) {
-			container = &c
+			container = c
+			found = true
 			break
 		}
 	}
 
-	if container == nil {
-		return nil, fmt.Errorf("Cannot find running container: %s", id)
+	if !found {
+		return container, fmt.Errorf("Cannot find running container: %s", id)
 	}
 
 	cache := getCacheFile()
 	if !cache.isSUSE(container.Image) {
-		return nil, fmt.Errorf(
+		return container, fmt.Errorf(
 			"The container %s is based on the Docker image %s which is not a SUSE system",
 			id, container.Image)
 	}

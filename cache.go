@@ -107,17 +107,17 @@ func (cd *cachedData) reset() {
 // Update the Cachefile after an update.
 // The ID of the outdated image will be added to outdated Images and
 // the ID of the new image will be added to the SUSE Images.
-func (cd *cachedData) updateCacheAfterUpdate(outdatedImg, updatedImgId string) error {
-	outdatedImgId, err := getImageID(outdatedImg)
+func (cd *cachedData) updateCacheAfterUpdate(outdatedImg, updatedImgID string) error {
+	outdatedImgID, err := getImageID(outdatedImg)
 	if err != nil {
 		return err
 	}
-	if !arrayIncludeString(cd.Outdated, outdatedImgId) {
-		cd.Outdated = append(cd.Outdated, outdatedImgId)
+	if !arrayIncludeString(cd.Outdated, outdatedImgID) {
+		cd.Outdated = append(cd.Outdated, outdatedImgID)
 		cd.flush()
 	}
-	if !arrayIncludeString(cd.Suse, updatedImgId) {
-		cd.Suse = append(cd.Suse, updatedImgId)
+	if !arrayIncludeString(cd.Suse, updatedImgID) {
+		cd.Suse = append(cd.Suse, updatedImgID)
 		cd.flush()
 	}
 

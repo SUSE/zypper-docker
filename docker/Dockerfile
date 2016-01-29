@@ -1,10 +1,8 @@
 FROM golang
 
-RUN go get github.com/mssola/climate
 RUN go get golang.org/x/tools/cmd/cover
 RUN go get golang.org/x/tools/cmd/vet
 RUN go get github.com/golang/lint/golint
-RUN go get github.com/kisielk/errcheck
 RUN go get github.com/tools/godep
 RUN curl -sL -o /usr/bin/gimme https://raw.githubusercontent.com/travis-ci/gimme/master/gimme
 RUN chmod +x /usr/bin/gimme

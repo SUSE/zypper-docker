@@ -22,11 +22,14 @@ import (
 	"log"
 	"time"
 
-	"github.com/SUSE/dockerclient"
+	"github.com/docker/engine-api/types"
+	"github.com/docker/engine-api/types/container"
+	"github.com/docker/engine-api/types/network"
 )
 
 type mockClient struct {
 	createFail         bool
+	createWarnings     bool
 	removeFail         bool
 	startFail          bool
 	waitSleep          time.Duration
@@ -43,7 +46,7 @@ type mockClient struct {
 	inspectFail        bool
 }
 
-func (mc *mockClient) ListImages(all bool, filter string, filters *dockerclient.ListFilter) ([]*dockerclient.Image, error) {
+func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, error) {
 	if mc.listFail {
 		return nil, errors.New("List Failed")
 	}
@@ -53,73 +56,79 @@ func (mc *mockClient) ListImages(all bool, filter string, filters *dockerclient.
 
 	// Let's return some more or less realistic images.
 	if mc.listReturnOneImage {
-		return []*dockerclient.Image{
-			&dockerclient.Image{
-				Id:          "2",
-				ParentId:    "0",       // Not used
-				Size:        0,         // Not used
-				VirtualSize: 254515796, // 254.5 MB
+		return []types.Image{
+			types.Image{
+				ID:          "2",
+				ParentID:    "0",       // Not used
+				Size:        254515796, // 254.5 MB
+				VirtualSize: 254515796,
 				RepoTags:    []string{"opensuse:13.2"},
-				Created:     time.Now().UnixNano(),
-			},
-		}, nil
-	} else {
-		return []*dockerclient.Image{
-			&dockerclient.Image{
-				Id:          "1",
-				ParentId:    "0",       // Not used
-				Size:        0,         // Not used
-				VirtualSize: 254515796, // 254.5 MB
-				RepoTags:    []string{"opensuse:latest", "opensuse:tag"},
-				Created:     time.Now().UnixNano(),
-			},
-			&dockerclient.Image{
-				Id:          "2",
-				ParentId:    "0",       // Not used
-				Size:        0,         // Not used
-				VirtualSize: 254515796, // 254.5 MB
-				RepoTags:    []string{"opensuse:13.2"},
-				Created:     time.Now().UnixNano(),
-			},
-			&dockerclient.Image{
-				Id:          "3",
-				ParentId:    "0",       // Not used
-				Size:        0,         // Not used
-				VirtualSize: 254515796, // 254.5 MB
-				RepoTags:    []string{"ubuntu:latest"},
-				Created:     time.Now().UnixNano(),
-			},
-			&dockerclient.Image{
-				Id:          "4",
-				ParentId:    "0",        // Not used
-				Size:        0,          // Not used
-				VirtualSize: 254515796,  // 254.5 MB
-				RepoTags:    []string{}, // Invalid image
-				Created:     time.Now().UnixNano(),
-			},
-			&dockerclient.Image{
-				Id:          "5",
-				ParentId:    "0",                        // Not used
-				Size:        0,                          // Not used
-				VirtualSize: 254515796,                  // 254.5 MB
-				RepoTags:    []string{"busybox:latest"}, // Invalid image
 				Created:     time.Now().UnixNano(),
 			},
 		}, nil
 	}
+
+	return []types.Image{
+		types.Image{
+			ID:          "1",
+			ParentID:    "0",       // Not used
+			Size:        254515796, // 254.5 MB
+			VirtualSize: 254515796,
+			RepoTags:    []string{"opensuse:latest", "opensuse:tag"},
+			Created:     time.Now().UnixNano(),
+		},
+		types.Image{
+			ID:          "2",
+			ParentID:    "0",       // Not used
+			Size:        254515796, // 254.5 MB
+			VirtualSize: 254515796,
+			RepoTags:    []string{"opensuse:13.2"},
+			Created:     time.Now().UnixNano(),
+		},
+		types.Image{
+			ID:          "3",
+			ParentID:    "0",       // Not used
+			Size:        254515796, // 254.5 MB
+			VirtualSize: 254515796,
+			RepoTags:    []string{"ubuntu:latest"},
+			Created:     time.Now().UnixNano(),
+		},
+		types.Image{
+			ID:          "4",
+			ParentID:    "0",       // Not used
+			Size:        254515796, // 254.5 MB
+			VirtualSize: 254515796,
+			RepoTags:    []string{}, // Invalid image
+			Created:     time.Now().UnixNano(),
+		},
+		types.Image{
+			ID:          "5",
+			ParentID:    "0",       // Not used
+			Size:        254515796, // 254.5 MB
+			VirtualSize: 254515796,
+			RepoTags:    []string{"busybox:latest"}, // Invalid image
+			Created:     time.Now().UnixNano(),
+		},
+	}, nil
 }
 
-func (mc *mockClient) CreateContainer(config *dockerclient.ContainerConfig, name string) (string, error) {
+func (mc *mockClient) ContainerCreate(config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (types.ContainerCreateResponse, error) {
+	var warnings []string
+
 	if mc.createFail {
-		return "", errors.New("Create failed")
+		return types.ContainerCreateResponse{}, errors.New("Create failed")
 	}
-	name = fmt.Sprintf("zypper-docker-private-%s", config.Image)
-	mc.lastCmd = config.Cmd
+	if mc.createWarnings {
+		warnings = []string{"warning"}
+	}
 
-	return name, nil
+	name := fmt.Sprintf("zypper-docker-private-%s", config.Image)
+	mc.lastCmd = config.Cmd.Slice()
+
+	return types.ContainerCreateResponse{ID: name, Warnings: warnings}, nil
 }
 
-func (mc *mockClient) StartContainer(id string, config *dockerclient.HostConfig) error {
+func (mc *mockClient) ContainerStart(id string) error {
 	if mc.startFail {
 		return errors.New("Start failed")
 	}
@@ -130,38 +139,30 @@ func (mc *mockClient) StartContainer(id string, config *dockerclient.HostConfig)
 	return nil
 }
 
-func (mc *mockClient) RemoveContainer(id string, force, volume bool) error {
+func (mc *mockClient) ContainerRemove(options types.ContainerRemoveOptions) error {
 	if mc.removeFail {
 		return errors.New("Remove failed")
 	}
-	log.Printf("Removed container %v", id)
+	log.Printf("Removed container %v", options.ContainerID)
 	return nil
 }
 
-func (mc *mockClient) Wait(id string) <-chan dockerclient.WaitResult {
-	ch := make(chan dockerclient.WaitResult)
-
-	go func() {
-		time.Sleep(mc.waitSleep)
-		if mc.waitFail {
-			err := errors.New("Wait failed")
-			ch <- dockerclient.WaitResult{ExitCode: -1, Error: err}
-		} else {
-			if mc.commandFail {
-				// If commandExit was not specified, just exit with 1.
-				if mc.commandExit == 0 {
-					mc.commandExit = 1
-				}
-				ch <- dockerclient.WaitResult{ExitCode: mc.commandExit, Error: nil}
-			} else {
-				ch <- dockerclient.WaitResult{ExitCode: 0, Error: nil}
-			}
+func (mc *mockClient) ContainerWait(containerID string) (int, error) {
+	time.Sleep(mc.waitSleep)
+	if mc.waitFail {
+		return -1, errors.New("Wait failed")
+	}
+	if mc.commandFail {
+		// If commandExit was not specified, just exit with 1.
+		if mc.commandExit == 0 {
+			mc.commandExit = 1
 		}
-	}()
-	return ch
+		return mc.commandExit, nil
+	}
+	return 0, nil
 }
 
-func (mc *mockClient) ContainerLogs(id string, options *dockerclient.LogOptions) (io.ReadCloser, error) {
+func (mc *mockClient) ContainerLogs(options types.ContainerLogsOptions) (io.ReadCloser, error) {
 	if mc.logFail {
 		return nil, fmt.Errorf("Fake log failure")
 	}
@@ -170,62 +171,62 @@ func (mc *mockClient) ContainerLogs(id string, options *dockerclient.LogOptions)
 	return cb, err
 }
 
-func (mc *mockClient) KillContainer(id, signal string) error {
+func (mc *mockClient) ContainerKill(id, signal string) error {
 	if mc.killFail {
 		return fmt.Errorf("Fake failure while killing container")
 	}
 	return nil
 }
 
-func (mc *mockClient) Commit(id string, c *dockerclient.ContainerConfig, repo, tag, comment, author string, changes []string) (string, error) {
+func (mc *mockClient) ContainerCommit(options types.ContainerCommitOptions) (types.ContainerCommitResponse, error) {
 	if mc.commitFail {
-		return "", fmt.Errorf("Fake failure while committing container")
+		return types.ContainerCommitResponse{ID: ""}, fmt.Errorf("Fake failure while committing container")
 	}
-	return "fake image ID", nil
+	return types.ContainerCommitResponse{ID: "fake image ID"}, nil
 }
 
-func (mc *mockClient) ListContainers(all bool, size bool, filters string) ([]dockerclient.Container, error) {
+func (mc *mockClient) ContainerList(options types.ContainerListOptions) ([]types.Container, error) {
 	if mc.listFail {
-		return []dockerclient.Container{},
+		return []types.Container{},
 			fmt.Errorf("Fake failure while listing containers")
 	}
 
 	if mc.listEmpty {
-		return []dockerclient.Container{}, nil
+		return []types.Container{}, nil
 	}
 
-	return []dockerclient.Container{
-		dockerclient.Container{
-			Id:    "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01",
+	return []types.Container{
+		types.Container{
+			ID:    "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01",
 			Names: []string{"/suse"},
 			Image: "opensuse:13.2",
 		},
-		dockerclient.Container{
-			Id:    "2",
+		types.Container{
+			ID:    "2",
 			Names: []string{"/not_suse"},
 			Image: "busybox:latest",
 		},
-		dockerclient.Container{
-			Id:    "3",
+		types.Container{
+			ID:    "3",
 			Names: []string{"/ubuntu"},
 			Image: "ubuntu:latest",
 		},
-		dockerclient.Container{
-			Id:    "4",
+		types.Container{
+			ID:    "4",
 			Names: []string{"/unknown_image"},
 			Image: "foo",
 		},
 	}, nil
 }
 
-func (mc *mockClient) ResizeContainer(id string, isExec bool, width, height int) error {
+func (mc *mockClient) ContainerResize(options types.ResizeOptions) error {
 	// Do nothing
 	return nil
 }
 
-func (mc *mockClient) InspectImage(id string) (*dockerclient.ImageInfo, error) {
+func (mc *mockClient) ImageInspectWithRaw(imageID string, getSize bool) (types.ImageInspect, []byte, error) {
 	if mc.inspectFail {
-		return nil, errors.New("inspect fail!")
+		return types.ImageInspect{}, []byte{}, errors.New("inspect fail")
 	}
-	return &dockerclient.ImageInfo{Config: &dockerclient.ContainerConfig{Image: "1"}}, nil
+	return types.ImageInspect{Config: &container.Config{Image: "1"}}, []byte{}, nil
 }

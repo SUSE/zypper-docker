@@ -19,14 +19,12 @@ before_install:
   - make build_integration_tests
 
 before_script:
-  - go get github.com/mssola/climate
   - go get golang.org/x/tools/cmd/cover
   - go get golang.org/x/tools/cmd/vet
   - go get github.com/golang/lint/golint
-  - go get github.com/kisielk/errcheck
   - go get github.com/tools/godep
 
 script:
-  - go test -v ./...
-  - climate -open=false -threshold=80.0 -errcheck -vet -fmt -race .
+  - make checks
+  - godep go test -v
   - make test_integration

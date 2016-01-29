@@ -15,21 +15,21 @@
 package main
 
 const (
-	ZYPPER_EXIT_OK                    = 0
-	ZYPPER_EXIT_ERR_BUG               = 1
-	ZYPPER_EXIT_ERR_SYNTAX            = 2
-	ZYPPER_EXIT_ERR_INVALID_ARGS      = 3
-	ZYPPER_EXIT_ERR_ZYPP              = 4
-	ZYPPER_EXIT_ERR_PRIVILEGES        = 5
-	ZYPPER_EXIT_NO_REPOS              = 6
-	ZYPPER_EXIT_ZYPP_LOCKED           = 7
-	ZYPPER_EXIT_ERR_COMMIT            = 8
-	ZYPPER_EXIT_INF_UPDATE_NEEDED     = 100
-	ZYPPER_EXIT_INF_SEC_UPDATE_NEEDED = 101
-	ZYPPER_EXIT_INF_REBOOT_NEEDED     = 102
-	ZYPPER_EXIT_INF_RESTART_NEEDED    = 103
-	ZYPPER_EXIT_INF_CAP_NOT_FOUND     = 104
-	ZYPPER_EXIT_ON_SIGNAL             = 105
+	zypperExitOK                 = 0
+	zypperExitErrBug             = 1
+	zypperExitErrSyntax          = 2
+	zypperExitErrInvalidArgs     = 3
+	zypperExitErrZyp             = 4
+	zypperExitErrPrivileges      = 5
+	zypperExitNoRepos            = 6
+	zypperExitZyppLocked         = 7
+	zypperExitErrCommit          = 8
+	zypperExitInfUpdateNeeded    = 100
+	zypperExitInfSecUpdateNeeded = 101
+	zypperExitInfRebootNeeded    = 102
+	zypperExitInfRestartNeeded   = 103
+	zypperExitIndCapNotFound     = 104
+	zypperExitOnSignal           = 105
 )
 
 // Given zypper's exit code returns true if the error is
@@ -37,17 +37,17 @@ const (
 // zypper-docker to exit with error.
 func isZypperExitCodeSevere(errCode int) bool {
 	switch errCode {
-	case ZYPPER_EXIT_OK:
+	case zypperExitOK:
 		return false
-	case ZYPPER_EXIT_INF_REBOOT_NEEDED:
+	case zypperExitInfRebootNeeded:
 		return false
-	case ZYPPER_EXIT_INF_UPDATE_NEEDED:
+	case zypperExitInfUpdateNeeded:
 		return false
-	case ZYPPER_EXIT_INF_SEC_UPDATE_NEEDED:
+	case zypperExitInfSecUpdateNeeded:
 		return false
-	case ZYPPER_EXIT_INF_RESTART_NEEDED:
+	case zypperExitInfRestartNeeded:
 		return false
-	case ZYPPER_EXIT_ON_SIGNAL:
+	case zypperExitOnSignal:
 		return false
 	default:
 		return true

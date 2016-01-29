@@ -39,7 +39,7 @@ func TestPsCommand(t *testing.T) {
 
 func TestPsCommandNoMatches(t *testing.T) {
 	setupTestExitStatus()
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -63,7 +63,7 @@ func TestPsCommandMatches(t *testing.T) {
 	cacheFile.flush()
 
 	setupTestExitStatus()
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)

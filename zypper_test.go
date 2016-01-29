@@ -20,13 +20,12 @@ import (
 
 func TestIsZypperExitCodeSevere(t *testing.T) {
 	notSevereExitCodes := []int{
-		ZYPPER_EXIT_OK,
-		ZYPPER_EXIT_INF_REBOOT_NEEDED,
-		ZYPPER_EXIT_INF_REBOOT_NEEDED,
-		ZYPPER_EXIT_INF_UPDATE_NEEDED,
-		ZYPPER_EXIT_INF_SEC_UPDATE_NEEDED,
-		ZYPPER_EXIT_INF_RESTART_NEEDED,
-		ZYPPER_EXIT_ON_SIGNAL,
+		zypperExitOK,
+		zypperExitInfRebootNeeded,
+		zypperExitInfUpdateNeeded,
+		zypperExitInfSecUpdateNeeded,
+		zypperExitInfRestartNeeded,
+		zypperExitOnSignal,
 	}
 
 	for _, code := range notSevereExitCodes {
@@ -36,15 +35,15 @@ func TestIsZypperExitCodeSevere(t *testing.T) {
 	}
 
 	severeExitCodes := []int{
-		ZYPPER_EXIT_ERR_BUG,
-		ZYPPER_EXIT_ERR_SYNTAX,
-		ZYPPER_EXIT_ERR_INVALID_ARGS,
-		ZYPPER_EXIT_ERR_ZYPP,
-		ZYPPER_EXIT_ERR_PRIVILEGES,
-		ZYPPER_EXIT_NO_REPOS,
-		ZYPPER_EXIT_ZYPP_LOCKED,
-		ZYPPER_EXIT_ERR_COMMIT,
-		ZYPPER_EXIT_INF_CAP_NOT_FOUND,
+		zypperExitErrBug,
+		zypperExitErrSyntax,
+		zypperExitErrInvalidArgs,
+		zypperExitErrZyp,
+		zypperExitErrPrivileges,
+		zypperExitNoRepos,
+		zypperExitZyppLocked,
+		zypperExitErrCommit,
+		zypperExitIndCapNotFound,
 		127,
 	}
 

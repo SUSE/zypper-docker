@@ -28,10 +28,6 @@ func main() {
 		os.Exit(code)
 	}
 
-	// Safe initialization of the singleton client instance. Take a look at the
-	// documentation of this function for more information.
-	_ = getDockerClient()
-
 	os.Args = fixArgsForZypper(os.Args)
 	app := newApp()
 	app.RunAndExitOnError()

@@ -98,7 +98,7 @@ func TestGetImageIdErrorWhileParsingName(t *testing.T) {
 }
 
 func TestPreventImageOverwriteImageCheckImageFailure(t *testing.T) {
-	dockerClient = &mockClient{listFail: true}
+	safeClient.client = &mockClient{listFail: true}
 
 	err := preventImageOverwrite("opensuse", "13.2")
 
@@ -111,13 +111,14 @@ func TestPreventImageOverwriteImageCheckImageFailure(t *testing.T) {
 }
 
 func TestPreventImageOverwriteImageExists(t *testing.T) {
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 
 	err := preventImageOverwrite("opensuse", "13.2")
 
 	if err == nil {
 		t.Fatalf("Expected error")
 	}
+
 	if !strings.Contains(err.Error(), "Cannot overwrite an existing image.") {
 		t.Fatal("Wrong error message")
 	}
