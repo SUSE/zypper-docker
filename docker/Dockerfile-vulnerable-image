@@ -9,7 +9,10 @@ RUN zypper --non-interactive --gpg-auto-import-keys ref
 # This image has to be out-dated so tests can work on it. That's why we are
 # installing an old version of a package that we know that has received
 # updates.
-RUN zypper -n in --repo OSS alsa-utils
+RUN zypper -n in --repo OSS ruby2.1
+
+# Downgrande openssl to have even more CVEs
+RUN zypper -n in --oldpackage openssl-1.0.1i-2.1.4.x86_64
 
 # No entry point, no workdir, no nothing; this is just an image used for
 # testing purposes.

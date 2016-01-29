@@ -19,7 +19,7 @@ describe "update operations" do
   context "listing updates" do
     it "lists updates of an image" do
       output = Cheetah.run("zypper-docker", "lu", Settings::VULNERABLE_IMAGE, stdout: :capture)
-      expect(output).to include("alsa-utils")
+      expect(output).to include("ruby2.1")
     end
 
     # See issue: https://github.com/SUSE/zypper-docker/issues/66
@@ -139,12 +139,12 @@ describe "update operations" do
 
     it "finds the pending updates of a SUSE-based image" do
       output = Cheetah.run("zypper-docker", "luc", @vul_container, stdout: :capture)
-      expect(output).to include("alsa-utils")
+      expect(output).to include("ruby2.1")
     end
 
     it "does not find updates for patched containers" do
       output = Cheetah.run("zypper-docker", "luc", @patched_container, stdout: :capture)
-      expect(output).not_to include("alsa-utils")
+      expect(output).not_to include("ruby2.1")
     end
 
     it "reports non-SUSE containers" do
