@@ -19,9 +19,9 @@ import (
 	"log"
 	"strings"
 
-	"github.com/SUSE/dockerclient"
 	"github.com/codegangsta/cli"
 	"github.com/docker/distribution/reference"
+	"github.com/docker/engine-api/types"
 )
 
 var specialFlags = []string{
@@ -197,6 +197,7 @@ func parseImageName(name string) (string, string, error) {
 // Returns an error when the image already exists or something went wrong.
 func preventImageOverwrite(repo, tag string) error {
 	imageExists, err := checkImageExists(repo, tag)
+
 	if err != nil {
 		return fmt.Errorf("Cannot proceed safely: %v.", err)
 	}
@@ -217,7 +218,7 @@ func getImageID(name string) (string, error) {
 		name = name + ":" + tag
 	}
 
-	images, err := client.ListImages(true, repo, &dockerclient.ListFilter{})
+	images, err := client.ImageList(types.ImageListOptions{MatchName: repo, All: false})
 	if err != nil {
 		return "", err
 	}
@@ -227,7 +228,7 @@ func getImageID(name string) (string, error) {
 	}
 	for _, image := range images {
 		if arrayIncludeString(image.RepoTags, name) {
-			return image.Id, nil
+			return image.ID, nil
 		}
 	}
 

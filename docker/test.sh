@@ -10,6 +10,5 @@ for version in "${VERSIONS[@]}"; do
     fi
     gimme $version
     source ~/.gimme/envs/go${version}.env
-    godep go test -race -v ./...
-    climate -open=false -threshold=80.0 -errcheck -vet -fmt .
+    godep go test -v
 done

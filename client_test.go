@@ -23,13 +23,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SUSE/dockerclient"
 	"github.com/codegangsta/cli"
+	"github.com/docker/engine-api/client"
 	"github.com/mssola/capture"
 )
 
 func TestMockClient(t *testing.T) {
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 
 	client := getDockerClient()
 	to := reflect.TypeOf(client)
@@ -44,44 +44,47 @@ func TestMockClient(t *testing.T) {
 }
 
 // This is the only test that will check for the actual real connection, so for
-// safety reasons we do `dockerClient = nil` before and after the actual test.
+// safety reasons we do `safeClient.client = nil` before and after the actual test.
 func TestDockerClient(t *testing.T) {
-	dockerClient = nil
+	safeClient.client = nil
 
 	// This test will work even if docker is not running. Take a look at the
 	// implementation of it for more details.
-	client := getDockerClient()
+	cl := getDockerClient()
 
-	docker, ok := client.(*dockerclient.DockerClient)
-	if !ok {
-		t.Fatal("Could not cast to dockerclient.DockerClient")
+	if _, ok := cl.(*client.Client); !ok {
+		t.Fatal("Could not cast to *client.Client")
 	}
 
-	if docker.URL.Scheme != "http" {
-		t.Fatalf("Unexpected scheme: %v\n", docker.URL.Scheme)
-	}
-	if docker.URL.Host != "unix.sock" {
-		t.Fatalf("Unexpected host: %v\n", docker.URL.Host)
-	}
-
-	dockerClient = nil
+	safeClient.client = nil
 }
 
 func TestRunCommandInContainerCreateFailure(t *testing.T) {
-	dockerClient = &mockClient{createFail: true}
+	safeClient.client = &mockClient{createFail: true}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
 	if _, err := runCommandInContainer("fail", []string{}, false); err == nil {
 		t.Fatal("It should've failed\n")
 	}
-	if !strings.Contains(buffer.String(), "Create failed") {
-		t.Fatal("It should've logged something expected\n")
+
+	testReaderData(t, buffer, []string{"Create failed"})
+}
+
+func TestCreateContainerWarnings(t *testing.T) {
+	safeClient.client = &mockClient{createWarnings: true}
+
+	buffer := bytes.NewBuffer([]byte{})
+	log.SetOutput(buffer)
+	if _, err := createContainer("image", []string{"such", "command", "wow"}); err != nil {
+		t.Fatalf("We've got the error %v", err)
 	}
+
+	testReaderData(t, buffer, []string{"warning"})
 }
 
 func TestRunCommandInContainerStartFailure(t *testing.T) {
-	dockerClient = &mockClient{startFail: true}
+	safeClient.client = &mockClient{startFail: true}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -89,21 +92,11 @@ func TestRunCommandInContainerStartFailure(t *testing.T) {
 		t.Fatal("It should've failed\n")
 	}
 
-	// The only logged stuff is that the created container has been removed.
-	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 3 {
-		t.Fatal("Wrong number of lines")
-	}
-	if !strings.Contains(buffer.String(), "Removed container") {
-		t.Fatal("It should've logged something expected\n")
-	}
-	if !strings.Contains(buffer.String(), "Start failed") {
-		t.Fatal("It should've logged something expected\n")
-	}
+	testReaderData(t, buffer, []string{"Start failed", "Removed container"})
 }
 
 func TestRunCommandInContainerContainerLogsFailure(t *testing.T) {
-	dockerClient = &mockClient{logFail: true}
+	safeClient.client = &mockClient{logFail: true}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -112,34 +105,33 @@ func TestRunCommandInContainerContainerLogsFailure(t *testing.T) {
 		t.Fatal("It should have failed\n")
 	}
 
-	if err.Error() != "Fake log failure" {
-		t.Fatal("Should have failed because of a logging issue")
-	}
+	testReaderData(t, buffer, []string{"Fake log failure"})
 }
 
 func TestRunCommandInContainerStreaming(t *testing.T) {
-	mock := mockClient{}
-	dockerClient = &mock
+	safeClient.client = &mockClient{}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
 
 	var err error
-	res := capture.All(func() {
+	resp := capture.All(func() {
 		_, err = runCommandInContainer("opensuse", []string{"foo"}, true)
 	})
-
 	if err != nil {
-		t.Fatal("It shouldn't have failed\n")
+		t.Fatal("It shouldn't have failed")
 	}
 
-	if !strings.Contains(string(res.Stdout), "streaming buffer initialized") {
-		t.Fatal("The streaming buffer should have been initialized\n")
+	testReaderData(t, buffer, []string{})
+
+	str := "streaming buffer initialized"
+	if !strings.Contains(string(resp.Stdout), str) {
+		t.Fatalf("Expected the text \"%s\" in: %s", str, resp.Stdout)
 	}
 }
 
 func TestRunCommandInContainerCommandFailure(t *testing.T) {
-	dockerClient = &mockClient{commandFail: true}
+	safeClient.client = &mockClient{commandFail: true}
 
 	var err error
 
@@ -157,7 +149,7 @@ func TestRunCommandInContainerCommandFailure(t *testing.T) {
 }
 
 func TestCheckCommandInImageWaitFailed(t *testing.T) {
-	dockerClient = &mockClient{
+	safeClient.client = &mockClient{
 		waitFail:  true,
 		waitSleep: 100 * time.Millisecond,
 	}
@@ -168,20 +160,11 @@ func TestCheckCommandInImageWaitFailed(t *testing.T) {
 		t.Fatal("It should've failed\n")
 	}
 
-	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 3 {
-		t.Fatal("Wrong number of lines")
-	}
-	if !strings.Contains(buffer.String(), "Wait failed") {
-		t.Fatal("It should've logged something expected\n")
-	}
-	if !strings.Contains(buffer.String(), "Removed container zypper-docker-private-fail") {
-		t.Fatal("It should've logged something expected\n")
-	}
+	testReaderData(t, buffer, []string{"Wait failed", "Removed container zypper-docker-private-fail"})
 }
 
 func TestCheckCommandInImageWaitTimedOut(t *testing.T) {
-	dockerClient = &mockClient{waitSleep: containerTimeout * 2}
+	safeClient.client = &mockClient{waitSleep: containerTimeout * 2}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -189,20 +172,12 @@ func TestCheckCommandInImageWaitTimedOut(t *testing.T) {
 		t.Fatal("It should've failed\n")
 	}
 
-	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 4 {
-		t.Fatal("Wrong number of lines")
-	}
-	if !strings.Contains(buffer.String(), "Timed out when waiting for a container.") {
-		t.Fatal("It should've logged something expected\n")
-	}
-	if !strings.Contains(buffer.String(), "Removed container zypper-docker-private-fail") {
-		t.Fatal("It should've logged something expected\n")
-	}
+	testReaderData(t, buffer, []string{"Timed out when waiting for a container",
+		"Removed container zypper-docker-private-fail"})
 }
 
 func TestCheckCommandInImageSuccess(t *testing.T) {
-	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+	safeClient.client = &mockClient{waitSleep: 100 * time.Millisecond}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -210,31 +185,16 @@ func TestCheckCommandInImageSuccess(t *testing.T) {
 		t.Fatal("It should've been ok\n")
 	}
 
-	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 2 {
-		t.Fatal("Wrong number of lines")
-	}
-	if !strings.Contains(buffer.String(), "Removed container zypper-docker-private-ok") {
-		t.Fatal("It should've logged something expected\n")
-	}
+	testReaderData(t, buffer, []string{"Removed container zypper-docker-private-ok"})
 }
 
 func TestRemoveContainerFail(t *testing.T) {
-	dockerClient = &mockClient{removeFail: true}
+	safeClient.client = &mockClient{removeFail: true}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
 	removeContainer("fail")
-	if !strings.Contains(buffer.String(), "Remove failed") {
-		t.Fatal("It should've logged something expected\n")
-	}
-
-	// Making sure that the logger has not print the "success" message
-	// from the mock type.
-	lines := strings.Split(buffer.String(), "\n")
-	if len(lines) != 2 {
-		t.Fatal("Wrong number of lines")
-	}
+	testReaderData(t, buffer, []string{"Remove failed"})
 }
 
 func TestHandleSignalWhileContainerRuns(t *testing.T) {
@@ -248,7 +208,7 @@ func TestHandleSignalWhileContainerRuns(t *testing.T) {
 		exitInvocations++
 	}
 
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -270,7 +230,7 @@ func TestHandleSignalWhileContainerRunsEvenWhenKillContainerFails(t *testing.T) 
 		exitInvocations++
 	}
 
-	dockerClient = &mockClient{killFail: true}
+	safeClient.client = &mockClient{killFail: true}
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
@@ -282,7 +242,7 @@ func TestHandleSignalWhileContainerRunsEvenWhenKillContainerFails(t *testing.T) 
 }
 
 func TestRunCommandAndCommitToImageSuccess(t *testing.T) {
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 	var err error
 
 	capture.All(func() {
@@ -301,7 +261,7 @@ func TestRunCommandAndCommitToImageSuccess(t *testing.T) {
 }
 
 func TestRunCommandAndCommitToImageRunFailure(t *testing.T) {
-	dockerClient = &mockClient{startFail: true}
+	safeClient.client = &mockClient{startFail: true}
 	var err error
 
 	capture.All(func() {
@@ -323,7 +283,7 @@ func TestRunCommandAndCommitToImageRunFailure(t *testing.T) {
 }
 
 func TestRunCommandAndCommitToImageCommitFailure(t *testing.T) {
-	dockerClient = &mockClient{commitFail: true}
+	safeClient.client = &mockClient{commitFail: true}
 	var err error
 
 	capture.All(func() {
@@ -345,13 +305,9 @@ func TestRunCommandAndCommitToImageCommitFailure(t *testing.T) {
 }
 
 func TestCheckContainerRunningListContainersFailure(t *testing.T) {
-	dockerClient = &mockClient{listFail: true}
+	safeClient.client = &mockClient{listFail: true}
 
-	container, err := checkContainerRunning("1")
-
-	if container != nil {
-		t.Fatal("Wasn't supposed to find container")
-	}
+	_, err := checkContainerRunning("1")
 
 	if err == nil {
 		t.Fatal("Was supposed to have an error")
@@ -363,13 +319,9 @@ func TestCheckContainerRunningListContainersFailure(t *testing.T) {
 }
 
 func TestCheckContainerRunningNoRunningContainer(t *testing.T) {
-	dockerClient = &mockClient{listEmpty: true}
+	safeClient.client = &mockClient{listEmpty: true}
 
-	container, err := checkContainerRunning("35ae93c88cf8")
-
-	if container != nil {
-		t.Fatal("Wasn't supposed to find container")
-	}
+	_, err := checkContainerRunning("35ae93c88cf8")
 
 	if err == nil {
 		t.Fatal("Was supposed to have an error")
@@ -381,13 +333,9 @@ func TestCheckContainerRunningNoRunningContainer(t *testing.T) {
 }
 
 func TestCheckContainerRunningWrongContainer(t *testing.T) {
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 
-	container, err := checkContainerRunning("not running")
-
-	if container != nil {
-		t.Fatal("Wasn't supposed to find container")
-	}
+	_, err := checkContainerRunning("not running")
 
 	if err == nil {
 		t.Fatal("Was supposed to have an error")
@@ -399,13 +347,9 @@ func TestCheckContainerRunningWrongContainer(t *testing.T) {
 }
 
 func TestCheckContainerRunningNotSUSESystem(t *testing.T) {
-	dockerClient = &mockClient{startFail: true}
+	safeClient.client = &mockClient{startFail: true}
 
-	container, err := checkContainerRunning("not_suse")
-
-	if container != nil {
-		t.Fatal("Wasn't supposed to find container")
-	}
+	_, err := checkContainerRunning("not_suse")
 
 	if err == nil {
 		t.Fatal("Was supposed to have an error")
@@ -417,55 +361,43 @@ func TestCheckContainerRunningNotSUSESystem(t *testing.T) {
 }
 
 func TestCheckContainerRunningByNameSuccess(t *testing.T) {
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 
 	container, err := checkContainerRunning("suse")
-
-	if container == nil {
-		t.Fatal("Was supposed to find container")
-	}
 
 	if err != nil {
 		t.Fatal("Wasn't supposed to have an error")
 	}
 
-	if container.Id != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
+	if container.ID != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
 		t.Fatal("Wrong container found")
 	}
 }
 
 func TestCheckContainerRunningByFullIDSuccess(t *testing.T) {
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 
 	container, err := checkContainerRunning("35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01")
-
-	if container == nil {
-		t.Fatal("Was supposed to find container")
-	}
 
 	if err != nil {
 		t.Fatal("Wasn't supposed to have an error")
 	}
 
-	if container.Id != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
+	if container.ID != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
 		t.Fatal("Wrong container found")
 	}
 }
 
 func TestCheckContainerRunningByShortIDSuccess(t *testing.T) {
-	dockerClient = &mockClient{}
+	safeClient.client = &mockClient{}
 
 	container, err := checkContainerRunning("35ae93c88cf8")
-
-	if container == nil {
-		t.Fatal("Was supposed to find container")
-	}
 
 	if err != nil {
 		t.Fatal("Wasn't supposed to have an error")
 	}
 
-	if container.Id != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
+	if container.ID != "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01" {
 		t.Fatal("Wrong container found")
 	}
 }

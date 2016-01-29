@@ -15,9 +15,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 	"testing"
@@ -35,7 +37,7 @@ func setupTestExitStatus() {
 
 	exitWithCode = func(code int) {
 		lastCode = code
-		exitInvocations += 1
+		exitInvocations++
 	}
 }
 
@@ -74,11 +76,34 @@ func compareStringSlices(actual, expected []string) error {
 	return nil
 }
 
+// testReaderData scans the data available in the given reader and matches each
+// line with the given messages. Since the messages most surely come from a log
+// message, the comparison will be done with the strings.Contains function,
+// instead of a full match.
+func testReaderData(t *testing.T, reader io.Reader, messages []string) {
+	scanner := bufio.NewScanner(reader)
+	idx := 0
+	read := 0
+
+	for ; scanner.Scan(); idx++ {
+		if idx == len(messages) {
+			t.Fatalf("More than %v messages! Next message: %v", len(messages), scanner.Text())
+		}
+		if txt := scanner.Text(); !strings.Contains(txt, messages[idx]) {
+			t.Fatalf("Expected the text \"%s\" in: %s", messages[idx], txt)
+		}
+		read++
+	}
+	if read != len(messages) {
+		t.Fatalf("Expected %v messages, but we have read %v.", len(messages), read)
+	}
+}
+
 // Fetch the last command that has been executed. Note that this evaluates that
 // the command has been executed inside of a container, it doesn't care whether
 // the command exited before trying to start a container.
 func testCommand() string {
-	cmd := dockerClient.(*mockClient).lastCmd
+	cmd := safeClient.client.(*mockClient).lastCmd
 	if len(cmd) != 1 {
 		return ""
 	}
@@ -125,7 +150,7 @@ func (cases testCases) run(t *testing.T, cmd func(*cli.Context), command, debug 
 		}
 
 		setupTestExitStatus()
-		dockerClient = test.client
+		safeClient.client = test.client
 
 		buffer := bytes.NewBuffer([]byte{})
 		log.SetOutput(buffer)

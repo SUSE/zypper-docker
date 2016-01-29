@@ -18,14 +18,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/SUSE/dockerclient"
 	"github.com/codegangsta/cli"
+	"github.com/docker/engine-api/types"
 )
 
 // zypper-docker ps
 func psCmd(ctx *cli.Context) {
 	client := getDockerClient()
-	containers, err := client.ListContainers(false, false, "")
+	containers, err := client.ContainerList(types.ContainerListOptions{})
 	if err != nil {
 		logAndFatalf("Error while fetching running containers: %v\n", err)
 		return
@@ -33,9 +33,9 @@ func psCmd(ctx *cli.Context) {
 
 	cache := getCacheFile()
 
-	matches := []dockerclient.Container{}
-	notSuse := []dockerclient.Container{}
-	unknown := []dockerclient.Container{}
+	matches := []types.Container{}
+	notSuse := []types.Container{}
+	unknown := []types.Container{}
 
 	if len(containers) == 0 {
 		fmt.Println("There are no running containers to analyze.")
@@ -47,16 +47,16 @@ func psCmd(ctx *cli.Context) {
 		case <-killChannel:
 			return
 		default:
-			imageId, err := getImageID(container.Image)
+			imageID, err := getImageID(container.Image)
 			if err != nil {
-				log.Printf("Cannot analyze container %s [%s]: %s", container.Id, container.Image, err)
+				log.Printf("Cannot analyze container %s [%s]: %s", container.ID, container.Image, err)
 				unknown = append(unknown, container)
 				continue
 			}
 
-			if exists, suse := cache.idExists(imageId); exists && !suse {
+			if exists, suse := cache.idExists(imageID); exists && !suse {
 				notSuse = append(notSuse, container)
-			} else if cache.isImageOutdated(imageId) {
+			} else if cache.isImageOutdated(imageID) {
 				matches = append(matches, container)
 			} else {
 				unknown = append(unknown, container)
@@ -67,7 +67,7 @@ func psCmd(ctx *cli.Context) {
 	if len(matches) > 0 {
 		fmt.Println("Running containers whose images have been updated:")
 		for _, container := range matches {
-			fmt.Printf("  - %s [%s]\n", container.Id, container.Image)
+			fmt.Printf("  - %s [%s]\n", container.ID, container.Image)
 		}
 		fmt.Println("It is recommended to stop the container and start a new instance based on the new image created with zypper-docker")
 	}
@@ -79,7 +79,7 @@ func psCmd(ctx *cli.Context) {
 		fmt.Println("The following containers have been ignored because are known to be based on non-SUSE systems:")
 
 		for _, container := range notSuse {
-			fmt.Printf("  - %s [%s]\n", container.Id, container.Image)
+			fmt.Printf("  - %s [%s]\n", container.ID, container.Image)
 		}
 	}
 
@@ -90,7 +90,7 @@ func psCmd(ctx *cli.Context) {
 		fmt.Println("The following containers have an unknown state:")
 
 		for _, container := range unknown {
-			fmt.Printf("  - %s [%s]\n", container.Id, container.Image)
+			fmt.Printf("  - %s [%s]\n", container.ID, container.Image)
 		}
 
 		fmt.Println("Use either the \"list-patches-container\" or the \"list-updates-container\" commands to inspect them.")

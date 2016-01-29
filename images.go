@@ -17,55 +17,44 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
-	"text/tabwriter"
-	"time"
 
-	"github.com/SUSE/dockerclient"
 	"github.com/codegangsta/cli"
-	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/pkg/units"
+	"github.com/docker/docker/api/client/formatter"
+	"github.com/docker/engine-api/types"
 )
-
-// Returns a string that contains a description of how much has passed since
-// the given timestamp until now.
-func timeAgo(ts int64) string {
-	created, now := time.Unix(ts, 0), time.Now().UTC()
-	return units.HumanDuration(now.Sub(created))
-}
 
 // Print all the images based on SUSE. It will print in a format that is as
 // close to the `docker` command as possible.
-func printImages(imgs []*dockerclient.Image) {
-	w := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-	fmt.Fprintf(w, "REPOSITORY\tTAG\tIMAGE ID\tCREATED\tVIRTUAL SIZE\n")
-
+func printImages(images []types.Image) {
+	suseImages := make([]types.Image, 0, len(images))
 	cache := getCacheFile()
-	for counter, img := range imgs {
+	counter := 0
+
+	for _, img := range images {
 		select {
 		case <-killChannel:
 			return
 		default:
-			fmt.Printf("Inspecting image %d/%d\r", (counter + 1), len(imgs))
-			if cache.isSUSE(img.Id) {
-				if len(img.RepoTags) < 1 {
-					continue
-				}
-
-				id := stringid.TruncateID(img.Id)
-				size := units.HumanSize(float64(img.VirtualSize))
-				for _, tag := range img.RepoTags {
-					t := strings.SplitN(tag, ":", 2)
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s ago\t%s\n", t[0], t[1], id,
-						timeAgo(img.Created), size)
-				}
+			fmt.Printf("Inspecting image %d/%d\r", (counter + 1), len(images))
+			if cache.isSUSE(img.ID) {
+				suseImages = append(suseImages, img)
 			}
 		}
+		counter++
 	}
 
-	fmt.Printf("\n")
+	imagesCtx := formatter.ImageContext{
+		Context: formatter.Context{
+			Output: os.Stdout,
+			Format: "table",
+			Quiet:  false,
+			Trunc:  true,
+		},
+		Digest: false,
+		Images: suseImages,
+	}
 
-	_ = w.Flush()
+	imagesCtx.Write()
 	cache.flush()
 }
 
@@ -79,7 +68,7 @@ func imagesCmd(ctx *cli.Context) {
 		cd.reset()
 	}
 
-	if imgs, err := client.ListImages(false, "", &dockerclient.ListFilter{}); err != nil {
+	if imgs, err := client.ImageList(types.ImageListOptions{All: false}); err != nil {
 		logAndFatalf("Cannot proceed safely: %v.", err)
 	} else {
 		printImages(imgs)
@@ -91,7 +80,11 @@ func imagesCmd(ctx *cli.Context) {
 // Returns true if the image already exists, false otherwise
 func checkImageExists(repo, tag string) (bool, error) {
 	client := getDockerClient()
-	images, err := client.ListImages(false, repo, &dockerclient.ListFilter{})
+
+	images, err := client.ImageList(types.ImageListOptions{
+		MatchName: repo,
+		All:       false,
+	})
 	if err != nil {
 		return false, err
 	}
@@ -100,7 +93,6 @@ func checkImageExists(repo, tag string) (bool, error) {
 	}
 
 	ref := fmt.Sprintf("%s:%s", repo, tag)
-
 	for _, image := range images {
 		for _, t := range image.RepoTags {
 			if ref == t {
@@ -108,6 +100,5 @@ func checkImageExists(repo, tag string) (bool, error) {
 			}
 		}
 	}
-
 	return false, nil
 }

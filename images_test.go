@@ -19,7 +19,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -57,7 +56,7 @@ func TestImagesCommand(t *testing.T) {
 }
 
 func TestImagesCommandList(t *testing.T) {
-	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+	safeClient.client = &mockClient{waitSleep: 100 * time.Millisecond}
 	setupTestExitStatus()
 
 	buffer := bytes.NewBuffer([]byte{})
@@ -65,25 +64,13 @@ func TestImagesCommandList(t *testing.T) {
 
 	res := capture.All(func() { imagesCmd(testContext([]string{}, false)) })
 
-	lines := strings.Split(string(res.Stdout), "\n")
-	if len(lines) != 7 {
-		t.Fatal("Wrong number of lines")
-	}
-	if !strings.HasPrefix(lines[1], "REPOSITORY") {
-		t.Fatal("Wrong contents")
-	}
-	str := "opensuse            latest              1                   Less than a second ago   254.5 MB"
-	if lines[2] != str {
-		t.Fatal("Wrong contents")
-	}
-	str = "opensuse            tag                 1                   Less than a second ago   254.5 MB"
-	if lines[3] != str {
-		t.Fatal("Wrong contents")
-	}
-	str = "opensuse            13.2                2                   Less than a second ago   254.5 MB"
-	if lines[4] != str {
-		t.Fatal("Wrong contents")
-	}
+	testReaderData(t, bytes.NewBuffer(res.Stdout), []string{
+		"REPOSITORY",
+		"opensuse            latest              1",
+		"opensuse            tag                 1",
+		"opensuse            13.2                2",
+		"busybox             latest              5",
+	})
 	if exitInvocations != 1 && lastCode != 0 {
 		t.Fatal("Wrong exit code")
 	}
@@ -92,7 +79,7 @@ func TestImagesCommandList(t *testing.T) {
 // Special tests for the IMAGES command.
 
 func TestImagesListUsingCache(t *testing.T) {
-	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+	safeClient.client = &mockClient{waitSleep: 100 * time.Millisecond}
 	setupTestExitStatus()
 
 	// Dump some dummy value.
@@ -106,32 +93,21 @@ func TestImagesListUsingCache(t *testing.T) {
 
 	res := capture.All(func() { imagesCmd(testContext([]string{}, false)) })
 
-	lines := strings.Split(string(res.Stdout), "\n")
-	if len(lines) != 7 {
-		t.Fatal("Wrong number of lines")
-	}
-	if !strings.HasPrefix(lines[1], "REPOSITORY") {
-		t.Fatal("Wrong contents")
-	}
-	str := "opensuse            latest              1                   Less than a second ago   254.5 MB"
-	if lines[2] != str {
-		t.Fatal("Wrong contents")
-	}
-	str = "opensuse            tag                 1                   Less than a second ago   254.5 MB"
-	if lines[3] != str {
-		t.Fatal("Wrong contents")
-	}
-	str = "opensuse            13.2                2                   Less than a second ago   254.5 MB"
-	if lines[4] != str {
-		t.Fatal("Wrong contents")
-	}
+	testReaderData(t, bytes.NewBuffer(res.Stdout), []string{
+		"REPOSITORY",
+		"opensuse            latest              1",
+		"opensuse            tag                 1",
+		"opensuse            13.2                2",
+		"busybox             latest              5",
+	})
+
 	if exitInvocations != 1 && lastCode != 0 {
 		t.Fatal("Wrong exit code")
 	}
 }
 
 func TestImagesForce(t *testing.T) {
-	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+	safeClient.client = &mockClient{waitSleep: 100 * time.Millisecond}
 	setupTestExitStatus()
 
 	// Dump some dummy value.
@@ -152,7 +128,11 @@ func TestImagesForce(t *testing.T) {
 	if !cd.Valid {
 		t.Fatal("It should be valid")
 	}
-	for i, v := range []string{"1", "2", "4"} {
+	if len(cd.Suse) != 4 {
+		t.Fatalf("Expected 4 SUSE images, got %v", len(cd.Suse))
+	}
+
+	for i, v := range []string{"1", "2", "4", "5"} {
 		if cd.Suse[i] != v {
 			t.Fatal("Unexpected value")
 		}
@@ -168,7 +148,7 @@ func TestImagesForce(t *testing.T) {
 // Helper functions in the images.go file.
 
 func TestCheckImageListFail(t *testing.T) {
-	dockerClient = &mockClient{listFail: true}
+	safeClient.client = &mockClient{listFail: true}
 
 	var err error
 
@@ -185,7 +165,7 @@ func TestCheckImageExistsEmptyList(t *testing.T) {
 	var found bool
 	var err error
 
-	dockerClient = &mockClient{listEmpty: true}
+	safeClient.client = &mockClient{listEmpty: true}
 
 	capture.All(func() {
 		found, err = checkImageExists("suse/sles11sp3", "latest")
@@ -203,7 +183,7 @@ func TestCheckImageExists(t *testing.T) {
 	var found bool
 	var err error
 
-	dockerClient = &mockClient{waitSleep: 100 * time.Millisecond}
+	safeClient.client = &mockClient{waitSleep: 100 * time.Millisecond}
 
 	expected := []string{"latest", "13.2"}
 	for _, e := range expected {
@@ -219,8 +199,8 @@ func TestCheckImageExists(t *testing.T) {
 		}
 	}
 
-	not_expected := []string{"unexpected_tag"}
-	for _, unexpected := range not_expected {
+	notExpected := []string{"unexpected_tag"}
+	for _, unexpected := range notExpected {
 		capture.All(func() {
 			found, err = checkImageExists("opensuse", unexpected)
 		})

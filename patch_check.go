@@ -42,8 +42,8 @@ func patchCheck(image string, ctx *cli.Context) {
 		// Therefore, if the returned exit code is one of the specified above,
 		// then we do nothing.
 		de := err.(dockerError)
-		if de.ExitCode == 100 || de.ExitCode == 101 {
-			exitWithCode(de.ExitCode)
+		if de.exitCode == 100 || de.exitCode == 101 {
+			exitWithCode(de.exitCode)
 			return
 		}
 	}
