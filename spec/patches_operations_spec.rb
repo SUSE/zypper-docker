@@ -3,6 +3,12 @@ require_relative "helper"
 describe "patch operations" do
   let(:author) { "zypper-docker test suite" }
   let(:message) { "this is a test" }
+  let(:ssl_bug) { "911399" }
+  let(:ruby_bug) { "907809" }
+  let(:ssl_cve) { "CVE-2014-3570" }
+  let(:ruby_cve) { "CVE-2014-9130" }
+  let(:ssl_patch) { "openSUSE-2014-671" }
+  let(:ruby_patch) { "openSUSE-2015-6" }
 
   before :all do
     @patched_image_repo = "zypper-docker-patched-image"
@@ -21,52 +27,52 @@ describe "patch operations" do
       output = Cheetah.run(
         "zypper-docker", "lp", Settings::VULNERABLE_IMAGE,
         stdout: :capture)
-      expect(output).to include("openSUSE-2015-345")
-      expect(output).to include("openSUSE-2015-551")
+      expect(output).to include(ssl_patch)
+      expect(output).to include(ruby_patch)
     end
 
     it 'can show the bugzilla number' do
       output = Cheetah.run(
         "zypper-docker", "lp", "--bugzilla", Settings::VULNERABLE_IMAGE,
         stdout: :capture)
-      expect(output).to include("928394")
-      expect(output).to include("940950")
+      expect(output).to include(ssl_bug)
+      expect(output).to include(ruby_bug)
     end
 
     it 'can filter by bugzilla number' do
       output = Cheetah.run(
-        "zypper-docker", "lp", "--bugzilla=928394", Settings::VULNERABLE_IMAGE,
+        "zypper-docker", "lp", "--bugzilla=#{ssl_bug}", Settings::VULNERABLE_IMAGE,
         stdout: :capture)
-      expect(output).to include("928394")
-      expect(output).not_to include("940950")
+      expect(output).to include(ssl_bug)
+      expect(output).not_to include(ruby_bug)
     end
 
     it 'can show the cve number' do
       output = Cheetah.run(
         "zypper-docker", "lp", "--cve", Settings::VULNERABLE_IMAGE,
         stdout: :capture)
-      expect(output).to include('CVE-2015-1607')
-      expect(output).to include('CVE-2015-2698')
+      expect(output).to include(ssl_cve)
+      expect(output).to include(ruby_cve)
     end
 
     it 'can filter by cve number' do
       output = Cheetah.run(
-        "zypper-docker", "lp", "--cve=CVE-2015-1607", Settings::VULNERABLE_IMAGE,
+        "zypper-docker", "lp", "--cve=#{ssl_cve}", Settings::VULNERABLE_IMAGE,
         stdout: :capture)
-      expect(output).not_to include('CVE-2015-2698')
-      expect(output).to include('CVE-2015-1607')
+      expect(output).to include(ssl_cve)
+      expect(output).not_to include(ruby_cve)
     end
 
     it 'can filter by date' do
       output = Cheetah.run(
-        "zypper-docker", "lp", "--date", "2014-12-1", Settings::VULNERABLE_IMAGE,
+        "zypper-docker", "lp", "--date", "2013-12-1", Settings::VULNERABLE_IMAGE,
         stdout: :capture)
       expect(output).to include('No updates found')
 
       output = Cheetah.run(
         "zypper-docker", "lp", "--date", "2015-12-1", Settings::VULNERABLE_IMAGE,
         stdout: :capture)
-      expect(output).to include('openSUSE-2015-345')
+      expect(output).to include("openSUSE-2014-697") # another ssl issue
     end
 
     it 'can show the issue type' do
@@ -87,9 +93,9 @@ describe "patch operations" do
 
     it 'filter by category name' do
       output = Cheetah.run(
-        "zypper-docker", "lp", "--category", "recommended", Settings::VULNERABLE_IMAGE,
+        "zypper-docker", "lp", "--category", "security", Settings::VULNERABLE_IMAGE,
         stdout: :capture)
-      expect(output).to include('openSUSE-2015-345')
+      expect(output).to include(ruby_patch)
     end
 
     context 'apply patches' do
@@ -104,15 +110,15 @@ describe "patch operations" do
           "zypper-docker", "patch",
           "--author", author,
           "--message", message,
-          "--bugzilla=928394",
+          "--bugzilla=#{ssl_bug}",
           Settings::VULNERABLE_IMAGE,
           @patched_image)
         expect(docker_image_exists?(@patched_image_repo, @patched_image_tag)).to be true
 
         output = Cheetah.run(
-          "zypper-docker", "lp", "--bugzilla=928394", @patched_image,
+          "zypper-docker", "lp", "--bugzilla=#{ssl_bug}", @patched_image,
           stdout: :capture)
-        expect(output).not_to include('928394')
+        expect(output).not_to include(ssl_bug)
 
         check_commit_details(author, message, @patched_image)
         expect(docker_inspect(@patched_image, ".Config.Entrypoint")).to eq "{[]}"
@@ -124,15 +130,15 @@ describe "patch operations" do
           "zypper-docker", "patch",
           "--author", author,
           "--message", message,
-          "--cve=CVE-2015-2698",
+          "--cve=#{ssl_cve}",
           Settings::VULNERABLE_IMAGE,
           @patched_image)
         expect(docker_image_exists?(@patched_image_repo, @patched_image_tag)).to be true
 
         output = Cheetah.run(
-          "zypper-docker", "lp", "--cve=CVE-2015-2698", @patched_image,
+          "zypper-docker", "lp", "--cve=#{ssl_cve}", @patched_image,
           stdout: :capture)
-        expect(output).not_to include('CVE-2015-2698')
+        expect(output).not_to include(ssl_cve)
 
         check_commit_details(author, message, @patched_image)
         expect(docker_inspect(@patched_image, ".Config.Entrypoint")).to eq "{[]}"
@@ -144,7 +150,7 @@ describe "patch operations" do
           "zypper-docker", "patch",
           "--author", author,
           "--message", message,
-          "--date", "2015-8-1",
+          "--date", "2015-2-1",
           Settings::VULNERABLE_IMAGE,
           @patched_image)
         expect(docker_image_exists?(@patched_image_repo, @patched_image_tag)).to be true
@@ -152,9 +158,7 @@ describe "patch operations" do
         output = Cheetah.run(
           "zypper-docker", "lp", "--date", "2015-8-1", @patched_image,
           stdout: :capture)
-        expect(output).not_to include('openSUSE-2015-345')
-        expect(output).not_to include('openSUSE-2015-497')
-        expect(output).not_to include('openSUSE-2015-526')
+        expect(output).not_to include(ruby_patch)
 
         check_commit_details(author, message, @patched_image)
         expect(docker_inspect(@patched_image, ".Config.Entrypoint")).to eq "{[]}"
@@ -166,7 +170,7 @@ describe "patch operations" do
           "zypper-docker", "patch",
           "--author", author,
           "--message", message,
-          "--category", "recommended",
+          "--category", "security",
           Settings::VULNERABLE_IMAGE,
           @patched_image)
         expect(docker_image_exists?(@patched_image_repo, @patched_image_tag)).to be true
@@ -174,8 +178,8 @@ describe "patch operations" do
         output = Cheetah.run(
           "zypper-docker", "lp", @patched_image,
           stdout: :capture)
-        expect(output).not_to include('recommended')
-        expect(output).to include('security')
+        expect(output).not_to include('security')
+        expect(output).to include('recommended')
 
         check_commit_details(author, message, @patched_image)
         expect(docker_inspect(@patched_image, ".Config.Entrypoint")).to eq "{[]}"
@@ -235,7 +239,7 @@ describe "patch operations" do
       @containers_to_terminate << @vul_container
 
       if !docker_image_exists?(@patched_image_repo, @patched_image_tag)
-        Cheetah.run("zypper-docker", "patch", "--category", "recommended",
+        Cheetah.run("zypper-docker", "patch", "--category", "security",
           Settings::VULNERABLE_IMAGE, @patched_image)
       end
       expect(docker_image_exists?(@patched_image_repo, @patched_image_tag)).to be true
@@ -256,12 +260,12 @@ describe "patch operations" do
 
     it "finds the pending updates of a SUSE-based image" do
       output = Cheetah.run("zypper-docker", "lpc", @vul_container, stdout: :capture)
-      expect(output).to include("openSUSE-2015-345")
+      expect(output).to include("recommended")
     end
 
     it "does not find updates for patched containers" do
       output = Cheetah.run("zypper-docker", "lpc", @patched_container, stdout: :capture)
-      expect(output).not_to include("openSUSE-2015-345")
+      expect(output).not_to include("security")
     end
 
     it "reports non-SUSE containers" do
