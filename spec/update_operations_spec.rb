@@ -25,7 +25,7 @@ describe "update operations" do
     # See issue: https://github.com/SUSE/zypper-docker/issues/66
     it "does not crash when the --bugzilla flag is set after the image" do
       begin
-        output = Cheetah.run("zypper-docker", "lu", Settings::VULNERABLE_IMAGE, "--bugzilla", stdout: :capture)
+        Cheetah.run("zypper-docker", "lu", Settings::VULNERABLE_IMAGE, "--bugzilla", stdout: :capture)
       rescue Cheetah::ExecutionFailed => e
         expect(e.message).to include "failed with status 1: flag provided but not defined: -bugzilla."
       end
@@ -74,6 +74,27 @@ describe "update operations" do
       check_commit_details(author, message, @image)
       expect(docker_inspect(@image, ".Config.Entrypoint")).to eq "{[cat]}"
       expect(docker_inspect(@image, ".Config.Cmd")).to eq "{[/etc/os-release]}"
+    end
+
+    it "can run zypper on a non-root image and reset the user afterwards" do
+      @image_tag = "1.0"
+      @image = "#{Settings::NORMAL_USER_IMAGE_REPO}:#{@image_tag}"
+
+      if docker_image_exists?(Settings::NORMAL_USER_IMAGE_REPO, @image_tag)
+        remove_docker_image(@image)
+      end
+
+      Cheetah.run(
+        "zypper-docker", "up",
+        "--author", author,
+        "--message", message,
+        Settings::NORMAL_USER_IMAGE,
+        @image)
+
+      expect(docker_image_exists?(Settings::NORMAL_USER_IMAGE_REPO, @image_tag)).to be true
+
+      check_commit_details(author, message, @image)
+      expect(docker_inspect(@image, ".Config.User")).to eq "1337:1337"
     end
 
     it "refuses to overwrite an existing image while doing an update" do

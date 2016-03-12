@@ -194,7 +194,7 @@ describe "patch operations" do
           remove_docker_image(@image)
         end
 
-        out = Cheetah.run(
+        Cheetah.run(
           "zypper-docker", "patch",
           "--author", author,
           "--message", message,
@@ -206,6 +206,27 @@ describe "patch operations" do
         check_commit_details(author, message, @image)
         expect(docker_inspect(@image, ".Config.Entrypoint")).to eq "{[cat]}"
         expect(docker_inspect(@image, ".Config.Cmd")).to eq "{[/etc/os-release]}"
+      end
+
+      it "can run zypper on a non-root image and reset the user afterwards" do
+        @image_tag = "1.0"
+        @image = "#{Settings::NORMAL_USER_IMAGE_REPO}:#{@image_tag}"
+
+        if docker_image_exists?(Settings::NORMAL_USER_IMAGE_REPO, @image_tag)
+          remove_docker_image(@image)
+        end
+
+        Cheetah.run(
+          "zypper-docker", "patch",
+          "--author", author,
+          "--message", message,
+          Settings::NORMAL_USER_IMAGE,
+          @image)
+
+        expect(docker_image_exists?(Settings::NORMAL_USER_IMAGE_REPO, @image_tag)).to be true
+
+        check_commit_details(author, message, @image)
+        expect(docker_inspect(@image, ".Config.User")).to eq "1337:1337"
       end
     end
 
