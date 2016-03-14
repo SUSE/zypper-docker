@@ -13,6 +13,10 @@ class Settings
   ENTRY_CMD_IMAGE_REPO = "zypper-docker-tests-entrypoint-cmd-image"
   ENTRY_CMD_IMAGE_TAG = "0.1"
   ENTRY_CMD_IMAGE = "#{ENTRY_CMD_IMAGE_REPO}:#{ENTRY_CMD_IMAGE_TAG}"
+
+  NORMAL_USER_IMAGE_REPO = "zypper-docker-tests-normal-user-image"
+  NORMAL_USER_IMAGE_TAG = "0.1"
+  NORMAL_USER_IMAGE = "#{NORMAL_USER_IMAGE_REPO}:#{NORMAL_USER_IMAGE_TAG}"
 end
 
 module SpecHelper
@@ -70,6 +74,10 @@ module SpecHelper
     ensure_image_exists(Settings::ENTRY_CMD_IMAGE, "Dockerfile-entrypoint-and-cmd-set")
   end
 
+  def ensure_normal_user_image_exists
+    ensure_image_exists(Settings::NORMAL_USER_IMAGE, "Dockerfile-normal-user")
+  end
+
   def remove_docker_image(image)
     Cheetah.run("docker", "rmi", "-f", image)
   end
@@ -115,5 +123,6 @@ RSpec.configure do |config|
   config.before :all do
     ensure_vulnerable_image_exists
     ensure_entrypoint_cmd_image_exists
+    ensure_normal_user_image_exists
   end
 end

@@ -30,6 +30,11 @@ import (
 	"github.com/docker/engine-api/types/strslice"
 )
 
+// rootUser is the explicit value to use for the USER directive to specify a user
+// as being root. Oddly, specifying the default value ("") doesn't work even though
+// images that have the default value set for .Config.User run as root.
+const rootUser = "0:0"
+
 // dockerError encapsulates a WaitResult that has an exit status
 // different than 0. This is done this way because, for some commands, zypper
 // might set an exit code different than 0, even if there was no error. For
@@ -306,6 +311,8 @@ func createContainer(img string, cmd []string) (string, error) {
 		Entrypoint:   strslice.New("/bin/sh", "-c"),
 		AttachStdout: true,
 		AttachStderr: true,
+		// We need to run as root in order to run zypper commands.
+		User: rootUser,
 		// required to avoid garbage when cmd overwrites the terminal
 		// like "zypper ref" does
 		Tty: true,
@@ -349,7 +356,16 @@ func commitContainerToImage(img, containerID, repo, tag, comment, author string)
 	if err != nil {
 		return "", fmt.Errorf("could not inspect image '%s': %v", img, err)
 	}
+
+	user := info.Config.User
+	if user == "" {
+		// While images what have .Config.User set to "" run as root, we cannot
+		// explicity set it to this value. Instead, just set it to rootUser.
+		user = rootUser
+	}
+
 	changes := []string{
+		"USER " + user,
 		"ENTRYPOINT " + joinAsArray(info.Config.Entrypoint.Slice(), false),
 		"CMD " + joinAsArray(info.Config.Cmd.Slice(), true),
 	}
