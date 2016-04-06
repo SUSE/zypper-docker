@@ -164,6 +164,7 @@ func runStreamedCommand(img, cmd string, getError bool) error {
 	}
 	if err != nil {
 		log.Printf("Error: %s\n", err)
+		fmt.Println(err)
 		exitWithCode(1)
 	}
 	return nil
