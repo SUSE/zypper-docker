@@ -14,7 +14,12 @@
 
 package main
 
-import "github.com/codegangsta/cli"
+import (
+	"fmt"
+	"log"
+
+	"github.com/codegangsta/cli"
+)
 
 // zypper-docker list-patches [flags] <image>
 func listPatchesCmd(ctx *cli.Context) {
@@ -31,6 +36,14 @@ func listPatchesContainerCmd(ctx *cli.Context) {
 // listParches calls the `zypper lp` command for the given image and the given
 // arguments.
 func listPatches(image string, ctx *cli.Context) {
+	if severity := ctx.String("severity"); severity != "" {
+		if !supportsSeverityFlag(image) {
+			log.Println("the --severity flag is only available for zypper versions >= 1.12.6")
+			fmt.Println("the --severity flag is only available for zypper versions >= 1.12.6")
+			exitWithCode(1)
+		}
+	}
+
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
 	_ = runStreamedCommand(

@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"strings"
@@ -318,4 +319,23 @@ func joinAsArray(cmds []string, emptyArray bool) string {
 		}
 	}
 	return str + "]"
+}
+
+// supportsSeverityFlag checks whether or not zypper's `list-patches` command
+// supports the `--severity` flag in the specified image.
+func supportsSeverityFlag(image string) bool {
+	buf := bytes.NewBuffer([]byte{})
+	id, err := runCommandInContainer(image, []string{"zypper lp --severity"}, buf)
+	defer removeContainer(id)
+
+	if strings.Contains(buf.String(), "Missing argument for --severity") {
+		return true
+	}
+	if strings.Contains(buf.String(), "Unknown option '--severity'") {
+		return false
+	}
+	if err != nil {
+		log.Println("Unable to run zypper in container:", err)
+	}
+	return false
 }

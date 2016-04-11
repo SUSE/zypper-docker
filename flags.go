@@ -163,6 +163,11 @@ func newApp() *cli.App {
 					Value: "",
 					Usage: "List only patches with this category.",
 				},
+				cli.StringFlag{
+					Name:  "severity",
+					Value: "",
+					Usage: "List only patches with this severity.",
+				},
 			},
 		},
 		{

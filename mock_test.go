@@ -44,6 +44,9 @@ type mockClient struct {
 	killFail           bool
 	commitFail         bool
 	inspectFail        bool
+	zypperBadVersion   bool
+	zypperGoodVersion  bool
+	suppressLog        bool
 }
 
 func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, error) {
@@ -113,7 +116,10 @@ func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, 
 }
 
 func (mc *mockClient) ContainerCreate(config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (types.ContainerCreateResponse, error) {
-	var warnings []string
+	var (
+		warnings []string
+		name     string
+	)
 
 	if mc.createFail {
 		return types.ContainerCreateResponse{}, errors.New("Create failed")
@@ -122,7 +128,12 @@ func (mc *mockClient) ContainerCreate(config *container.Config, hostConfig *cont
 		warnings = []string{"warning"}
 	}
 
-	name := fmt.Sprintf("zypper-docker-private-%s", config.Image)
+	// workaround: TestHasZypperMinVersion{Fail,Success} breaks TestSetupLoggerHome
+	// due to this string being printed to the log file.
+	if !mc.suppressLog {
+		name = fmt.Sprintf("zypper-docker-private-%s", config.Image)
+	}
+
 	mc.lastCmd = config.Cmd.Slice()
 
 	return types.ContainerCreateResponse{ID: name, Warnings: warnings}, nil
@@ -143,7 +154,9 @@ func (mc *mockClient) ContainerRemove(options types.ContainerRemoveOptions) erro
 	if mc.removeFail {
 		return errors.New("Remove failed")
 	}
-	log.Printf("Removed container %v", options.ContainerID)
+	if !mc.suppressLog {
+		log.Printf("Removed container %v", options.ContainerID)
+	}
 	return nil
 }
 
@@ -163,11 +176,19 @@ func (mc *mockClient) ContainerWait(containerID string) (int, error) {
 }
 
 func (mc *mockClient) ContainerLogs(options types.ContainerLogsOptions) (io.ReadCloser, error) {
+	var err error
+
 	if mc.logFail {
 		return nil, fmt.Errorf("Fake log failure")
 	}
 	cb := &closingBuffer{bytes.NewBuffer([]byte{})}
-	_, err := cb.WriteString("streaming buffer initialized\n")
+	if mc.zypperBadVersion {
+		_, err = cb.WriteString("Unknown option '--severity'\n")
+	} else if mc.zypperGoodVersion {
+		_, err = cb.WriteString("Missing argument for --severity\n")
+	} else {
+		_, err = cb.WriteString("streaming buffer initialized\n")
+	}
 	return cb, err
 }
 

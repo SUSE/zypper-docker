@@ -40,5 +40,8 @@ the running container is based on.
 **-g**, **--category**
   List only patches with this category.
 
+**--severity**
+  List only patches with this severity. Note that this requires zypper >= 1.12.6 inside of your docker image.
+
 # HISTORY
 September 2015, created by Miquel Sabaté Solà <msabate@suse.com>

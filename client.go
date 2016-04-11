@@ -127,7 +127,7 @@ func humanizeCommandError(cmd, image string, err error) {
 // The given image string is just the ID of said image.
 // It returns true if the command was successful, false otherwise.
 func checkCommandInImage(img, cmd string) bool {
-	containerID, err := startContainer(img, []string{cmd}, false, false)
+	containerID, err := startContainer(img, []string{cmd}, false, nil)
 
 	defer removeContainer(containerID)
 
@@ -156,7 +156,7 @@ func runStreamedCommand(img, cmd string, getError bool) error {
 	}
 
 	cmd = formatZypperCommand("ref", cmd)
-	id, err := runCommandInContainer(img, []string{cmd}, true)
+	id, err := runCommandInContainer(img, []string{cmd}, os.Stdout)
 	removeContainer(id)
 
 	if getError {
@@ -172,20 +172,20 @@ func runStreamedCommand(img, cmd string, getError bool) error {
 
 // Run the given command in a container based on the given image. The given
 // image string is just the ID of said image.
-// The STDOUT and STDERR of the container can be streamed to the host's STDOUT
-// by setting the `streaming` parameter to true.
+// The STDOUT and STDERR of the container can be streamed by providing a
+// destination in `dst`.
 // It returns the ID of the container spawned from the image.
 // Note well: the container is NOT deleted when the given command terminates.
-func runCommandInContainer(img string, cmd []string, streaming bool) (string, error) {
-	return startContainer(img, cmd, streaming, true)
+func runCommandInContainer(img string, cmd []string, dst io.Writer) (string, error) {
+	return startContainer(img, cmd, true, dst)
 }
 
 // Start a container from the specified image and then runs the given command
 // inside of it. The given image string is just the ID of said image.
-// The STDOUT and STDERR of the container can be streamed to the host's STDOUT
-// by setting the `streaming` parameter to true.
 // When `wait` is set to true the function will wait untill the container exits,
 // otherwise it will timeout raising an error.
+// The STDOUT and STDERR of the container can be streamed by providing a
+// destination in `dst`.
 // Note well: the container is NOT deleted when the given command terminates.
 // This is again up to the caller.
 //
@@ -193,7 +193,7 @@ func runCommandInContainer(img string, cmd []string, streaming bool) (string, er
 // returned can be of type dockerError. This only happens when the container
 // has run normally (no signals, no timeout), but the exit code is not 0. Read
 // the documentation on the `dockerError` command on why we do this.
-func startContainer(img string, cmd []string, streaming, wait bool) (string, error) {
+func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string, error) {
 	id, err := createContainer(img, cmd)
 	if err != nil {
 		log.Println(err)
@@ -210,7 +210,7 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 
 	sc := make(chan bool)
 
-	if streaming {
+	if dst != nil {
 		// setup logging
 		rc, err := client.ContainerLogs(types.ContainerLogsOptions{
 			ContainerID: id,
@@ -228,7 +228,7 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 			}
 		}()
 		go func() {
-			if _, err := io.Copy(os.Stdout, rc); err != nil {
+			if _, err := io.Copy(dst, rc); err != nil {
 				log.Print(err)
 			}
 			sc <- true
@@ -245,7 +245,7 @@ func startContainer(img string, cmd []string, streaming, wait bool) (string, err
 
 	select {
 	case res := <-containerWait(id):
-		if streaming {
+		if dst != nil {
 			<-sc
 		}
 		if res.err != nil {
@@ -391,7 +391,7 @@ func commitContainerToImage(img, containerID, repo, tag, comment, author string)
 // If something goes wrong an error message is returned.
 // Returns the ID of the new image on success.
 func runCommandAndCommitToImage(img, targetRepo, targetTag, cmd, comment, author string) (string, error) {
-	containerID, err := runCommandInContainer(img, []string{cmd}, true)
+	containerID, err := runCommandInContainer(img, []string{cmd}, os.Stdout)
 	if err != nil {
 		switch err.(type) {
 		case dockerError:
