@@ -64,7 +64,7 @@ func TestRunCommandInContainerCreateFailure(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	if _, err := runCommandInContainer("fail", []string{}, false); err == nil {
+	if _, err := runCommandInContainer("fail", []string{}, nil); err == nil {
 		t.Fatal("It should've failed\n")
 	}
 
@@ -100,7 +100,7 @@ func TestRunCommandInContainerContainerLogsFailure(t *testing.T) {
 
 	buffer := bytes.NewBuffer([]byte{})
 	log.SetOutput(buffer)
-	_, err := runCommandInContainer("opensuse", []string{"zypper"}, true)
+	_, err := runCommandInContainer("opensuse", []string{"zypper"}, os.Stdout)
 	if err == nil {
 		t.Fatal("It should have failed\n")
 	}
@@ -116,7 +116,7 @@ func TestRunCommandInContainerStreaming(t *testing.T) {
 
 	var err error
 	resp := capture.All(func() {
-		_, err = runCommandInContainer("opensuse", []string{"foo"}, true)
+		_, err = runCommandInContainer("opensuse", []string{"foo"}, os.Stdout)
 	})
 	if err != nil {
 		t.Fatal("It shouldn't have failed")
@@ -136,7 +136,7 @@ func TestRunCommandInContainerCommandFailure(t *testing.T) {
 	var err error
 
 	capture.All(func() {
-		_, err = runCommandInContainer("busybox", []string{"zypper"}, false)
+		_, err = runCommandInContainer("busybox", []string{"zypper"}, nil)
 	})
 
 	if err == nil {

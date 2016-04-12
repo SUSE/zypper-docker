@@ -269,3 +269,19 @@ func TestJoinAsArray(t *testing.T) {
 		t.Fatalf("Expected '[\"one\", \"two\"]', got: %s", str)
 	}
 }
+
+func TestSupportsSeverityFlagFail(t *testing.T) {
+	safeClient.client = &mockClient{zypperBadVersion: true, suppressLog: true}
+
+	if supportsSeverityFlag("opensuse") {
+		t.Fatalf("supportsSeverityFlag should've returned false")
+	}
+}
+
+func TestSupportsSeverityFlagSuccess(t *testing.T) {
+	safeClient.client = &mockClient{zypperGoodVersion: true, suppressLog: true}
+
+	if !supportsSeverityFlag("opensuse") {
+		t.Fatalf("supportsSeverityFlag should've returned true")
+	}
+}
