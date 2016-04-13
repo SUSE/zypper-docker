@@ -100,7 +100,7 @@ for (my $it = 0; $it < @ARGV; $it++) {
 
 # Cover tool.
 chdir("$base/$pkg") or die $!;
-my $cover = `godep go tool cover 2>&1`;
+my $cover = `go tool cover 2>&1`;
 
 # First check whether we have to get the cover tool or not.
 if ($cover =~ /^go tool: no such tool "cover"/) {
@@ -108,7 +108,7 @@ if ($cover =~ /^go tool: no such tool "cover"/) {
 }
 
 # Execute the cover tool.
-$cover = `godep go test -coverprofile=c.out -covermode=count`;
+$cover = `go test -coverprofile=c.out -covermode=count`;
 my $error = 0;
 if ($cover =~ /coverage:\s?(.+)%/) {
     my $fl = sprintf '%.1f', $1;
@@ -123,7 +123,7 @@ if ($cover =~ /coverage:\s?(.+)%/) {
         print "The tests are covering the $fl% of this package!\n";
     }
     if ($opts{'o'}) {
-        `godep go tool cover -html=c.out`;
+        `go tool cover -html=c.out`;
     }
     `rm -f c.out`;
     if ($error) {
