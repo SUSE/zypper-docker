@@ -28,16 +28,16 @@ checks :: vet fmt lint climate
 
 vet ::
 	@echo "+ $@"
-		@godep go vet ./...
+		@go vet .
 
 fmt ::
 	@echo "+ $@"
-		@test -z "$$(gofmt -l . | grep -v Godeps/_workspace/src/ | tee /dev/stderr)" || \
+		@test -z "$$(gofmt -l . | grep -v vendor | tee /dev/stderr)" || \
 					echo "+ please format Go code with 'gofmt'"
 
 lint ::
 	@echo "+ $@"
-		@test -z "$$(golint ./... | grep -v Godeps/_workspace/src/ | tee /dev/stderr)"
+		@test -z "$$(golint . | grep -v vendor | tee /dev/stderr)"
 
 climate:
 	@echo "+ $@"
@@ -45,7 +45,7 @@ climate:
 
 race:
 	@echo "+ $@"
-		@godep go test -race
+		@go test -race
 
 clean ::
 	docker rmi zypper-docker
@@ -54,14 +54,14 @@ clean ::
 	rm -f man/man1
 
 man ::
-	@ cd man && godep go run generate.go
+	@ cd man && go run generate.go
 
 build ::
 	@echo Building zypper-docker
 	docker build -f docker/Dockerfile -t zypper-docker docker
 
 build_zypper_docker ::
-	godep go build
+	go build
 
 build_integration_tests ::
 	@echo Building zypper-docker-integration-tests
