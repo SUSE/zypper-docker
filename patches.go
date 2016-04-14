@@ -37,9 +37,14 @@ func listPatchesContainerCmd(ctx *cli.Context) {
 // arguments.
 func listPatches(image string, ctx *cli.Context) {
 	if severity := ctx.String("severity"); severity != "" {
-		if !supportsSeverityFlag(image) {
-			log.Println("the --severity flag is only available for zypper versions >= 1.12.6")
-			fmt.Println("the --severity flag is only available for zypper versions >= 1.12.6")
+		if ok, err := supportsSeverityFlag(image); !ok {
+			if err == nil {
+				log.Println("the --severity flag is only available for zypper versions >= 1.12.6")
+				fmt.Println("the --severity flag is only available for zypper versions >= 1.12.6")
+			} else {
+				log.Println(err)
+				fmt.Println(err)
+			}
 			exitWithCode(1)
 		}
 	}

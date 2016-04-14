@@ -273,15 +273,26 @@ func TestJoinAsArray(t *testing.T) {
 func TestSupportsSeverityFlagFail(t *testing.T) {
 	safeClient.client = &mockClient{zypperBadVersion: true, suppressLog: true}
 
-	if supportsSeverityFlag("opensuse") {
-		t.Fatalf("supportsSeverityFlag should've returned false")
+	ok, err := supportsSeverityFlag("opensuse")
+	if ok && err != nil {
+		t.Fatalf("supportsSeverityFlag should've returned false with err == nil")
 	}
 }
 
 func TestSupportsSeverityFlagSuccess(t *testing.T) {
 	safeClient.client = &mockClient{zypperGoodVersion: true, suppressLog: true}
 
-	if !supportsSeverityFlag("opensuse") {
+	ok, _ := supportsSeverityFlag("opensuse")
+	if !ok {
 		t.Fatalf("supportsSeverityFlag should've returned true")
+	}
+}
+
+func TestSupportsSeverityFlagDockerError(t *testing.T) {
+	safeClient.client = &mockClient{startFail: true, suppressLog: true}
+
+	ok, err := supportsSeverityFlag("opensuse")
+	if ok && err == nil {
+		t.Fatalf("supportsSeverityFlag should've returned false with error != nil")
 	}
 }
