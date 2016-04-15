@@ -296,3 +296,21 @@ func TestSupportsSeverityFlagDockerError(t *testing.T) {
 		t.Fatalf("supportsSeverityFlag should've returned false with error != nil")
 	}
 }
+
+func TestRemoveDuplicates(t *testing.T) {
+	expected := []string{"this", "string", "contains", "duplicates"}
+	got := removeDuplicates([]string{"this", "string", "contains", "contains", "duplicates"})
+	if len(expected) != len(got) {
+		t.Fatalf("Expected %v, got %v", expected, got)
+	}
+	for i := 0; i < len(got); i++ {
+		if expected[i] != got[i] {
+			t.Fatalf("Expected %v, got %v", expected, got)
+		}
+	}
+
+	got = removeDuplicates([]string{})
+	if len(got) > 0 {
+		t.Fatalf("Expected empty array, got %v", got)
+	}
+}

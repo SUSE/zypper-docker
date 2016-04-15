@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"syscall"
 	"testing"
@@ -188,10 +189,11 @@ func TestFlush(t *testing.T) {
 		t.Fatal("Wrong contents")
 	}
 
-	// Now it will overwrite the file.
+	// Now it will re-read the content of the file before writing to it
+	// again.
 	cd.Valid = true
 	cd.flush()
-	expected = "{\"suse\":[],\"other\":[],\"outdated\":[]}"
+	expected = "{\"suse\":[\"1\"],\"other\":[],\"outdated\":[]}"
 	contents, err = ioutil.ReadFile(path)
 	if err != nil {
 		t.Fatal("Failed on reading a file")
@@ -249,5 +251,34 @@ func TestUpdateCacheAfterUpdateNothingDoneWhenTheImageIsAlreadyKnown(t *testing.
 	}
 	if len(cache.Suse) != 1 {
 		t.Fatal("Nothing should have changed")
+	}
+}
+
+func TestReadCacheSuccess(t *testing.T) {
+	cache := cachedData{}
+	expected := &cachedData{
+		Valid:    true,
+		Suse:     []string{"1"},
+		Other:    []string{"2"},
+		Outdated: []string{"3"},
+	}
+	buffer := bytes.NewBufferString(`{"suse":["1"],"other":["2"],"outdated":["3"]}`)
+
+	got := cache.readCache(buffer)
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatalf("Expected %v, got %v", expected, got)
+	}
+}
+
+func TestReadCacheFail(t *testing.T) {
+	cache := cachedData{}
+	expected := &cachedData{
+		Valid: true,
+	}
+	buffer := bytes.NewBufferString(`"suse":["1"],"other":["2"],"outdated":["3"]}`)
+
+	got := cache.readCache(buffer)
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatalf("Expected %v, got %v", expected, got)
 	}
 }

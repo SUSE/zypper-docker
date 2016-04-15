@@ -24,7 +24,7 @@ test_integration_quick ::
 		rspec -t quick
 
 # TODO: add race
-checks :: vet fmt lint climate
+checks :: vet fmt lint climate race
 
 vet ::
 	@echo "+ $@"
