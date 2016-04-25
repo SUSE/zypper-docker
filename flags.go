@@ -86,27 +86,45 @@ func newApp() *cli.App {
 	}
 	app.Commands = []cli.Command{
 		{
-			Name:   "images",
-			Usage:  "List all the images based on either OpenSUSE or SLES",
-			Action: getCmd("images", imagesCmd),
+			Name:      "images",
+			Usage:     "List all the images based on either OpenSUSE or SLES",
+			Action:    getCmd("images", imagesCmd),
+			ArgsUsage: " ",
 		},
 		{
 			Name:    "list-updates",
 			Aliases: []string{"lu"},
 			Usage:   "List all the available updates",
 			Action:  getCmd("list-updates", listUpdatesCmd),
+			ArgsUsage: `<image>
+
+Where <image> is the name of the openSUSE/SUSE Linux Enterprise image to use.
+If the tag has not been provided, then "latest" is the one that will be used.`,
 		},
 		{
 			Name:    "list-updates-container",
 			Aliases: []string{"luc"},
 			Usage:   "List all the available updates for the given container",
 			Action:  getCmd("list-updates-container", listUpdatesContainerCmd),
+			ArgsUsage: `<container-id>
+
+Where <container-id> is either the container ID or the name of the container
+to be used.`,
 		},
 		{
 			Name:    "update",
 			Aliases: []string{"up"},
 			Usage:   "Install the available updates",
 			Action:  getCmd("update", updateCmd),
+			ArgsUsage: `<image> <new-image>
+
+Where <image> is the name of the openSUSE/SUSE Linux Enterprise image to
+update. Since zypper-docker does not overwrite images, <new-image> is the name
+of the image that will be created on this operation. This new image will be the
+same as the old one plus the applied updates.
+
+If the tag has not been provided on either <image> or <new-image>, then
+"latest" is the one that will be used.`,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "l, auto-agree-with-licenses",
@@ -137,6 +155,10 @@ func newApp() *cli.App {
 			Aliases: []string{"lp"},
 			Usage:   "List all the available patches",
 			Action:  getCmd("list-patches", listPatchesCmd),
+			ArgsUsage: `<image>
+
+Where <image> is the name of the openSUSE/SUSE Linux Enterprise image to use.
+If the tag has not been provided, then "latest" is the one that will be used.`,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "bugzilla",
@@ -175,6 +197,10 @@ func newApp() *cli.App {
 			Aliases: []string{"lpc"},
 			Usage:   "List all the available patches for the given container",
 			Action:  listPatchesContainerCmd,
+			ArgsUsage: `<container-id>
+
+Where <container-id> is either the container ID or the name of the container
+to be used.`,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "b, bugzilla",
@@ -207,6 +233,15 @@ func newApp() *cli.App {
 			Name:   "patch",
 			Usage:  "Install the available patches",
 			Action: getCmd("patch", patchCmd),
+			ArgsUsage: `<image> <new-image>
+
+Where <image> is the name of the openSUSE/SUSE Linux Enterprise image to
+patch. Since zypper-docker does not overwrite images, <new-image> is the name
+of the image that will be created on this operation. This new image will be the
+same as the old one plus the applied patches.
+
+If the tag has not been provided on either <image> or <new-image>, then
+"latest" is the one that will be used.`,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "bugzilla",
@@ -257,17 +292,26 @@ func newApp() *cli.App {
 			Aliases: []string{"pchk"},
 			Usage:   "Check for patches",
 			Action:  getCmd("patch-check", patchCheckCmd),
+			ArgsUsage: `<image>
+
+Where <image> is the name of the openSUSE/SUSE Linux Enterprise image to use.
+If the tag has not been provided, then "latest" is the one that will be used.`,
 		},
 		{
 			Name:    "patch-check-container",
 			Aliases: []string{"pchkc"},
 			Usage:   "Check for patches available for the given container",
 			Action:  getCmd("patch-check-container", patchCheckContainerCmd),
+			ArgsUsage: `<container-id>
+
+Where <container-id> is either the container ID or the name of the container
+to be used.`,
 		},
 		{
-			Name:   "ps",
-			Usage:  "List all the containers that are outdated",
-			Action: getCmd("ps", psCmd),
+			Name:      "ps",
+			Usage:     "List all the containers that are outdated",
+			Action:    getCmd("ps", psCmd),
+			ArgsUsage: " ",
 		},
 	}
 	return app
