@@ -16,10 +16,13 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/coreos/etcd/pkg/fileutil"
 )
 
 const cacheName = "docker-zypper.json"
@@ -87,15 +90,37 @@ func (cd *cachedData) flush() {
 		return
 	}
 
-	file, err := os.OpenFile(cd.Path, os.O_RDWR|os.O_TRUNC, 0666)
+	file, err := fileutil.LockFile(cd.Path, os.O_RDWR, 0666)
 	if err != nil {
 		log.Printf("Cannot write to the cache file: %v", err)
 		return
 	}
+	defer file.Close()
+
+	_, err = file.Stat()
+	if err != nil {
+		log.Printf("Cannot stat file: %v", err)
+		return
+	}
+
+	// Read cache from file (again) before writing to it, otherwise the
+	// cache will possibly be inconsistent.
+	oldCache := cd.readCache(file)
+
+	// Merge the old and "new" cache, and remove duplicates.
+	cd.Suse = append(cd.Suse, oldCache.Suse...)
+	cd.Other = append(cd.Other, oldCache.Other...)
+	cd.Outdated = append(cd.Outdated, oldCache.Outdated...)
+	cd.Suse = removeDuplicates(cd.Suse)
+	cd.Other = removeDuplicates(cd.Other)
+	cd.Outdated = removeDuplicates(cd.Outdated)
+
+	// Clear file content.
+	file.Seek(0, 0)
+	file.Truncate(0)
 
 	enc := json.NewEncoder(file)
 	_ = enc.Encode(cd)
-	_ = file.Close()
 }
 
 // Empty the contents of the cache file.
@@ -124,6 +149,17 @@ func (cd *cachedData) updateCacheAfterUpdate(outdatedImg, updatedImgID string) e
 	return nil
 }
 
+func (cd *cachedData) readCache(r io.Reader) *cachedData {
+	ret := &cachedData{Valid: true, Path: cd.Path}
+	dec := json.NewDecoder(r)
+	if err := dec.Decode(&ret); err != nil && err != io.EOF {
+		log.Printf("Decoding of cache file failed: %v\n", err)
+		return &cachedData{Valid: true, Path: cd.Path}
+	}
+
+	return ret
+}
+
 // Retrieves the path for the cache file. It checks the following directories
 // in this specific order:
 //  1. $HOME/.cache
@@ -137,9 +173,9 @@ func cachePath() *os.File {
 		dirs := strings.Split(dir, ":")
 		for _, d := range dirs {
 			name := filepath.Join(d, cacheName)
-			file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0666)
+			lock, err := fileutil.LockFile(name, os.O_RDWR|os.O_CREATE, 0666)
 			if err == nil {
-				return file
+				return lock.File
 			}
 		}
 	}
@@ -160,7 +196,7 @@ func getCacheFile() *cachedData {
 	dec := json.NewDecoder(file)
 	err := dec.Decode(&cd)
 	_ = file.Close()
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.Printf("Decoding of cache file failed: %v\n", err)
 		return &cachedData{Valid: true, Path: file.Name()}
 	}

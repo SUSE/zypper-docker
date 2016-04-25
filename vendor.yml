@@ -5,6 +5,12 @@ vendors:
   rev: 4b6ea7319e214d98c938f12692336f7ca9348d6b
 - path: github.com/codegangsta/cli
   rev: 71f57d300dd6a780ac1856c005c4b518cfd498ec
+- path: github.com/coreos/etcd
+  rev: b494ad3a0d567e11e8447aeb127bddbd3e2a387b
+- path: github.com/coreos/go-systemd
+  rev: 7b2428fec40033549c68f54e26e89e7ca9a9ce31
+- path: github.com/coreos/pkg
+  rev: 1914e367e85eaf0c25d495b48e060dfe6190f8d0
 - path: github.com/cpuguy83/go-md2man
   rev: 2724a9c9051aa62e9cca11304e7dd518e9e41599
 - path: github.com/davecgh/go-spew

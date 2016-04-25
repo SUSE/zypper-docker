@@ -336,3 +336,26 @@ func supportsSeverityFlag(image string) (bool, error) {
 	}
 	return false, err
 }
+
+// removeDuplicates removes duplicate entries from an array of strings. Should
+// the resulting array be empty, it does not return nil but an empty array.
+func removeDuplicates(elements []string) []string {
+	seen := make(map[string]bool)
+	var res []string
+
+	for _, v := range elements {
+		if seen[v] {
+			continue
+		} else {
+			seen[v] = true
+			res = append(res, v)
+		}
+	}
+
+	// make sure not to return nil
+	if res == nil {
+		return []string{}
+	}
+
+	return res
+}
