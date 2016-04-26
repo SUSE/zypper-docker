@@ -29,8 +29,8 @@ var currentContext *cli.Context
 func version() string {
 	const (
 		major = 1
-		minor = 1
-		patch = 2
+		minor = 2
+		patch = 0
 	)
 	return fmt.Sprintf("%v.%v.%v", major, minor, patch)
 }

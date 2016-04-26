@@ -17,7 +17,7 @@ package main
 import "testing"
 
 func TestVersion(t *testing.T) {
-	if version() != "1.1.2" {
+	if version() != "1.2.0" {
 		t.Fatal("Wrong version")
 	}
 }
