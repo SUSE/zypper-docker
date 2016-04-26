@@ -36,6 +36,11 @@ func listPatchesContainerCmd(ctx *cli.Context) {
 // listParches calls the `zypper lp` command for the given image and the given
 // arguments.
 func listPatches(image string, ctx *cli.Context) {
+	if image == "" {
+		logAndFatalf("Error: no image name specified.\n")
+		exitWithCode(1)
+	}
+
 	if severity := ctx.String("severity"); severity != "" {
 		if ok, err := supportsSeverityFlag(image); !ok {
 			if err == nil {
