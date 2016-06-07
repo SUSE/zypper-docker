@@ -12,11 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package backend
 
-import (
-	"testing"
-)
+import "testing"
+
+/*
+func TestFormatZypperCommand(t *testing.T) {
+	cmd := formatZypperCommand("ref", "up")
+	if cmd != "zypper ref && zypper up" {
+		t.Fatalf("Wrong command '%v', expected 'zypper ref && zypper up'", cmd)
+	}
+
+	originalArgs := os.Args
+	defer func() {
+		os.Args = originalArgs
+		CLIContext = nil
+	}()
+	os.Args = []string{"exe", "--add-host", "host:ip", "test"}
+
+	app := newApp()
+	app.Commands = []cli.Command{{Name: "test", Action: getCmd("test", func(*cli.Context) {})}}
+	capture.All(func() { app.RunAndExitOnError() })
+
+	cmd = formatZypperCommand("ref", "up")
+	expected := "zypper --non-interactive ref && zypper --non-interactive up"
+	if cmd != expected {
+		t.Fatalf("Wrong command '%v', expected '%v'", cmd, expected)
+	}
+}
+*/
 
 func TestIsZypperExitCodeSevere(t *testing.T) {
 	notSevereExitCodes := []int{

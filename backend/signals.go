@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This is a thin wrapper on top of zypper that allows patching docker images
-// in a safe way.
-package main
+package backend
 
 import (
 	"log"
@@ -23,10 +21,15 @@ import (
 	"syscall"
 )
 
-// Listen to all signals, propagates SIGINT, SIGTSTP and SIGTERM
-// to the killChannel channel.
+// KillChannel is a channel which will receive a boolean whenever a signal has
+// been received and we want to shut down gracefully.
+var KillChannel chan bool
+
+// listenSignals executes a background goroutine that listens to all signals
+// and propagates SIGINT, SIGTSTP and SIGTERM to the backend.KillChannel
+// channel.
 func listenSignals() {
-	killChannel = make(chan bool)
+	KillChannel = make(chan bool)
 	c := make(chan os.Signal)
 	signal.Notify(c)
 	go func() {
@@ -35,7 +38,7 @@ func listenSignals() {
 			case syscall.SIGQUIT, syscall.SIGINT, syscall.SIGTSTP,
 				syscall.SIGTERM:
 				log.Printf("Signal '%v' received: shutting down gracefully.", sig)
-				killChannel <- true
+				KillChannel <- true
 			default:
 				log.Printf("Signal '%v' not handled. Doing nothing...", sig)
 			}

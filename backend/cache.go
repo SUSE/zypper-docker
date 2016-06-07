@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package backend
 
 import (
 	"encoding/json"
@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/SUSE/zypper-docker/utils"
 	"github.com/coreos/etcd/pkg/fileutil"
 )
 
@@ -50,8 +51,8 @@ type cachedData struct {
 //  - Whether it exists or not.
 //  - If it exists, whether it is a SUSE image or not.
 func (cd *cachedData) idExists(id string) (bool, bool) {
-	suse := arrayIncludeString(cd.Suse, id)
-	other := arrayIncludeString(cd.Other, id)
+	suse := utils.ArrayIncludeString(cd.Suse, id)
+	other := utils.ArrayIncludeString(cd.Other, id)
 
 	return suse || other, suse
 }
@@ -59,7 +60,7 @@ func (cd *cachedData) idExists(id string) (bool, bool) {
 // Returns whether the given ID matches an image that has been
 // updated via zypper-docker patch|update
 func (cd *cachedData) isImageOutdated(id string) bool {
-	return arrayIncludeString(cd.Outdated, id)
+	return utils.ArrayIncludeString(cd.Outdated, id)
 }
 
 // Returns whether the given ID matches an image that is based on SUSE.
@@ -111,9 +112,9 @@ func (cd *cachedData) flush() {
 	cd.Suse = append(cd.Suse, oldCache.Suse...)
 	cd.Other = append(cd.Other, oldCache.Other...)
 	cd.Outdated = append(cd.Outdated, oldCache.Outdated...)
-	cd.Suse = removeDuplicates(cd.Suse)
-	cd.Other = removeDuplicates(cd.Other)
-	cd.Outdated = removeDuplicates(cd.Outdated)
+	cd.Suse = utils.RemoveDuplicates(cd.Suse)
+	cd.Other = utils.RemoveDuplicates(cd.Other)
+	cd.Outdated = utils.RemoveDuplicates(cd.Outdated)
 
 	// Clear file content.
 	file.Seek(0, 0)
@@ -137,11 +138,11 @@ func (cd *cachedData) updateCacheAfterUpdate(outdatedImg, updatedImgID string) e
 	if err != nil {
 		return err
 	}
-	if !arrayIncludeString(cd.Outdated, outdatedImgID) {
+	if !utils.ArrayIncludeString(cd.Outdated, outdatedImgID) {
 		cd.Outdated = append(cd.Outdated, outdatedImgID)
 		cd.flush()
 	}
-	if !arrayIncludeString(cd.Suse, updatedImgID) {
+	if !utils.ArrayIncludeString(cd.Suse, updatedImgID) {
 		cd.Suse = append(cd.Suse, updatedImgID)
 		cd.flush()
 	}

@@ -14,7 +14,10 @@
 
 package main
 
-import "github.com/codegangsta/cli"
+import (
+	"github.com/SUSE/zypper-docker/backend"
+	"github.com/codegangsta/cli"
+)
 
 // zypper-docker patch-check [flags] <image>
 func patchCheckCmd(ctx *cli.Context) {
@@ -29,6 +32,8 @@ func patchCheckContainerCmd(ctx *cli.Context) {
 // patchCheck calls the `zypper pchk` command for the given image and the given
 // arguments.
 func patchCheck(image string, ctx *cli.Context) {
+	updates, security, err := backend.HasPatches(image)
+
 	err := runStreamedCommand(image, "pchk", true)
 	if err == nil {
 		return

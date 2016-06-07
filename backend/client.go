@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package backend
 
 import (
 	"fmt"
@@ -23,12 +23,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SUSE/zypper-docker/utils"
+	"github.com/codegangsta/cli"
+	"github.com/docker/distribution/reference"
 	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/engine-api/types/network"
 	"github.com/docker/engine-api/types/strslice"
 )
+
+// TODO: move stuff around
+
+// CLIContext represents the context as given by the CLI.
+var CLIContext *cli.Context
 
 // rootUser is the explicit value to use for the USER directive to specify a user
 // as being root. Oddly, specifying the default value ("") doesn't work even though
@@ -74,14 +82,15 @@ const containerTimeout = 15 * time.Second
 
 // safeClient holds the instance of the docker client and the mutex protecting
 // it from concurrent accesses. Do *not* use this global variable directly to
-// fetch the docker client. For that use the `getDockerClient` function.
+// fetch the docker client. For that use the `GetDockerClient` function.
 var safeClient struct {
 	sync.Mutex
 	client DockerClient
 }
 
-// getDockerClient safely returns the singleton instance of the Docker client.
-func getDockerClient() DockerClient {
+// GetDockerClient safely returns the singleton instance of the Docker client.
+// TODO: maybe we don't even need to export it
+func GetDockerClient() DockerClient {
 	safeClient.Lock()
 	defer safeClient.Unlock()
 
@@ -98,7 +107,7 @@ func getDockerClient() DockerClient {
 
 	// The return statement is just to make golint happy about this and for
 	// compliance with the API.
-	exitWithCode(1)
+	utils.ExitWithCode(1)
 	return nil
 }
 
@@ -138,7 +147,7 @@ func checkCommandInImage(img, cmd string) bool {
 	return true
 }
 
-// runStreamedCommand is a convenient wrapper of the `runCommandInContainer`
+// RunStreamedCommand is a convenient wrapper of the `runCommandInContainer`
 // for functions that just need to run a command on streaming without the
 // burden of removing the resulting container, etc.
 //
@@ -149,9 +158,11 @@ func checkCommandInImage(img, cmd string) bool {
 // If getError is set to false, then this function will always return nil.
 // Otherwise, it will return the error as given by the `runCommandInContainer`
 // function.
-func runStreamedCommand(img, cmd string, getError bool) error {
+// TODO
+func RunStreamedCommand(img, cmd string, getError bool) error {
 	if img == "" {
-		logAndFatalf("Error: no image name specified.\n")
+		// TODO
+		//logAndFatalf("Error: no image name specified.\n")
 		return nil
 	}
 
@@ -165,7 +176,7 @@ func runStreamedCommand(img, cmd string, getError bool) error {
 	if err != nil {
 		log.Printf("Error: %s\n", err)
 		fmt.Println(err)
-		exitWithCode(1)
+		utils.ExitWithCode(1)
 	}
 	return nil
 }
@@ -200,7 +211,7 @@ func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string,
 		return "", err
 	}
 
-	client := getDockerClient()
+	client := GetDockerClient()
 	if err = client.ContainerStart(id); err != nil {
 		// Silently fail, since it might be "zypper" not existing and we don't
 		// want to add noise to the log.
@@ -255,13 +266,13 @@ func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string,
 		}
 	case <-timeout:
 		return id, fmt.Errorf("Timed out when waiting for a container")
-	case <-killChannel:
+	case <-KillChannel:
 		if err := client.ContainerKill(id, "KILL"); err != nil {
 			fmt.Println("Error while killing running container:", err)
 		} else {
 			removeContainer(id)
 		}
-		exitWithCode(1)
+		utils.ExitWithCode(1)
 	}
 
 	return id, nil
@@ -278,7 +289,7 @@ type waitResult struct {
 // so it returns a channel instead.
 func containerWait(id string) chan waitResult {
 	wr := make(chan waitResult)
-	client := getDockerClient()
+	client := GetDockerClient()
 
 	go func() {
 		code, err := client.ContainerWait(id)
@@ -289,10 +300,10 @@ func containerWait(id string) chan waitResult {
 
 // Get the host config to be used for starting containers.
 func getHostConfig() *container.HostConfig {
-	if currentContext == nil {
+	if CLIContext == nil {
 		return &container.HostConfig{}
 	}
-	return &container.HostConfig{ExtraHosts: currentContext.GlobalStringSlice("add-host")}
+	return &container.HostConfig{ExtraHosts: CLIContext.GlobalStringSlice("add-host")}
 }
 
 // Creates a container based on the given image. The given image string is just
@@ -303,7 +314,7 @@ func getHostConfig() *container.HostConfig {
 // Note well: the container is not running at this time, it must be started via
 // the `startContainer` function.
 func createContainer(img string, cmd []string) (string, error) {
-	client := getDockerClient()
+	client := GetDockerClient()
 
 	// First of all we create a container in which we will run the command.
 	config := &container.Config{
@@ -332,7 +343,7 @@ func createContainer(img string, cmd []string) (string, error) {
 // Safely remove the given container. It will deal with the error by logging
 // it.
 func removeContainer(id string) {
-	client := getDockerClient()
+	client := GetDockerClient()
 
 	err := client.ContainerRemove(types.ContainerRemoveOptions{
 		ContainerID:   id,
@@ -348,7 +359,7 @@ func removeContainer(id string) {
 // that is based on the given img into a new image. The given repo should also
 // contain the namespace. Returns the id of the created image.
 func commitContainerToImage(img, containerID, repo, tag, comment, author string) (string, error) {
-	client := getDockerClient()
+	client := GetDockerClient()
 
 	// First of all, we inspect the parent image and fetch the values for the
 	// entrypoint and the cmd. We do this to preserve them on the committed
@@ -367,8 +378,8 @@ func commitContainerToImage(img, containerID, repo, tag, comment, author string)
 
 	changes := []string{
 		"USER " + user,
-		"ENTRYPOINT " + joinAsArray(info.Config.Entrypoint.Slice(), false),
-		"CMD " + joinAsArray(info.Config.Cmd.Slice(), true),
+		"ENTRYPOINT " + utils.JoinAsArray(info.Config.Entrypoint.Slice(), false),
+		"CMD " + utils.JoinAsArray(info.Config.Cmd.Slice(), true),
 	}
 
 	// And we commit into the new image.
@@ -415,7 +426,7 @@ func runCommandAndCommitToImage(img, targetRepo, targetTag, cmd, comment, author
 // Looks for the specified running container and makes sure it's running either
 // SUSE or openSUSE.
 func checkContainerRunning(id string) (types.Container, error) {
-	client := getDockerClient()
+	client := GetDockerClient()
 	var container types.Container
 
 	containers, err := client.ContainerList(types.ContainerListOptions{})
@@ -437,7 +448,7 @@ func checkContainerRunning(id string) (types.Container, error) {
 			break
 		}
 		// for some reason the daemon has all the names prefixed by "/"
-		if arrayIncludeString(c.Names, "/"+id) {
+		if utils.ArrayIncludeString(c.Names, "/"+id) {
 			container = c
 			found = true
 			break
@@ -456,4 +467,75 @@ func checkContainerRunning(id string) (types.Container, error) {
 	}
 
 	return container, nil
+}
+
+func getImageID(name string) (string, error) {
+	client := GetDockerClient()
+
+	repo, tag, err := parseImageName(name)
+	if err != nil {
+		return "", err
+	}
+	if tag == "latest" && !strings.Contains(name, tag) {
+		name = name + ":" + tag
+	}
+
+	images, err := client.ImageList(types.ImageListOptions{MatchName: repo, All: false})
+	if err != nil {
+		return "", err
+	}
+
+	if len(images) == 0 {
+		return "", fmt.Errorf("Cannot find image %s", name)
+	}
+	for _, image := range images {
+		if utils.ArrayIncludeString(image.RepoTags, name) {
+			return image.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("Cannot find image %s", name)
+}
+
+// Given a Docker image name it returns the repository and the tag composing it
+// Returns the repository and the tag strings.
+// Examples:
+//   * suse/sles11sp3:1.0.0 -> repo is suse/sles11sp3, tag is 1.0.0
+//   * suse/sles11sp3 -> repo is suse/sles11sp3, tag is latest
+func parseImageName(name string) (string, string, error) {
+	// TODO (mssola): The reference package has the Parse function that does
+	// what we want. However, the returned object does not contain the tag
+	// always. This leads into a grammar conflict from a client point of view.
+	// For this reason, instead of using reference.Parse we use the regexpes
+	// provided by the reference package (that Parse is using anyways).
+
+	matches := reference.ReferenceRegexp.FindStringSubmatch(name)
+	if matches == nil {
+		return "", "",
+			fmt.Errorf("Could not parse '%s': %v", name, reference.ErrReferenceInvalidFormat)
+	}
+	if matches[1] == "" {
+		return "", "", reference.ErrNameEmpty
+	}
+	if len(matches[1]) > reference.NameTotalLengthMax {
+		return "", "", fmt.Errorf("Could not parse '%s': %v", name, reference.ErrNameTooLong)
+	}
+	if matches[2] == "" {
+		matches[2] = "latest"
+	}
+	return matches[1], matches[2], nil
+}
+
+// Exists with error if the image identified by repo and tag already exists
+// Returns an error when the image already exists or something went wrong.
+func preventImageOverwrite(repo, tag string) error {
+	imageExists, err := ImageExists(repo, tag)
+
+	if err != nil {
+		return fmt.Errorf("Cannot proceed safely: %v.", err)
+	}
+	if imageExists {
+		return fmt.Errorf("Cannot overwrite an existing image. Please use a different repository/tag.")
+	}
+	return nil
 }

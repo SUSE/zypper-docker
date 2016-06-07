@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package backend
 
 import (
 	"log"
@@ -30,7 +30,7 @@ func resizeTty(id string) {
 		return
 	}
 
-	client := getDockerClient()
+	client := GetDockerClient()
 	err := client.ContainerResize(types.ResizeOptions{
 		ID:     id,
 		Height: height,

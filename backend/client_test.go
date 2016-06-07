@@ -12,26 +12,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package backend
 
 import (
 	"bytes"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
-	"github.com/codegangsta/cli"
+	"github.com/SUSE/zypper-docker/utils"
 	"github.com/docker/engine-api/client"
 	"github.com/mssola/capture"
 )
 
+var exitInvocations int
+
+func TestMain(m *testing.M) {
+	status := 0
+
+	home, umask := os.Getenv("HOME"), syscall.Umask(0)
+	abs, _ := filepath.Abs(".")
+	test := filepath.Join(abs, "test")
+
+	defer func() {
+		_ = os.Setenv("HOME", home)
+		syscall.Umask(umask)
+		_ = os.Remove(filepath.Join(test, ".cache", cacheName))
+		os.Exit(status)
+	}()
+
+	_ = os.Setenv("HOME", test)
+
+	status = m.Run()
+}
+
 func TestMockClient(t *testing.T) {
 	safeClient.client = &mockClient{}
 
-	client := getDockerClient()
+	client := GetDockerClient()
 	to := reflect.TypeOf(client)
 	if to.String() != "*main.mockClient" {
 		t.Fatal("Wrong type for the client")
@@ -50,7 +73,7 @@ func TestDockerClient(t *testing.T) {
 
 	// This test will work even if docker is not running. Take a look at the
 	// implementation of it for more details.
-	cl := getDockerClient()
+	cl := GetDockerClient()
 
 	if _, ok := cl.(*client.Client); !ok {
 		t.Fatal("Could not cast to *client.Client")
@@ -200,11 +223,11 @@ func TestRemoveContainerFail(t *testing.T) {
 func TestHandleSignalWhileContainerRuns(t *testing.T) {
 	// create the killChannel, make it buffered and put already a message inside
 	// of it
-	killChannel = make(chan bool, 1)
-	killChannel <- true
+	KillChannel = make(chan bool, 1)
+	KillChannel <- true
 
 	exitInvocations = 0
-	exitWithCode = func(code int) {
+	utils.ExitWithCode = func(code int) {
 		exitInvocations++
 	}
 
@@ -222,11 +245,11 @@ func TestHandleSignalWhileContainerRuns(t *testing.T) {
 func TestHandleSignalWhileContainerRunsEvenWhenKillContainerFails(t *testing.T) {
 	// create the killChannel, make it buffered and put already a message inside
 	// of it
-	killChannel = make(chan bool, 1)
-	killChannel <- true
+	KillChannel = make(chan bool, 1)
+	KillChannel <- true
 
 	exitInvocations = 0
-	exitWithCode = func(code int) {
+	utils.ExitWithCode = func(code int) {
 		exitInvocations++
 	}
 
@@ -402,6 +425,7 @@ func TestCheckContainerRunningByShortIDSuccess(t *testing.T) {
 	}
 }
 
+/*
 func TestHostConfig(t *testing.T) {
 	hc := getHostConfig()
 	if len(hc.ExtraHosts) != 0 {
@@ -411,7 +435,7 @@ func TestHostConfig(t *testing.T) {
 	originalArgs := os.Args
 	defer func() {
 		os.Args = originalArgs
-		currentContext = nil
+		CLIContext = nil
 	}()
 	os.Args = []string{"exe", "--add-host", "host:ip", "test"}
 
@@ -425,5 +449,53 @@ func TestHostConfig(t *testing.T) {
 	}
 	if hc.ExtraHosts[0] != "host:ip" {
 		t.Fatalf("Did not expect %v", hc.ExtraHosts[0])
+	}
+}
+*/
+
+func TestGetImageIdErrorWhileParsingName(t *testing.T) {
+	_, err := getImageID("OPENSUSE")
+
+	if err == nil {
+		t.Fatalf("Should have failed")
+	}
+}
+
+func TestParseImageNameSuccess(t *testing.T) {
+	// map with name as value and a string list with two enteries (repo and tag)
+	// as value
+	data := make(map[string][]string)
+	data["opensuse:13.2"] = []string{"opensuse", "13.2"}
+	data["opensuse"] = []string{"opensuse", "latest"}
+	data["registry.test.lan:8080/opensuse:13.2"] = []string{"registry.test.lan:8080/opensuse", "13.2"}
+	data["registry.test.lan:8080/mssola/opensuse:13.2"] = []string{"registry.test.lan:8080/mssola/opensuse", "13.2"}
+	data["registry.test.lan:8080/mssola/opensuse"] = []string{"registry.test.lan:8080/mssola/opensuse", "latest"}
+
+	for name, expected := range data {
+		repo, tag, err := parseImageName(name)
+		if repo != expected[0] {
+			t.Fatalf("repository %s is different from the expected %s", repo, expected[0])
+		}
+		if tag != expected[1] {
+			t.Fatalf("tag %s is different from the expected %s", tag, expected[1])
+		}
+		if err != nil {
+			t.Fatalf("Unexpected error")
+		}
+	}
+}
+
+func TestParseImageNameWrongFormat(t *testing.T) {
+	data := []string{
+		"openSUSE",
+		"opensuse!",
+		"opensuse:-asd",
+	}
+
+	for _, name := range data {
+		_, _, err := parseImageName(name)
+		if err == nil {
+			t.Fatalf("Should have failed while processing %s", name)
+		}
 	}
 }

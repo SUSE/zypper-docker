@@ -22,9 +22,6 @@ import (
 	"github.com/codegangsta/cli"
 )
 
-// A pointer to the current context.
-var currentContext *cli.Context
-
 // Returns the version string
 func version() string {
 	const (

@@ -16,15 +16,17 @@
 // in a safe way.
 package main
 
-import "os"
+import (
+	"os"
 
-var exitWithCode func(code int)
-var killChannel chan bool
+	"github.com/SUSE/zypper-docker/backend"
+	"github.com/SUSE/zypper-docker/utils"
+)
 
 func main() {
-	listenSignals()
+	backend.Initialize()
 
-	exitWithCode = func(code int) {
+	utils.ExitWithCode = func(code int) {
 		os.Exit(code)
 	}
 

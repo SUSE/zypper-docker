@@ -26,6 +26,7 @@ import (
 	"github.com/mssola/capture"
 )
 
+// TODO
 func TestMain(m *testing.M) {
 	status := 0
 
@@ -46,6 +47,7 @@ func TestMain(m *testing.M) {
 }
 
 // IMAGES
+// TODO
 
 func TestImagesCommand(t *testing.T) {
 	cases := testCases{

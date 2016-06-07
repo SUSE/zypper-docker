@@ -16,55 +16,24 @@ package main
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/SUSE/zypper-docker/backend"
 	"github.com/codegangsta/cli"
-	"github.com/docker/engine-api/types"
 )
 
 // zypper-docker ps
 func psCmd(ctx *cli.Context) {
-	client := getDockerClient()
-	containers, err := client.ContainerList(types.ContainerListOptions{})
+	state, err := backend.ListContainers(true)
+
 	if err != nil {
-		logAndFatalf("Error while fetching running containers: %v\n", err)
+		logAndFatalf("error: %v\n", err)
 		return
-	}
-
-	cache := getCacheFile()
-
-	matches := []types.Container{}
-	notSuse := []types.Container{}
-	unknown := []types.Container{}
-
-	if len(containers) == 0 {
+	} else if state == nil {
 		fmt.Println("There are no running containers to analyze.")
 		return
 	}
 
-	for _, container := range containers {
-		select {
-		case <-killChannel:
-			return
-		default:
-			imageID, err := getImageID(container.Image)
-			if err != nil {
-				log.Printf("Cannot analyze container %s [%s]: %s", container.ID, container.Image, err)
-				unknown = append(unknown, container)
-				continue
-			}
-
-			if exists, suse := cache.idExists(imageID); exists && !suse {
-				notSuse = append(notSuse, container)
-			} else if cache.isImageOutdated(imageID) {
-				matches = append(matches, container)
-			} else {
-				unknown = append(unknown, container)
-			}
-		}
-	}
-
-	if len(matches) > 0 {
+	if len(state.updated) > 0 {
 		fmt.Println("Running containers whose images have been updated:")
 		for _, container := range matches {
 			fmt.Printf("  - %s [%s]\n", container.ID, container.Image)
@@ -72,25 +41,25 @@ func psCmd(ctx *cli.Context) {
 		fmt.Println("It is recommended to stop the container and start a new instance based on the new image created with zypper-docker")
 	}
 
-	if len(notSuse) > 0 {
-		if len(matches) > 0 {
+	if len(state.ignored) > 0 {
+		if len(state.updated) > 0 {
 			fmt.Printf("\n")
 		}
-		fmt.Println("The following containers have been ignored because are known to be based on non-SUSE systems:")
+		fmt.Println("The following containers have been ignored:")
 
-		for _, container := range notSuse {
-			fmt.Printf("  - %s [%s]\n", container.ID, container.Image)
+		for _, cs := range state.ignored {
+			fmt.Printf("  - %s [%s] (reason: %s)\n", cs.container.ID, cs.container.Image, cs.message)
 		}
 	}
 
-	if len(unknown) > 0 {
-		if len(matches) > 0 || len(notSuse) > 0 {
+	if len(state.unknown) > 0 {
+		if len(state.updated) > 0 || len(state.ignored) > 0 {
 			fmt.Printf("\n")
 		}
-		fmt.Println("The following containers have an unknown state:")
+		fmt.Println("The following containers have an unknown state or could not be analyzed:")
 
-		for _, container := range unknown {
-			fmt.Printf("  - %s [%s]\n", container.ID, container.Image)
+		for _, cs := range state.unknown {
+			fmt.Printf("  - %s [%s] (reason: %s)\n", cs.container.ID, cs.container.Image, cs.message)
 		}
 
 		fmt.Println("Use either the \"list-patches-container\" or the \"list-updates-container\" commands to inspect them.")

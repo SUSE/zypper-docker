@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/SUSE/zypper-docker/backend"
 	"github.com/codegangsta/cli"
 )
 
@@ -54,14 +55,18 @@ func listPatches(image string, ctx *cli.Context) {
 		}
 	}
 
+	if err := backend.ListUpdates(backend.Security, image); err != nil {
+		logAndFatalf("Failed to list security updates: %v.\n", err)
+	}
+
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
-	_ = runStreamedCommand(
+	_ = backend.RunStreamedCommand(
 		image,
 		cmdWithFlags("lp", ctx, []string{}, []string{}), false)
 }
 
 // zypper-docker patch [flags] image
 func patchCmd(ctx *cli.Context) {
-	updatePatchCmd("patch", ctx)
+	updatePatchCmd(backend.Security, ctx)
 }

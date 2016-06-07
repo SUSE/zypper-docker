@@ -12,18 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package backend
 
-import (
-	"github.com/SUSE/zypper-docker/backend"
-	"github.com/codegangsta/cli"
-)
+// Initialize initializes the backend of zypper-docker.
+func Initialize() {
+	listenSignals()
 
-func imagesCmd(ctx *cli.Context) {
-	if imgs, err := backend.FetchImages(ctx.GlobalBool("force")); err != nil {
-		logAndFatalf("Cannot proceed safely: %v.", err)
-	} else {
-		backend.PrintImages(imgs)
-		exitWithCode(0)
-	}
+	// TODO: available backends and so on
 }

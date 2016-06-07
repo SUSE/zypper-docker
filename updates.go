@@ -14,7 +14,10 @@
 
 package main
 
-import "github.com/codegangsta/cli"
+import (
+	"github.com/SUSE/zypper-docker/backend"
+	"github.com/codegangsta/cli"
+)
 
 // zypper-docker list-updates [flags] <image>
 func listUpdatesCmd(ctx *cli.Context) {
@@ -29,12 +32,12 @@ func listUpdatesContainerCmd(ctx *cli.Context) {
 // listUpdates lists all the updates available for the given image with the
 // given arguments.
 func listUpdates(image string, ctx *cli.Context) {
-	// It's safe to ignore the returned error because we set to false the
-	// `getError` parameter of this function.
-	_ = runStreamedCommand(image, "lu", false)
+	if err := backend.ListUpdates(backend.Update, image); err != nil {
+		logAndFatalf("Failed to list updates: %v.\n", err)
+	}
 }
 
 // zypper-docker update [flags] image new-image
 func updateCmd(ctx *cli.Context) {
-	updatePatchCmd("up", ctx)
+	updatePatchCmd(backend.General, ctx)
 }

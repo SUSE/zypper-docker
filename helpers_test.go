@@ -17,17 +17,17 @@ package main
 import (
 	"flag"
 	"log"
-	"os"
 	"strings"
 	"testing"
 
+	"github.com/SUSE/zypper-docker/backend"
 	"github.com/codegangsta/cli"
 	"github.com/mssola/capture"
 )
 
 func TestGetCmd(t *testing.T) {
 	defer func() {
-		currentContext = nil
+		backend.CLIContext = nil
 	}()
 
 	fn1 := getCmd("images", func(ctx *cli.Context) { log.Printf("Hello") })
@@ -47,53 +47,6 @@ func TestGetCmd(t *testing.T) {
 	stdout = string(all.Stdout)
 	if !strings.HasPrefix(stdout, "[ps]") {
 		t.Fatalf("%s: should've started with [ps]", stdout)
-	}
-}
-
-func TestParseImageNameSuccess(t *testing.T) {
-	// map with name as value and a string list with two enteries (repo and tag)
-	// as value
-	data := make(map[string][]string)
-	data["opensuse:13.2"] = []string{"opensuse", "13.2"}
-	data["opensuse"] = []string{"opensuse", "latest"}
-	data["registry.test.lan:8080/opensuse:13.2"] = []string{"registry.test.lan:8080/opensuse", "13.2"}
-	data["registry.test.lan:8080/mssola/opensuse:13.2"] = []string{"registry.test.lan:8080/mssola/opensuse", "13.2"}
-	data["registry.test.lan:8080/mssola/opensuse"] = []string{"registry.test.lan:8080/mssola/opensuse", "latest"}
-
-	for name, expected := range data {
-		repo, tag, err := parseImageName(name)
-		if repo != expected[0] {
-			t.Fatalf("repository %s is different from the expected %s", repo, expected[0])
-		}
-		if tag != expected[1] {
-			t.Fatalf("tag %s is different from the expected %s", tag, expected[1])
-		}
-		if err != nil {
-			t.Fatalf("Unexpected error")
-		}
-	}
-}
-
-func TestParseImageNameWrongFormat(t *testing.T) {
-	data := []string{
-		"openSUSE",
-		"opensuse!",
-		"opensuse:-asd",
-	}
-
-	for _, name := range data {
-		_, _, err := parseImageName(name)
-		if err == nil {
-			t.Fatalf("Should have failed while processing %s", name)
-		}
-	}
-}
-
-func TestGetImageIdErrorWhileParsingName(t *testing.T) {
-	_, err := getImageID("OPENSUSE")
-
-	if err == nil {
-		t.Fatalf("Should have failed")
 	}
 }
 
@@ -227,49 +180,6 @@ func TestSanitizeStringSpecialFlagUsedAsString(t *testing.T) {
 	}
 }
 
-func TestFormatZypperCommand(t *testing.T) {
-	cmd := formatZypperCommand("ref", "up")
-	if cmd != "zypper ref && zypper up" {
-		t.Fatalf("Wrong command '%v', expected 'zypper ref && zypper up'", cmd)
-	}
-
-	originalArgs := os.Args
-	defer func() {
-		os.Args = originalArgs
-		currentContext = nil
-	}()
-	os.Args = []string{"exe", "--add-host", "host:ip", "test"}
-
-	app := newApp()
-	app.Commands = []cli.Command{{Name: "test", Action: getCmd("test", func(*cli.Context) {})}}
-	capture.All(func() { app.RunAndExitOnError() })
-
-	cmd = formatZypperCommand("ref", "up")
-	expected := "zypper --non-interactive ref && zypper --non-interactive up"
-	if cmd != expected {
-		t.Fatalf("Wrong command '%v', expected '%v'", cmd, expected)
-	}
-}
-
-func TestJoinAsArray(t *testing.T) {
-	str := joinAsArray([]string{}, false)
-	if str != "[]" {
-		t.Fatalf("Expected '[]', got: %s", str)
-	}
-	str = joinAsArray([]string{}, true)
-	if str != "" {
-		t.Fatalf("Expected '', got: %s", str)
-	}
-	str = joinAsArray([]string{"one"}, false)
-	if str != "[\"one\"]" {
-		t.Fatalf("Expected '[\"one\"]', got: %s", str)
-	}
-	str = joinAsArray([]string{"one", "two"}, false)
-	if str != "[\"one\", \"two\"]" {
-		t.Fatalf("Expected '[\"one\", \"two\"]', got: %s", str)
-	}
-}
-
 func TestSupportsSeverityFlagFail(t *testing.T) {
 	safeClient.client = &mockClient{zypperBadVersion: true, suppressLog: true}
 
@@ -294,23 +204,5 @@ func TestSupportsSeverityFlagDockerError(t *testing.T) {
 	ok, err := supportsSeverityFlag("opensuse")
 	if ok && err == nil {
 		t.Fatalf("supportsSeverityFlag should've returned false with error != nil")
-	}
-}
-
-func TestRemoveDuplicates(t *testing.T) {
-	expected := []string{"this", "string", "contains", "duplicates"}
-	got := removeDuplicates([]string{"this", "string", "contains", "contains", "duplicates"})
-	if len(expected) != len(got) {
-		t.Fatalf("Expected %v, got %v", expected, got)
-	}
-	for i := 0; i < len(got); i++ {
-		if expected[i] != got[i] {
-			t.Fatalf("Expected %v, got %v", expected, got)
-		}
-	}
-
-	got = removeDuplicates([]string{})
-	if len(got) > 0 {
-		t.Fatalf("Expected empty array, got %v", got)
 	}
 }
