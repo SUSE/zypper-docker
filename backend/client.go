@@ -199,10 +199,10 @@ func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string,
 			return id, dockerError{res}
 		}
 	case <-timeout:
-		return id, fmt.Errorf("Timed out when waiting for a container")
+		return id, fmt.Errorf("timed out when waiting for a container")
 	case <-KillChannel:
 		if err := client.ContainerKill(id, "KILL"); err != nil {
-			fmt.Println("Error while killing running container:", err)
+			fmt.Println("error while killing running container:", err)
 		} else {
 			removeContainer(id)
 		}
@@ -329,7 +329,7 @@ func CheckContainer(id string) (types.Container, error) {
 
 	containers, err := client.ContainerList(types.ContainerListOptions{})
 	if err != nil {
-		return container, fmt.Errorf("Error while fetching running containers: %v", err)
+		return container, fmt.Errorf("error while fetching running containers: %v", err)
 	}
 
 	found := false
@@ -354,12 +354,12 @@ func CheckContainer(id string) (types.Container, error) {
 	}
 
 	if !found {
-		return container, fmt.Errorf("Cannot find running container: %s", id)
+		return container, fmt.Errorf("cannot find running container: %s", id)
 	}
 
 	if !isSupported(container.Image) {
 		return container, fmt.Errorf(
-			"The container %s is based on the Docker image %s which is not supported",
+			"the container %s is based on the Docker image %s which is not supported",
 			id, container.Image)
 	}
 	return container, nil

@@ -44,7 +44,7 @@ func getImageID(name string) (string, error) {
 	}
 
 	if len(images) == 0 {
-		return "", fmt.Errorf("Cannot find image %s", name)
+		return "", fmt.Errorf("cannot find image %s", name)
 	}
 	for _, image := range images {
 		if utils.ArrayIncludeString(image.RepoTags, name) {
@@ -52,7 +52,7 @@ func getImageID(name string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("Cannot find image %s", name)
+	return "", fmt.Errorf("cannot find image %s", name)
 }
 
 // Given a Docker image name it returns the repository and the tag composing it
@@ -70,13 +70,13 @@ func parseImageName(name string) (string, string, error) {
 	matches := reference.ReferenceRegexp.FindStringSubmatch(name)
 	if matches == nil {
 		return "", "",
-			fmt.Errorf("Could not parse '%s': %v", name, reference.ErrReferenceInvalidFormat)
+			fmt.Errorf("could not parse '%s': %v", name, reference.ErrReferenceInvalidFormat)
 	}
 	if matches[1] == "" {
 		return "", "", reference.ErrNameEmpty
 	}
 	if len(matches[1]) > reference.NameTotalLengthMax {
-		return "", "", fmt.Errorf("Could not parse '%s': %v", name, reference.ErrNameTooLong)
+		return "", "", fmt.Errorf("could not parse '%s': %v", name, reference.ErrNameTooLong)
 	}
 	if matches[2] == "" {
 		matches[2] = "latest"
@@ -90,10 +90,10 @@ func preventImageOverwrite(repo, tag string) error {
 	imageExists, err := ImageExists(repo, tag)
 
 	if err != nil {
-		return fmt.Errorf("Cannot proceed safely: %v.", err)
+		return fmt.Errorf("cannot proceed safely: %v", err)
 	}
 	if imageExists {
-		return fmt.Errorf("Cannot overwrite an existing image. Please use a different repository/tag.")
+		return fmt.Errorf("cannot overwrite an existing image. Please use a different repository/tag")
 	}
 	return nil
 }

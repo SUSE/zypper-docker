@@ -41,6 +41,7 @@ func route() *mux.Router {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 	}).Methods("GET")
+	r.HandleFunc("/images", imagesShow).Methods("GET")
 	return r
 }
 
