@@ -35,6 +35,7 @@ func getCmd(name string, f func(ctx *cli.Context)) func(*cli.Context) {
 	return func(ctx *cli.Context) {
 		// Initialize the logger and the drivers for this command.
 		logger.Initialize(name, ctx.GlobalBool("debug"))
+		backend.Initialize(false)
 		drivers.Initialize(ctx)
 
 		// And finally call the given command.

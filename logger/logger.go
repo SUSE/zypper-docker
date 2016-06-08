@@ -58,7 +58,7 @@ func Initialize(prefix string, debug bool) {
 func Printf(fmtString string, args ...interface{}) {
 	log.Printf(fmtString, args...)
 	if !debugMode {
-		fmt.Printf(fmtString, args...)
+		fmt.Printf(fmtString+"\n", args...)
 	}
 }
 

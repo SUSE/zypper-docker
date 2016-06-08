@@ -20,7 +20,7 @@ import (
 	"os"
 	"os/user"
 
-	"github.com/SUSE/zypper-docker/backend"
+	"github.com/SUSE/zypper-docker/api"
 	"github.com/SUSE/zypper-docker/utils"
 	"github.com/codegangsta/cli"
 )
@@ -77,7 +77,7 @@ func newApp() *cli.App {
 		},
 		cli.BoolFlag{
 			Name:  "d, debug",
-			Usage: "Show all the logged messages on stdout",
+			Usage: "Show all the logged messages on stdout (ignored when using the serve command)",
 		},
 		cli.StringSliceFlag{
 			Name:  "add-host",
@@ -313,13 +313,34 @@ to be used.`,
 			Action:    getCmd("ps", psCmd),
 			ArgsUsage: " ",
 		},
+		{
+			Name:      "serve",
+			Usage:     "Start zypper-docker in service mode",
+			Action:    api.Serve,
+			ArgsUsage: " ",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "p, port",
+					Value: 3000,
+					Usage: "The port in which zypper-docker will be listening",
+				},
+				cli.StringFlag{
+					Name:  "c, cert-path",
+					Value: "",
+					Usage: "The certificate path",
+				},
+				cli.StringFlag{
+					Name:  "k, key-path",
+					Value: "",
+					Usage: "The key path",
+				},
+			},
+		},
 	}
 	return app
 }
 
 func main() {
-	backend.Initialize()
-
 	utils.ExitWithCode = func(code int) {
 		os.Exit(code)
 	}

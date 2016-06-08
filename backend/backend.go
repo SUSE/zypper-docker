@@ -18,9 +18,13 @@ package backend
 // necessarily true. We should use the `drivers.needsCLI` function and act
 // accordingly.
 
-// Initialize initializes the backend of zypper-docker.
-func Initialize() {
-	listenSignals()
+// Initialize initializes the backend of zypper-docker. The parameter `server`
+// indicates whether zypper-docker is running in server mode or not.
+func Initialize(server bool) {
+	// TODO
+	if !server {
+		listenSignals()
+	}
 
 	// TODO: available backends and so on
 }
