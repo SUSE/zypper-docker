@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package logger
 
 import (
 	"fmt"
@@ -20,20 +20,22 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/codegangsta/cli"
+	"github.com/SUSE/zypper-docker/utils"
 )
 
-// Whether zypper-docker is running in debug mode or not.
+// Whether it is running in debug mode or not.
 var debugMode = false
 
 // logFileName stores the name of the log file when logging is not done through
 // the standard output.
 const logFileName = ".zypper-docker.log"
 
-// setupLogger picks the proper output file for this application.
-func setupLogger(ctx *cli.Context) {
+// Initialize picks the proper output file for this application.
+func Initialize(prefix string, debug bool) {
+	log.SetPrefix("[" + prefix + "] ")
+
 	// If the debug flag is set, just print the log to stdout.
-	if ctx.GlobalBool("debug") {
+	if debug {
 		log.SetOutput(os.Stdout)
 		debugMode = true
 		return
@@ -51,17 +53,17 @@ func setupLogger(ctx *cli.Context) {
 	}
 }
 
-// Log and print to the stdout with the same message. If the `-d, --debug` flag
-// has been set, then the message is only printed once to stdout.
-func logAndPrintf(fmtString string, args ...interface{}) {
+// Printf logs and prints to the stdout with the same message. If the
+// `-d, --debug` flag has been set, then the message is only printed once to stdout.
+func Printf(fmtString string, args ...interface{}) {
 	log.Printf(fmtString, args...)
 	if !debugMode {
 		fmt.Printf(fmtString, args...)
 	}
 }
 
-// logAndFatalf acts just like logAndPrintf but calls `exitWithCode(1)`.
-func logAndFatalf(fmtString string, args ...interface{}) {
-	logAndPrintf(fmtString, args...)
-	exitWithCode(1)
+// Fatalf is like `logger.Printf` but it exits with code 1.
+func Fatalf(fmtString string, args ...interface{}) {
+	Printf(fmtString, args...)
+	utils.ExitWithCode(1)
 }

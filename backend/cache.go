@@ -17,11 +17,11 @@ package backend
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/SUSE/zypper-docker/logger"
 	"github.com/SUSE/zypper-docker/utils"
 	"github.com/coreos/etcd/pkg/fileutil"
 )
@@ -93,14 +93,14 @@ func (cd *cachedData) flush() {
 
 	file, err := fileutil.LockFile(cd.Path, os.O_RDWR, 0666)
 	if err != nil {
-		log.Printf("Cannot write to the cache file: %v", err)
+		logger.Printf("cannot write to the cache file: %v", err)
 		return
 	}
 	defer file.Close()
 
 	_, err = file.Stat()
 	if err != nil {
-		log.Printf("Cannot stat file: %v", err)
+		logger.Printf("cannot stat file: %v", err)
 		return
 	}
 
@@ -154,7 +154,7 @@ func (cd *cachedData) readCache(r io.Reader) *cachedData {
 	ret := &cachedData{Valid: true, Path: cd.Path}
 	dec := json.NewDecoder(r)
 	if err := dec.Decode(&ret); err != nil && err != io.EOF {
-		log.Printf("Decoding of cache file failed: %v\n", err)
+		logger.Printf("decoding of cache file failed: %v", err)
 		return &cachedData{Valid: true, Path: cd.Path}
 	}
 
@@ -189,7 +189,7 @@ func cachePath() *os.File {
 func getCacheFile() *cachedData {
 	file := cachePath()
 	if file == nil {
-		log.Println("Could not find path for the cache!")
+		logger.Printf("could not find path for the cache")
 		return &cachedData{Valid: false}
 	}
 
@@ -198,7 +198,7 @@ func getCacheFile() *cachedData {
 	err := dec.Decode(&cd)
 	_ = file.Close()
 	if err != nil && err != io.EOF {
-		log.Printf("Decoding of cache file failed: %v\n", err)
+		logger.Printf("decoding of cache file failed: %v", err)
 		return &cachedData{Valid: true, Path: file.Name()}
 	}
 	return cd

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package logger
 
 import (
 	"bytes"
@@ -35,7 +35,7 @@ func TestSetupLoggerDebug(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	res := capture.All(func() {
-		setupLogger(c)
+		Initialize(c)
 		log.Printf("Test")
 	})
 	if !strings.HasSuffix(string(res.Stdout), "Test\n") {
@@ -56,7 +56,7 @@ func TestSetupLoggerHome(t *testing.T) {
 	_ = os.Setenv("HOME", abs)
 
 	res := capture.All(func() {
-		setupLogger(testContext([]string{}, false))
+		Initialize(testContext([]string{}, false))
 		log.Printf("Test")
 	})
 	if len(res.Stdout) != 0 {
@@ -83,7 +83,7 @@ func TestSetupLoggerWrongHome(t *testing.T) {
 	_ = os.Setenv("HOME", abs)
 
 	res := capture.All(func() {
-		setupLogger(testContext([]string{}, false))
+		Initialize(testContext([]string{}, false))
 		log.Printf("Test")
 	})
 	if strings.Index(string(res.Stdout), "Could not open log file") == -1 {

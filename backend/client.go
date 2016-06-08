@@ -15,6 +15,7 @@
 package backend
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -24,16 +25,14 @@ import (
 	"time"
 
 	"github.com/SUSE/zypper-docker/backend/drivers"
+	"github.com/SUSE/zypper-docker/logger"
 	"github.com/SUSE/zypper-docker/utils"
-	"github.com/docker/distribution/reference"
 	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/engine-api/types/network"
 	"github.com/docker/engine-api/types/strslice"
 )
-
-// TODO: move stuff around
 
 // rootUser is the explicit value to use for the USER directive to specify a user
 // as being root. Oddly, specifying the default value ("") doesn't work even though
@@ -95,85 +94,25 @@ func getDockerClient() DockerClient {
 	}
 
 	if dc, err := client.NewEnvClient(); err != nil {
-		log.Printf("Could not get a docker client: %v", err)
+		logger.Fatalf("Could not get a docker client: %v", err)
 	} else {
 		safeClient.client = dc
 		return dc
 	}
-
-	// The return statement is just to make golint happy about this and for
-	// compliance with the API.
-	utils.ExitWithCode(1)
 	return nil
 }
 
-// humanizeCommandError tries to print an explicit and useful message for a
-// failing command inside of a docker container (based on the given image).
-func humanizeCommandError(cmd, image string, err error) {
-	var reason string
-
-	switch err.(type) {
-	case dockerError:
-		de := err.(dockerError)
-		if de.exitCode == 127 {
-			reason = "command not found"
-		} else {
-			reason = err.Error()
-		}
-	default:
-		reason = err.Error()
-	}
-
-	msg := "Could not execute command '%s' successfully in image '%s': %v.\n"
-	log.Printf(msg, cmd, image, reason)
-}
-
-// Looks for the specified command inside of a Docker image.
-// The given image string is just the ID of said image.
-// It returns true if the command was successful, false otherwise.
-func checkCommandInImage(img, cmd string) bool {
-	containerID, err := startContainer(img, []string{cmd}, false, nil)
-
-	defer removeContainer(containerID)
-
-	if err != nil {
-		humanizeCommandError(cmd, img, err)
-		return false
-	}
-	return true
-}
-
-// RunStreamedCommand is a convenient wrapper of the `runCommandInContainer`
+// runStreamedCommand is a convenient wrapper of the `runCommandInContainer`
 // for functions that just need to run a command on streaming without the
 // burden of removing the resulting container, etc.
-//
-// The image has to be provided, otherwise this function will exit with 1 as
-// the status code and it will both log and print that no image was provided.
-// The given command will be executed as "zypper ref && zypper <command>".
-//
-// If getError is set to false, then this function will always return nil.
-// Otherwise, it will return the error as given by the `runCommandInContainer`
-// function.
-// TODO
-func RunStreamedCommand(img, cmd string, getError bool) error {
+func runStreamedCommand(img, cmd string) error {
 	if img == "" {
-		// TODO
-		//logAndFatalf("Error: no image name specified.\n")
-		return nil
+		return errors.New("no image name specified")
 	}
 
 	id, err := runCommandInContainer(img, []string{cmd}, os.Stdout)
 	removeContainer(id)
-
-	if getError {
-		return err
-	}
-	if err != nil {
-		log.Printf("Error: %s\n", err)
-		fmt.Println(err)
-		utils.ExitWithCode(1)
-	}
-	return nil
+	return err
 }
 
 // Run the given command in a container based on the given image. The given
@@ -382,38 +321,9 @@ func commitContainerToImage(img, containerID, repo, tag, comment, author string)
 	return resp.ID, err
 }
 
-// Spawns a container from the specified image, runs the specified command inside
-// of it and commits the results to a new image.
-// The name of the new image is specified via target_repo and target_tag.
-// The container is always deleted.
-// If something goes wrong an error message is returned.
-// Returns the ID of the new image on success.
-func runCommandAndCommitToImage(img, targetRepo, targetTag, cmd, comment, author string) (string, error) {
-	containerID, err := runCommandInContainer(img, []string{cmd}, os.Stdout)
-	if err != nil {
-		switch err.(type) {
-		case dockerError:
-			de := err.(dockerError)
-			severe, err := drivers.Current().IsExitCodeSevere(de.exitCode)
-			if severe && err == nil {
-				return "", err
-			}
-		default:
-			return "", err
-		}
-	}
-
-	imageID, err := commitContainerToImage(img, containerID, targetRepo, targetTag, comment, author)
-
-	// always remove the container
-	removeContainer(containerID)
-
-	return imageID, err
-}
-
-// Looks for the specified running container and makes sure it's running either
-// SUSE or openSUSE.
-func checkContainerRunning(id string) (types.Container, error) {
+// CheckContainer looks for the specified running container and makes sure it's
+// running on a supported driver.
+func CheckContainer(id string) (types.Container, error) {
 	client := getDockerClient()
 	var container types.Container
 
@@ -447,83 +357,10 @@ func checkContainerRunning(id string) (types.Container, error) {
 		return container, fmt.Errorf("Cannot find running container: %s", id)
 	}
 
-	cache := getCacheFile()
-	if !cache.isSUSE(container.Image) {
+	if !isSupported(container.Image) {
 		return container, fmt.Errorf(
-			"The container %s is based on the Docker image %s which is not a SUSE system",
+			"The container %s is based on the Docker image %s which is not supported",
 			id, container.Image)
 	}
-
 	return container, nil
-}
-
-func getImageID(name string) (string, error) {
-	client := getDockerClient()
-
-	repo, tag, err := parseImageName(name)
-	if err != nil {
-		return "", err
-	}
-	if tag == "latest" && !strings.Contains(name, tag) {
-		name = name + ":" + tag
-	}
-
-	images, err := client.ImageList(types.ImageListOptions{MatchName: repo, All: false})
-	if err != nil {
-		return "", err
-	}
-
-	if len(images) == 0 {
-		return "", fmt.Errorf("Cannot find image %s", name)
-	}
-	for _, image := range images {
-		if utils.ArrayIncludeString(image.RepoTags, name) {
-			return image.ID, nil
-		}
-	}
-
-	return "", fmt.Errorf("Cannot find image %s", name)
-}
-
-// Given a Docker image name it returns the repository and the tag composing it
-// Returns the repository and the tag strings.
-// Examples:
-//   * suse/sles11sp3:1.0.0 -> repo is suse/sles11sp3, tag is 1.0.0
-//   * suse/sles11sp3 -> repo is suse/sles11sp3, tag is latest
-func parseImageName(name string) (string, string, error) {
-	// TODO (mssola): The reference package has the Parse function that does
-	// what we want. However, the returned object does not contain the tag
-	// always. This leads into a grammar conflict from a client point of view.
-	// For this reason, instead of using reference.Parse we use the regexpes
-	// provided by the reference package (that Parse is using anyways).
-
-	matches := reference.ReferenceRegexp.FindStringSubmatch(name)
-	if matches == nil {
-		return "", "",
-			fmt.Errorf("Could not parse '%s': %v", name, reference.ErrReferenceInvalidFormat)
-	}
-	if matches[1] == "" {
-		return "", "", reference.ErrNameEmpty
-	}
-	if len(matches[1]) > reference.NameTotalLengthMax {
-		return "", "", fmt.Errorf("Could not parse '%s': %v", name, reference.ErrNameTooLong)
-	}
-	if matches[2] == "" {
-		matches[2] = "latest"
-	}
-	return matches[1], matches[2], nil
-}
-
-// Exists with error if the image identified by repo and tag already exists
-// Returns an error when the image already exists or something went wrong.
-func preventImageOverwrite(repo, tag string) error {
-	imageExists, err := ImageExists(repo, tag)
-
-	if err != nil {
-		return fmt.Errorf("Cannot proceed safely: %v.", err)
-	}
-	if imageExists {
-		return fmt.Errorf("Cannot overwrite an existing image. Please use a different repository/tag.")
-	}
-	return nil
 }

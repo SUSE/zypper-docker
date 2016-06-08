@@ -15,10 +15,10 @@
 package backend
 
 import (
-	"log"
 	"syscall"
 	"unsafe"
 
+	"github.com/SUSE/zypper-docker/logger"
 	"github.com/docker/engine-api/types"
 )
 
@@ -38,7 +38,7 @@ func resizeTty(id string) {
 	})
 
 	if err != nil {
-		log.Printf("Could not resize container: %v", err)
+		logger.Printf("could not resize container: %v", err)
 	}
 }
 

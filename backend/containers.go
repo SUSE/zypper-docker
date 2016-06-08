@@ -25,8 +25,8 @@ import (
 // ContainerWithState adds a message to the types.Container type. This way we
 // can have more information on the status of the container.
 type ContainerWithState struct {
-	container types.Container
-	message   string
+	Container types.Container
+	Message   string
 }
 
 // ContainersState is a struct representing the state of all the running
@@ -35,33 +35,33 @@ type ContainerWithState struct {
 //	2. Containers that have been ignored (see `ContainerWithState`)
 //  3. Containers that have an unknown state (see `ContainerWithState`)
 type ContainersState struct {
-	updated []types.Container
-	ignored []ContainerWithState
-	unknown []ContainerWithState
+	Updated []types.Container
+	Ignored []ContainerWithState
+	Unknown []ContainerWithState
 }
 
 // addNotAnalyzed adds a container that could not be analyzed to the unknown
 // field with the proper message.
 func (st *ContainersState) addNotAnalyzed(container types.Container) {
-	st.unknown = append(st.unknown, ContainerWithState{
-		container: container,
-		message:   "container could not be analyzed",
+	st.Unknown = append(st.Unknown, ContainerWithState{
+		Container: container,
+		Message:   "container could not be analyzed",
 	})
 }
 
 // addUnknown adds a container that has an unknown state.
 func (st *ContainersState) addUnknown(container types.Container) {
-	st.unknown = append(st.unknown, ContainerWithState{
-		container: container,
-		message:   "container has an unknown state",
+	st.Unknown = append(st.Unknown, ContainerWithState{
+		Container: container,
+		Message:   "container has an unknown state",
 	})
 }
 
 // addUnsupported adds a container that has an unsupported backend.
 func (st *ContainersState) addUnsupported(container types.Container, reason string) {
-	st.ignored = append(st.ignored, ContainerWithState{
-		container: container,
-		message:   fmt.Sprintf("container has no supported backend: %v", reason),
+	st.Ignored = append(st.Ignored, ContainerWithState{
+		Container: container,
+		Message:   fmt.Sprintf("container has no supported backend: %v", reason),
 	})
 }
 
@@ -112,7 +112,7 @@ func inspectContainers(containers []types.Container, ignore bool) (*ContainersSt
 			if exists, suse := cache.idExists(imageID); exists && !suse {
 				state.addUnsupported(container, "only zypper is supported")
 			} else if cache.isImageOutdated(imageID) {
-				state.updated = append(state.updated, container)
+				state.Updated = append(state.Updated, container)
 			} else {
 				state.addUnknown(container)
 			}

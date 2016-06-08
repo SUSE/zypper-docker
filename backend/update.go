@@ -93,24 +93,18 @@ func ListUpdates(kind UpdateKind, image string) error {
 	if err != nil {
 		return err
 	}
-
-	// It's safe to ignore the returned error because we set to false the
-	// `getError` parameter of this function.
-	// TODO: revise this error ignoring. I fear that it's bullshit
-	_ = RunStreamedCommand(image, cmd, false)
-	return nil
+	return runStreamedCommand(image, cmd)
 }
 
 // HasPatches returns true if the given image has pending patches.
 // TODO: improve with a "Severity" return value or something
-// TODO: return error instead of logging it.
 func HasPatches(image string) (bool, bool, error) {
 	cmd, err := drivers.Current().CheckPatches()
 	if err != nil {
 		return false, false, err
 	}
 
-	err = RunStreamedCommand(image, cmd, true)
+	err = runStreamedCommand(image, cmd)
 	if err == nil {
 		return false, false, nil
 	}
@@ -127,6 +121,7 @@ func HasPatches(image string) (bool, bool, error) {
 			return false, true, nil
 		}
 	}
+	// TODO: nope!
 	humanizeCommandError("zypper pchk", image, err)
 	return false, false, err
 }

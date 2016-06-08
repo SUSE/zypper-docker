@@ -15,10 +15,11 @@
 package backend
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/SUSE/zypper-docker/logger"
 )
 
 // KillChannel is a channel which will receive a boolean whenever a signal has
@@ -37,10 +38,10 @@ func listenSignals() {
 			switch sig {
 			case syscall.SIGQUIT, syscall.SIGINT, syscall.SIGTSTP,
 				syscall.SIGTERM:
-				log.Printf("Signal '%v' received: shutting down gracefully.", sig)
+				logger.Printf("signal '%v' received: shutting down gracefully", sig)
 				KillChannel <- true
 			default:
-				log.Printf("Signal '%v' not handled. Doing nothing...", sig)
+				logger.Printf("signal '%v' not handled: doing nothing", sig)
 			}
 		}
 	}()

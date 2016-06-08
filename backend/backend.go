@@ -24,3 +24,9 @@ func Initialize() {
 
 	// TODO: available backends and so on
 }
+
+func isSupported(image string) bool {
+	// TODO: improve once we have more drivers.
+	cache := getCacheFile()
+	return cache.isSUSE(image)
+}

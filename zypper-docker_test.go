@@ -161,3 +161,20 @@ func (cases testCases) run(t *testing.T, cmd func(*cli.Context), command, debug 
 		}
 	}
 }
+
+func TestVersion(t *testing.T) {
+	if version() != "1.2.0" {
+		t.Fatal("Wrong version")
+	}
+}
+
+func TestNewApp(t *testing.T) {
+	app := newApp()
+
+	if len(app.Flags) != 5 {
+		t.Fatal("Wrong number of global flags")
+	}
+	if len(app.Commands) != 10 {
+		t.Fatal("Wrong number of subcommands")
+	}
+}
