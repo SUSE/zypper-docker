@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SUSE/zypper-docker/backend/drivers"
 	"github.com/SUSE/zypper-docker/utils"
-	"github.com/codegangsta/cli"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
@@ -34,9 +34,6 @@ import (
 )
 
 // TODO: move stuff around
-
-// CLIContext represents the context as given by the CLI.
-var CLIContext *cli.Context
 
 // rootUser is the explicit value to use for the USER directive to specify a user
 // as being root. Oddly, specifying the default value ("") doesn't work even though
@@ -82,15 +79,14 @@ const containerTimeout = 15 * time.Second
 
 // safeClient holds the instance of the docker client and the mutex protecting
 // it from concurrent accesses. Do *not* use this global variable directly to
-// fetch the docker client. For that use the `GetDockerClient` function.
+// fetch the docker client. For that use the `getDockerClient` function.
 var safeClient struct {
 	sync.Mutex
 	client DockerClient
 }
 
-// GetDockerClient safely returns the singleton instance of the Docker client.
-// TODO: maybe we don't even need to export it
-func GetDockerClient() DockerClient {
+// getDockerClient safely returns the singleton instance of the Docker client.
+func getDockerClient() DockerClient {
 	safeClient.Lock()
 	defer safeClient.Unlock()
 
@@ -166,7 +162,6 @@ func RunStreamedCommand(img, cmd string, getError bool) error {
 		return nil
 	}
 
-	cmd = formatZypperCommand("ref", cmd)
 	id, err := runCommandInContainer(img, []string{cmd}, os.Stdout)
 	removeContainer(id)
 
@@ -211,7 +206,7 @@ func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string,
 		return "", err
 	}
 
-	client := GetDockerClient()
+	client := getDockerClient()
 	if err = client.ContainerStart(id); err != nil {
 		// Silently fail, since it might be "zypper" not existing and we don't
 		// want to add noise to the log.
@@ -289,21 +284,13 @@ type waitResult struct {
 // so it returns a channel instead.
 func containerWait(id string) chan waitResult {
 	wr := make(chan waitResult)
-	client := GetDockerClient()
+	client := getDockerClient()
 
 	go func() {
 		code, err := client.ContainerWait(id)
 		wr <- waitResult{exitCode: code, err: err}
 	}()
 	return wr
-}
-
-// Get the host config to be used for starting containers.
-func getHostConfig() *container.HostConfig {
-	if CLIContext == nil {
-		return &container.HostConfig{}
-	}
-	return &container.HostConfig{ExtraHosts: CLIContext.GlobalStringSlice("add-host")}
 }
 
 // Creates a container based on the given image. The given image string is just
@@ -314,7 +301,7 @@ func getHostConfig() *container.HostConfig {
 // Note well: the container is not running at this time, it must be started via
 // the `startContainer` function.
 func createContainer(img string, cmd []string) (string, error) {
-	client := GetDockerClient()
+	client := getDockerClient()
 
 	// First of all we create a container in which we will run the command.
 	config := &container.Config{
@@ -329,7 +316,7 @@ func createContainer(img string, cmd []string) (string, error) {
 		// like "zypper ref" does
 		Tty: true,
 	}
-	resp, err := client.ContainerCreate(config, getHostConfig(), nil, "")
+	resp, err := client.ContainerCreate(config, drivers.GetHostConfig(), nil, "")
 	if err != nil {
 		return "", err
 	}
@@ -343,7 +330,7 @@ func createContainer(img string, cmd []string) (string, error) {
 // Safely remove the given container. It will deal with the error by logging
 // it.
 func removeContainer(id string) {
-	client := GetDockerClient()
+	client := getDockerClient()
 
 	err := client.ContainerRemove(types.ContainerRemoveOptions{
 		ContainerID:   id,
@@ -359,7 +346,7 @@ func removeContainer(id string) {
 // that is based on the given img into a new image. The given repo should also
 // contain the namespace. Returns the id of the created image.
 func commitContainerToImage(img, containerID, repo, tag, comment, author string) (string, error) {
-	client := GetDockerClient()
+	client := getDockerClient()
 
 	// First of all, we inspect the parent image and fetch the values for the
 	// entrypoint and the cmd. We do this to preserve them on the committed
@@ -407,7 +394,8 @@ func runCommandAndCommitToImage(img, targetRepo, targetTag, cmd, comment, author
 		switch err.(type) {
 		case dockerError:
 			de := err.(dockerError)
-			if isZypperExitCodeSevere(de.exitCode) {
+			severe, err := drivers.Current().IsExitCodeSevere(de.exitCode)
+			if severe && err == nil {
 				return "", err
 			}
 		default:
@@ -426,7 +414,7 @@ func runCommandAndCommitToImage(img, targetRepo, targetTag, cmd, comment, author
 // Looks for the specified running container and makes sure it's running either
 // SUSE or openSUSE.
 func checkContainerRunning(id string) (types.Container, error) {
-	client := GetDockerClient()
+	client := getDockerClient()
 	var container types.Container
 
 	containers, err := client.ContainerList(types.ContainerListOptions{})
@@ -470,7 +458,7 @@ func checkContainerRunning(id string) (types.Container, error) {
 }
 
 func getImageID(name string) (string, error) {
-	client := GetDockerClient()
+	client := getDockerClient()
 
 	repo, tag, err := parseImageName(name)
 	if err != nil {

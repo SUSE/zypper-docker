@@ -30,7 +30,7 @@ func resizeTty(id string) {
 		return
 	}
 
-	client := GetDockerClient()
+	client := getDockerClient()
 	err := client.ContainerResize(types.ResizeOptions{
 		ID:     id,
 		Height: height,

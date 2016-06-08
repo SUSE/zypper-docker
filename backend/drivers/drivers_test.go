@@ -12,15 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package backend
+package drivers
 
-// TODO: this package assumes that drivers are all CLI based, which is not
-// necessarily true. We should use the `drivers.needsCLI` function and act
-// accordingly.
+import (
+	"errors"
+	"testing"
+)
 
-// Initialize initializes the backend of zypper-docker.
-func Initialize() {
-	listenSignals()
+type ownError struct {
+}
 
-	// TODO: available backends and so on
+func (ownError) Error() string {
+	return "wat?!"
+}
+
+func TestIsNotSupported(t *testing.T) {
+	not := notSupportedError{name: "a"}
+	if !IsNotSupported(not) {
+		t.Fatalf("Should've been not supported")
+	}
+	msg := "action not supported by 'a'"
+	if not.Error() != msg {
+		t.Fatalf("Got: %v; expecting: %v", not.Error(), msg)
+	}
+
+	if IsNotSupported(errors.New("some other")) {
+		t.Fatalf("Should've been some other")
+	}
+	if IsNotSupported(ownError{}) {
+		t.Fatalf("Should've been some other")
+	}
 }

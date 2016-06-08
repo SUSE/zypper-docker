@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package backend
+package drivers
 
 import (
 	"fmt"
@@ -40,9 +40,72 @@ const (
 	zypperExitOnSignal           = 105
 )
 
+// Zypper implements the Driver interface for the zypper tool.
+type Zypper struct{}
+
+// GeneralUpdate TODO
+func (*Zypper) GeneralUpdate() (string, error) {
+	return zypperUpdate("up")
+}
+
+// SecurityUpdate TODO
+func (*Zypper) SecurityUpdate() (string, error) {
+	return zypperUpdate("patch")
+}
+
+// ListGeneralUpdates TODO
+func (*Zypper) ListGeneralUpdates() (string, error) {
+	return formatZypperCommand("ref", "lu"), nil
+}
+
+// ListSecurityUpdates TODO
+func (*Zypper) ListSecurityUpdates() (string, error) {
+	return formatZypperCommand("ref", "lp"), nil
+}
+
+// CheckPatches TODO
+func (*Zypper) CheckPatches() (string, error) {
+	return formatZypperCommand("ref", "pchk"), nil
+}
+
+// IsExitCodeSevere TODO
+func (*Zypper) IsExitCodeSevere(code int) (bool, error) {
+	switch code {
+	case zypperExitOK:
+	case zypperExitInfRebootNeeded:
+	case zypperExitInfUpdateNeeded:
+	case zypperExitInfSecUpdateNeeded:
+	case zypperExitInfRestartNeeded:
+	case zypperExitOnSignal:
+	default:
+		return true, nil
+	}
+	return false, nil
+}
+
+func (*Zypper) needsCLI() bool {
+	return true
+}
+
+func zypperUpdate(subcommand string) (string, error) {
+	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends",
+		"replacefiles"}
+	toIgnore := []string{"author", "message"}
+
+	cmd := formatZypperCommand("ref", fmt.Sprintf("-n %v", subcommand), "clean -a")
+	return cmdWithFlags(cmd, cliContext, boolFlags, toIgnore), nil
+}
+
+// TODO
+var specialFlags = []string{
+	"--bugzilla",
+	"--cve",
+	"--issues",
+}
+
 // Returns a string containing the global flags being used.
 func globalFlags() string {
-	if CLIContext == nil {
+	if cliContext == nil {
 		return ""
 	}
 
@@ -50,7 +113,7 @@ func globalFlags() string {
 	flags := []string{"no-gpg-checks", "gpg-auto-import-keys"}
 
 	for _, v := range flags {
-		if CLIContext.GlobalBool(v) {
+		if cliContext.GlobalBool(v) {
 			res = res + "--" + v + " "
 		}
 	}
@@ -66,28 +129,6 @@ func formatZypperCommand(cmds ...string) string {
 		cmds[k] = "zypper " + flags + v
 	}
 	return strings.Join(cmds, " && ")
-}
-
-// Given zypper's exit code returns true if the error is
-// a severe one. False otherwise. Severe errors will cause
-// zypper-docker to exit with error.
-func isZypperExitCodeSevere(errCode int) bool {
-	switch errCode {
-	case zypperExitOK:
-		return false
-	case zypperExitInfRebootNeeded:
-		return false
-	case zypperExitInfUpdateNeeded:
-		return false
-	case zypperExitInfSecUpdateNeeded:
-		return false
-	case zypperExitInfRestartNeeded:
-		return false
-	case zypperExitOnSignal:
-		return false
-	default:
-		return true
-	}
 }
 
 // It appends the set flags with the given command.

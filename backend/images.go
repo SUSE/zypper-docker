@@ -30,7 +30,7 @@ func FetchImages(force bool) ([]types.Image, error) {
 		getCacheFile().reset()
 	}
 
-	client := GetDockerClient()
+	client := getDockerClient()
 	return client.ImageList(types.ImageListOptions{All: false})
 }
 
@@ -71,7 +71,7 @@ func PrintImages(images []types.Image) {
 // ImageExists looks for a docker image defined by repo:tag and it returns true
 // if the image already exists.
 func ImageExists(repo, tag string) (bool, error) {
-	client := GetDockerClient()
+	client := getDockerClient()
 
 	images, err := client.ImageList(types.ImageListOptions{
 		MatchName: repo,

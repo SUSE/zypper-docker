@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/SUSE/zypper-docker/backend"
+	"github.com/SUSE/zypper-docker/backend/drivers"
 	"github.com/codegangsta/cli"
 )
 
@@ -33,9 +34,14 @@ var specialFlags = []string{
 // executing it.
 func getCmd(name string, f func(ctx *cli.Context)) func(*cli.Context) {
 	return func(ctx *cli.Context) {
+		// Fix the logger for this action.
 		log.SetPrefix("[" + name + "] ")
 		setupLogger(ctx)
-		backend.CLIContext = ctx
+
+		// Tell drivers to point to the right CLI context.
+		drivers.Initialize(ctx)
+
+		// And finally call the given command.
 		f(ctx)
 	}
 }

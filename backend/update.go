@@ -14,14 +14,11 @@
 
 package backend
 
-import "fmt"
+import (
+	"fmt"
 
-// TODO
-var specialFlags = []string{
-	"--bugzilla",
-	"--cve",
-	"--issues",
-}
+	"github.com/SUSE/zypper-docker/backend/drivers"
+)
 
 // UpdateKind represents the kind of update to be executed.
 type UpdateKind int
@@ -45,25 +42,16 @@ func uniqueUpdatedName(image string) (string, string, error) {
 	return repo, tag, nil
 }
 
-func fetchCommand(kind UpdateKind) string {
-	var zypperCmd string
-
+func fetchCommand(kind UpdateKind) (string, error) {
 	if kind == General {
-		zypperCmd = "up"
+		return drivers.Current().GeneralUpdate()
 	} else if kind == Security {
-		zypperCmd = "patch"
-	} else {
-		// TODO: in the future this will be meant for those backends which
-		// don't support patching.
-		zypperCmd = "up"
+		return drivers.Current().SecurityUpdate()
 	}
 
-	boolFlags := []string{"l", "auto-agree-with-licenses", "no-recommends",
-		"replacefiles"}
-	toIgnore := []string{"author", "message"}
-
-	cmd := formatZypperCommand("ref", fmt.Sprintf("-n %v", zypperCmd), "clean -a")
-	return cmdWithFlags(cmd, CLIContext, boolFlags, toIgnore)
+	// TODO: in the future this will be meant for those backends which
+	// don't support patching.
+	return drivers.Current().GeneralUpdate()
 }
 
 // PerformUpdate performs an update operation to the given `original` image and
@@ -75,7 +63,11 @@ func PerformUpdate(kind UpdateKind, original, dest, comment, author string) (str
 		return "", "", err
 	}
 
-	cmd := fetchCommand(kind)
+	cmd, err := fetchCommand(kind)
+	if err != nil {
+		return "", "", err
+	}
+
 	newImgID, err := runCommandAndCommitToImage(original, repo, tag, cmd, comment, author)
 	if err != nil {
 		return "", "", err
@@ -90,24 +82,22 @@ func PerformUpdate(kind UpdateKind, original, dest, comment, author string) (str
 
 // ListUpdates lists the updates available for the given image.
 func ListUpdates(kind UpdateKind, image string) error {
-	var zypperCmd string
+	var cmd string
+	var err error
 
-	if kind == General {
-		zypperCmd = "lu"
-	} else if kind == Security {
-		zypperCmd = "lp"
+	if kind == Security {
+		cmd, err = drivers.Current().ListSecurityUpdates()
 	} else {
-		// TODO: in the future this will be meant for those backends which
-		// don't support patching.
-		zypperCmd = "up"
+		cmd, err = drivers.Current().ListGeneralUpdates()
+	}
+	if err != nil {
+		return err
 	}
 
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
 	// TODO: revise this error ignoring. I fear that it's bullshit
-	_ = RunStreamedCommand(image, zypperCmd, false)
-
-	// TODO: for those who don't support
+	_ = RunStreamedCommand(image, cmd, false)
 	return nil
 }
 
@@ -115,7 +105,12 @@ func ListUpdates(kind UpdateKind, image string) error {
 // TODO: improve with a "Severity" return value or something
 // TODO: return error instead of logging it.
 func HasPatches(image string) (bool, bool, error) {
-	err := RunStreamedCommand(image, "pchk", true)
+	cmd, err := drivers.Current().CheckPatches()
+	if err != nil {
+		return false, false, err
+	}
+
+	err = RunStreamedCommand(image, cmd, true)
 	if err == nil {
 		return false, false, nil
 	}

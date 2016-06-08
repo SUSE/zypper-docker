@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 func TestMockClient(t *testing.T) {
 	safeClient.client = &mockClient{}
 
-	client := GetDockerClient()
+	client := getDockerClient()
 	to := reflect.TypeOf(client)
 	if to.String() != "*main.mockClient" {
 		t.Fatal("Wrong type for the client")
@@ -73,7 +73,7 @@ func TestDockerClient(t *testing.T) {
 
 	// This test will work even if docker is not running. Take a look at the
 	// implementation of it for more details.
-	cl := GetDockerClient()
+	cl := getDockerClient()
 
 	if _, ok := cl.(*client.Client); !ok {
 		t.Fatal("Could not cast to *client.Client")

@@ -71,7 +71,7 @@ func (st *ContainersState) addUnsupported(container types.Container, reason stri
 // inspecting containers. Note that signals are already being handled
 // gracefully by listening to the `KillChannel` channel.
 func ListContainers(ignore bool) (*ContainersState, error) {
-	client := GetDockerClient()
+	client := getDockerClient()
 	containers, err := client.ContainerList(types.ContainerListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch running containers: %v", err)

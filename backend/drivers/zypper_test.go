@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package backend
-
-import "testing"
+package drivers
 
 /*
 func TestFormatZypperCommand(t *testing.T) {
@@ -42,6 +40,7 @@ func TestFormatZypperCommand(t *testing.T) {
 }
 */
 
+/*
 func TestIsZypperExitCodeSevere(t *testing.T) {
 	notSevereExitCodes := []int{
 		zypperExitOK,
@@ -77,3 +76,4 @@ func TestIsZypperExitCodeSevere(t *testing.T) {
 		}
 	}
 }
+*/
