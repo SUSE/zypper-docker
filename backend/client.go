@@ -52,7 +52,7 @@ type dockerError struct {
 }
 
 func (de dockerError) Error() string {
-	return fmt.Sprintf("Command exited with status %d", de.exitCode)
+	return fmt.Sprintf("command exited with status %d", de.exitCode)
 }
 
 // DockerClient is an interface listing all the functions that we use from
@@ -141,7 +141,6 @@ func runCommandInContainer(img string, cmd []string, dst io.Writer) (string, err
 func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string, error) {
 	id, err := createContainer(img, cmd)
 	if err != nil {
-		log.Println(err)
 		return "", err
 	}
 
@@ -164,7 +163,6 @@ func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string,
 			ShowStderr:  true,
 		})
 		if err != nil {
-			log.Println(err)
 			return id, err
 		}
 		defer func() {

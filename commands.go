@@ -26,7 +26,7 @@ import (
 // zypper-docker images
 func imagesCmd(ctx *cli.Context) {
 	if imgs, err := backend.FetchImages(ctx.GlobalBool("force")); err != nil {
-		logger.Fatalf("cannot proceed safely: %v", err)
+		logger.Fatalf("Cannot proceed safely: %v", err)
 	} else {
 		backend.PrintImages(imgs)
 	}
@@ -34,7 +34,7 @@ func imagesCmd(ctx *cli.Context) {
 
 // zypper-docker list-updates [flags] <image>
 func listUpdatesCmd(ctx *cli.Context) {
-	listUpdates(ctx.Args().First())
+	listUpdates(ctx.Args().First(), ctx)
 }
 
 // zypper-docker list-updates-container [flags] <container>
@@ -44,9 +44,9 @@ func listUpdatesContainerCmd(ctx *cli.Context) {
 
 // listUpdates lists all the updates available for the given image with the
 // given arguments.
-func listUpdates(image string) {
+func listUpdates(image string, ctx *cli.Context) {
 	if err := backend.ListUpdates(backend.General, image); err != nil {
-		logger.Fatalf("failed to list updates: %v", err)
+		logger.Fatalf("Failed to list updates: %v", err)
 	}
 }
 
@@ -59,7 +59,7 @@ func updateCmd(ctx *cli.Context) {
 func listPatchesCmd(ctx *cli.Context) {
 	// It's safe to ignore the returned error because we set to false the
 	// `getError` parameter of this function.
-	listPatches(ctx.Args().First())
+	listPatches(ctx.Args().First(), ctx)
 }
 
 // zypper-docker list-patches-container [flags] <container>
@@ -69,26 +69,18 @@ func listPatchesContainerCmd(ctx *cli.Context) {
 
 // listParches calls the `zypper lp` command for the given image and the given
 // arguments.
-func listPatches(image string) {
+func listPatches(image string, ctx *cli.Context) {
 	if image == "" {
 		logger.Fatalf("error: no image name specified")
 		return
 	}
 
-	/*
-		if severity := ctx.String("severity"); severity != "" {
-			if ok, err := supportsSeverityFlag(image); !ok {
-				if err == nil {
-					logger.Printf("the --severity flag is only available for zypper versions >= 1.12.6")
-					fmt.Println("the --severity flag is only available for zypper versions >= 1.12.6")
-				} else {
-					logger.Printf("%v", err)
-					fmt.Println(err)
-				}
-				exitWithCode(1)
-			}
+	if severity := ctx.String("severity"); severity != "" {
+		if err := backend.SeveritySupported(image); err != nil {
+			logger.Fatalf("error: %v", err)
+			return
 		}
-	*/
+	}
 
 	if err := backend.ListUpdates(backend.Security, image); err != nil {
 		logger.Fatalf("Failed to list security updates: %v", err)
@@ -102,7 +94,7 @@ func patchCmd(ctx *cli.Context) {
 
 // zypper-docker patch-check [flags] <image>
 func patchCheckCmd(ctx *cli.Context) {
-	patchCheck(ctx.Args().First())
+	patchCheck(ctx.Args().First(), ctx)
 }
 
 // zypper-docker patch-check-container [flags] <image>
@@ -112,7 +104,7 @@ func patchCheckContainerCmd(ctx *cli.Context) {
 
 // patchCheck calls the `zypper pchk` command for the given image and the given
 // arguments.
-func patchCheck(image string) {
+func patchCheck(image string, ctx *cli.Context) {
 	updates, security, err := backend.HasPatches(image)
 	if err != nil {
 		logger.Fatalf("%v", err)

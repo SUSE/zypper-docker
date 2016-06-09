@@ -94,7 +94,7 @@ func fixArgsForZypper(args []string) []string {
 
 // commandFunc represents a function that accepts an image ID. This is used in
 // the `commandInContainer` function.
-type commandFunc func(string)
+type commandFunc func(string, *cli.Context)
 
 // commandInContainer executes the given commandFunc for the image in which the
 // given container is based on. The container ID is extracted from the first
@@ -105,7 +105,7 @@ func commandInContainer(f commandFunc, ctx *cli.Context) {
 	if container, err := backend.CheckContainer(containerID); err != nil {
 		logger.Fatalf("%v", err)
 	} else {
-		f(container.Image)
+		f(container.Image, ctx)
 	}
 }
 
@@ -125,23 +125,4 @@ func updatePatchCmd(cmd backend.UpdateKind, ctx *cli.Context) {
 	} else {
 		logger.Printf("%s:%s successfully created", repo, tag)
 	}
-}
-
-// supportsSeverityFlag checks whether or not zypper's `list-patches` command
-// supports the `--severity` flag in the specified image.
-func supportsSeverityFlag(image string) (bool, error) {
-	/*
-		buf := bytes.NewBuffer([]byte{})
-		id, err := runCommandInContainer(image, []string{"zypper lp --severity"}, buf)
-		defer removeContainer(id)
-
-		if strings.Contains(buf.String(), "Missing argument for --severity") {
-			return true, nil
-		}
-		if strings.Contains(buf.String(), "Unknown option '--severity'") {
-			return false, nil
-		}
-		return false, err
-	*/
-	return false, nil
 }

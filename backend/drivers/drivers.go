@@ -27,7 +27,9 @@ type Driver interface {
 	ListSecurityUpdates() (string, error)
 	CheckPatches() (string, error)
 	IsExitCodeSevere(code int) (bool, error)
-	needsCLI() bool
+	NeedsCLI() bool
+	SeverityCommand() string
+	SeveritySupported(output string) bool
 }
 
 // cliContext represents the context as given by the CLI.

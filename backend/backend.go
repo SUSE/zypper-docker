@@ -14,6 +14,13 @@
 
 package backend
 
+import (
+	"bytes"
+	"errors"
+
+	"github.com/SUSE/zypper-docker/backend/drivers"
+)
+
 // TODO: this package assumes that drivers are all CLI based, which is not
 // necessarily true. We should use the `drivers.needsCLI` function and act
 // accordingly.
@@ -33,4 +40,26 @@ func isSupported(image string) bool {
 	// TODO: improve once we have more drivers.
 	cache := getCacheFile()
 	return cache.isSUSE(image)
+}
+
+// SeveritySupported returns an error if there are some problems with the
+// `--severity` flag for the given image.
+func SeveritySupported(image string) error {
+	current := drivers.Current()
+	cmd := current.SeverityCommand()
+	if cmd == "" {
+		return errors.New("the `--severity` flag is not supported for this image")
+	}
+
+	buf := bytes.NewBuffer([]byte{})
+	id, err := runCommandInContainer(image, []string{cmd}, buf)
+	if err != nil {
+		return err
+	}
+	defer removeContainer(id)
+
+	if !current.SeveritySupported(buf.String()) {
+		return errors.New("the `--severity` flag is not supported for this image")
+	}
+	return nil
 }

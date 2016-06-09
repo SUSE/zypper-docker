@@ -83,8 +83,25 @@ func (*Zypper) IsExitCodeSevere(code int) (bool, error) {
 	return false, nil
 }
 
-func (*Zypper) needsCLI() bool {
+// NeedsCLI returns true.
+func (*Zypper) NeedsCLI() bool {
 	return true
+}
+
+// SeverityCommand TODO
+func (*Zypper) SeverityCommand() string {
+	return "zypper lp --severity"
+}
+
+// SeveritySupported TODO
+func (*Zypper) SeveritySupported(output string) bool {
+	if strings.Contains(output, "Missing argument for --severity") {
+		return true
+	}
+	if strings.Contains(output, "Unknown option '--severity'") {
+		return false
+	}
+	return false
 }
 
 func zypperUpdate(subcommand string) (string, error) {

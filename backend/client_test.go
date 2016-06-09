@@ -330,7 +330,7 @@ func TestRunCommandAndCommitToImageCommitFailure(t *testing.T) {
 func TestCheckContainerRunningListContainersFailure(t *testing.T) {
 	safeClient.client = &mockClient{listFail: true}
 
-	_, err := checkContainerRunning("1")
+	_, err := CheckContainer("1")
 
 	if err == nil {
 		t.Fatal("Was supposed to have an error")
@@ -344,7 +344,7 @@ func TestCheckContainerRunningListContainersFailure(t *testing.T) {
 func TestCheckContainerRunningNoRunningContainer(t *testing.T) {
 	safeClient.client = &mockClient{listEmpty: true}
 
-	_, err := checkContainerRunning("35ae93c88cf8")
+	_, err := CheckContainer("35ae93c88cf8")
 
 	if err == nil {
 		t.Fatal("Was supposed to have an error")
@@ -358,7 +358,7 @@ func TestCheckContainerRunningNoRunningContainer(t *testing.T) {
 func TestCheckContainerRunningWrongContainer(t *testing.T) {
 	safeClient.client = &mockClient{}
 
-	_, err := checkContainerRunning("not running")
+	_, err := CheckContainer("not running")
 
 	if err == nil {
 		t.Fatal("Was supposed to have an error")
@@ -372,7 +372,7 @@ func TestCheckContainerRunningWrongContainer(t *testing.T) {
 func TestCheckContainerRunningNotSUSESystem(t *testing.T) {
 	safeClient.client = &mockClient{startFail: true}
 
-	_, err := checkContainerRunning("not_suse")
+	_, err := CheckContainer("not_suse")
 
 	if err == nil {
 		t.Fatal("Was supposed to have an error")
@@ -386,7 +386,7 @@ func TestCheckContainerRunningNotSUSESystem(t *testing.T) {
 func TestCheckContainerRunningByNameSuccess(t *testing.T) {
 	safeClient.client = &mockClient{}
 
-	container, err := checkContainerRunning("suse")
+	container, err := CheckContainer("suse")
 
 	if err != nil {
 		t.Fatal("Wasn't supposed to have an error")
@@ -400,7 +400,7 @@ func TestCheckContainerRunningByNameSuccess(t *testing.T) {
 func TestCheckContainerRunningByFullIDSuccess(t *testing.T) {
 	safeClient.client = &mockClient{}
 
-	container, err := checkContainerRunning("35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01")
+	container, err := CheckContainer("35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01")
 
 	if err != nil {
 		t.Fatal("Wasn't supposed to have an error")
@@ -414,7 +414,7 @@ func TestCheckContainerRunningByFullIDSuccess(t *testing.T) {
 func TestCheckContainerRunningByShortIDSuccess(t *testing.T) {
 	safeClient.client = &mockClient{}
 
-	container, err := checkContainerRunning("35ae93c88cf8")
+	container, err := CheckContainer("35ae93c88cf8")
 
 	if err != nil {
 		t.Fatal("Wasn't supposed to have an error")
@@ -424,34 +424,6 @@ func TestCheckContainerRunningByShortIDSuccess(t *testing.T) {
 		t.Fatal("Wrong container found")
 	}
 }
-
-/*
-func TestHostConfig(t *testing.T) {
-	hc := getHostConfig()
-	if len(hc.ExtraHosts) != 0 {
-		t.Fatalf("Wrong number of extra hosts: %v; Expected: 1", len(hc.ExtraHosts))
-	}
-
-	originalArgs := os.Args
-	defer func() {
-		os.Args = originalArgs
-		CLIContext = nil
-	}()
-	os.Args = []string{"exe", "--add-host", "host:ip", "test"}
-
-	app := newApp()
-	app.Commands = []cli.Command{{Name: "test", Action: getCmd("test", func(*cli.Context) {})}}
-	capture.All(func() { app.RunAndExitOnError() })
-
-	hc = getHostConfig()
-	if len(hc.ExtraHosts) != 1 {
-		t.Fatalf("Wrong number of extra hosts: %v; Expected: 1", len(hc.ExtraHosts))
-	}
-	if hc.ExtraHosts[0] != "host:ip" {
-		t.Fatalf("Did not expect %v", hc.ExtraHosts[0])
-	}
-}
-*/
 
 func TestGetImageIdErrorWhileParsingName(t *testing.T) {
 	_, err := getImageID("OPENSUSE")

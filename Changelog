@@ -1,3 +1,6 @@
+	* Release v1.3:
+		- Introducing the `serve` command.
+
 Tue Apr 26 15:07:31 CET 2016  Miquel Sabaté Solà <msabate@suse.com>
 
 	* Release v1.2:
