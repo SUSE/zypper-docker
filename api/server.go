@@ -31,7 +31,7 @@ import (
 // Returns the "Not found" response.
 func notFound(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	//fmt.Fprint(w, lib.Response{Error: "Something wrong happened!"})
+	errorResponse(w, http.StatusNotFound, "Something wrong happenned...")
 }
 
 func route() *mux.Router {

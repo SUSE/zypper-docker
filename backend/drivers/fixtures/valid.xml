@@ -1,0 +1,68 @@
+<?xml version='1.0'?>
+<stream>
+<update-status version="0.6">
+<update-list>
+ <update name="openSUSE-2016-681" edition="1" arch="noarch" status="needed" category="recommended" severity="moderate" pkgmanager="false" restart="false" interactive="false" kind="patch">
+  <summary>Recommended update for libgcrypt  </summary>
+
+
+
+
+  <description>This update for libgcrypt fixes the following issue:
+
+- Fix failing reboot after installing fips pattern (bsc#979629)
+
+This update was imported from the SUSE:SLE-12:Update update project.</description>
+  <license></license>
+  <source url="http://download.opensuse.org/update/42.1/" alias="oss-update"/>
+ </update>
+ <update name="openSUSE-2016-680" edition="1" arch="noarch" status="needed" category="recommended" severity="moderate" pkgmanager="false" restart="false" interactive="false" kind="patch">
+  <summary>Recommended update for bash  </summary>
+  <description>
+This update for bash fixes the following issue:
+
+- Fix crash if ~/.bash_history is empty (bsc#976776)
+This update was imported from the SUSE:SLE-12:Update update project.</description>
+  <license></license>
+  <source url="http://download.opensuse.org/update/42.1/" alias="oss-update"/>
+ </update>
+ <update name="openSUSE-2016-678" edition="1" arch="noarch" status="needed" category="recommended" severity="moderate" pkgmanager="false" restart="false" interactive="false" kind="patch">
+  <summary>Recommended update for systemd  </summary>
+  <description>
+This update for systemd fixes the following issues:
+
+- Re-add NVMe entries to udev&apos;s 60-persistent-storage.rules. (bsc#980303)
+- Always create dependencies for bind mounts and loop devices. (bsc#964934)
+This update was imported from the SUSE:SLE-12-SP1:Update update project.</description>
+  <license></license>
+  <source url="http://download.opensuse.org/update/42.1/" alias="oss-update"/>
+ </update>
+ <update name="openSUSE-2016-695" edition="1" arch="noarch" status="needed" category="security" severity="important" pkgmanager="false" restart="false" interactive="false" kind="patch">
+  <summary>Security update for expat  </summary>
+  <description>This update for expat fixes the following issues:
+
+Security issue fixed:
+- CVE-2016-0718: Fix Expat XML parser that mishandles certain kinds of malformed input documents. (bsc#979441)
+- CVE-2015-1283: Fix multiple integer overflows. (bnc#980391)
+This update was imported from the SUSE:SLE-12:Update update project.</description>
+  <license></license>
+  <source url="http://download.opensuse.org/update/42.1/" alias="oss-update"/>
+ </update>
+ <update name="openSUSE-2016-697" edition="1" arch="noarch" status="needed" category="security" severity="moderate" pkgmanager="false" restart="false" interactive="false" kind="patch">
+  <summary>Security update for libksba  </summary>
+  <description>
+This update for libksba fixes the following issues:
+
+- CVE-2016-4579: Out-of-bounds read in _ksba_ber_parse_tl()
+- CVE-2016-4574: two OOB read access bugs (remote DoS) (bsc#979261)
+
+Also adding reliability fixes from v1.3.4.
+
+This update was imported from the SUSE:SLE-12:Update update project.</description>
+  <license></license>
+  <source url="http://download.opensuse.org/update/42.1/" alias="oss-update"/>
+ </update>
+</update-list>
+</update-status>
+</stream>
+

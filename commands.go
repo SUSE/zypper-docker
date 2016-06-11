@@ -45,7 +45,7 @@ func listUpdatesContainerCmd(ctx *cli.Context) {
 // listUpdates lists all the updates available for the given image with the
 // given arguments.
 func listUpdates(image string, ctx *cli.Context) {
-	if err := backend.ListUpdates(backend.General, image); err != nil {
+	if err := backend.ListUpdates(backend.General, image, false); err != nil {
 		logger.Fatalf("Failed to list updates: %v", err)
 	}
 }
@@ -82,7 +82,7 @@ func listPatches(image string, ctx *cli.Context) {
 		}
 	}
 
-	if err := backend.ListUpdates(backend.Security, image); err != nil {
+	if err := backend.ListUpdates(backend.Security, image, false); err != nil {
 		logger.Fatalf("Failed to list security updates: %v", err)
 	}
 }

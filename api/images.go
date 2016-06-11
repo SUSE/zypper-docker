@@ -19,14 +19,14 @@ import (
 	"net/http"
 
 	"github.com/SUSE/zypper-docker/backend"
+	"github.com/SUSE/zypper-docker/backend/drivers"
 	"github.com/SUSE/zypper-docker/logger"
 	"github.com/mssola/capture"
 )
 
 type imagesShowResponse struct {
-	Updates  bool
-	Security bool
-	Log      string
+	Updates  int
+	Security int
 	Error    string
 }
 
@@ -39,36 +39,45 @@ func errorResponse(w http.ResponseWriter, code int, msg string) {
 	w.Write(js)
 }
 
-func imagesShow(w http.ResponseWriter, req *http.Request) {
-	var err error
-	var image string
-	resp := imagesShowResponse{Updates: false, Security: false}
+func parseOutput(output []byte) imagesShowResponse {
+	drivers.Current().ParseUpdateOutput(output)
+	return imagesShowResponse{}
+}
 
-	// Evaluating the given parameter.
+func evaluateImage(w http.ResponseWriter, image string) {
+	var err error
+
+	logger.Printf("evaluating image: %v", image)
+
+	res := capture.All(func() {
+		err = backend.ListUpdates(backend.Security, image, true)
+	})
+
+	if err != nil {
+		errorResponse(w, http.StatusNotFound, err.Error())
+	} else if res.Error != nil {
+		logger.Printf("%v", res.Error)
+		errorResponse(w, http.StatusInternalServerError, "something went wrong...")
+	} else {
+		resp := parseOutput(res.Stdout)
+
+		js, _ := json.Marshal(&resp)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(js)
+	}
+}
+
+// GET /images?image=<img>
+func imagesShow(w http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query()
 	if val, ok := query["image"]; ok {
 		if len(val) != 1 {
 			errorResponse(w, http.StatusNotFound, "expecting an 'image' query parameter")
 			return
 		}
-		image = val[0]
+		evaluateImage(w, val[0])
 	} else {
 		errorResponse(w, http.StatusNotFound, "expecting an 'image' query parameter")
-		return
 	}
-
-	logger.Printf("evaluating image: %v", image)
-	res := capture.All(func() {
-		resp.Updates, resp.Security, err = backend.HasPatches(image)
-	})
-	if err != nil || res.Error != nil {
-		errorResponse(w, http.StatusNotFound, err.Error())
-		return
-	}
-
-	resp.Log = string(res.Stdout)
-	js, _ := json.Marshal(&resp)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(js)
 }

@@ -15,9 +15,14 @@
 package drivers
 
 import (
+	"bytes"
+	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
+	"github.com/SUSE/zypper-docker/logger"
 	"github.com/SUSE/zypper-docker/utils"
 	"github.com/codegangsta/cli"
 )
@@ -59,8 +64,11 @@ func (*Zypper) ListGeneralUpdates() (string, error) {
 }
 
 // ListSecurityUpdates TODO
-func (*Zypper) ListSecurityUpdates() (string, error) {
-	return formatZypperCommand("ref", "lp"), nil
+func (*Zypper) ListSecurityUpdates(machine bool) (string, error) {
+	if machine {
+		return formatZypperCommand("-q ref", "-q -t -x lp"), nil
+	}
+	return formatZypperCommand("-q ref", "lp"), nil
 }
 
 // CheckPatches TODO
@@ -184,4 +192,87 @@ func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags, toIgnore []string) st
 	}
 
 	return cmd
+}
+
+// UpdateInfo TODO
+type UpdateInfo struct {
+	Name        string
+	Security    bool
+	Severity    string
+	Kind        string
+	Summary     string
+	Description string
+}
+
+// ParseUpdateOutput TODO
+func (*Zypper) ParseUpdateOutput(output []byte) {
+	var list []UpdateInfo
+	var t xml.Token
+	var err error
+
+	d := xml.NewDecoder(bytes.NewReader(output))
+	for {
+		t, err = d.RawToken()
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			break
+		}
+
+		if e, ok := t.(xml.StartElement); ok && strings.EqualFold(e.Name.Local, "update") {
+			update := UpdateInfo{
+				Name:     attrValue(e.Attr, "name"),
+				Severity: attrValue(e.Attr, "severity"),
+				Kind:     attrValue(e.Attr, "kind"),
+			}
+			update.Security = update.Severity == "security"
+
+			if update.Summary, err = nextElementValue(d); err != nil {
+				logger.Printf("%v", err)
+				continue
+			}
+			if update.Description, err = nextElementValue(d); err != nil {
+				logger.Printf("%v", err)
+				continue
+			}
+			list = append(list, update)
+		}
+	}
+}
+
+func nextElementValue(d *xml.Decoder) (string, error) {
+	// Skipping a blank token (which mixes eol, whitespace, etc., so we are
+	// safe).
+	if _, err := d.Token(); err != nil {
+		return "", err
+	}
+
+	// After skipping a blank token, now we are sure that the next element is a
+	// start element, which will contain the desired value.
+
+	token, err := d.Token()
+	if err != nil {
+		return "", err
+	}
+
+	start, ok := token.(xml.StartElement)
+	if !ok {
+		return "", errors.New("not a start element")
+	}
+
+	var info string
+	err = d.DecodeElement(&info, &start)
+	return info, err
+}
+
+// attrValue returns the attribute value for the case-insensitive key
+// `name', or the empty string if nothing is found.
+func attrValue(attrs []xml.Attr, name string) string {
+	for _, a := range attrs {
+		if strings.EqualFold(a.Name.Local, name) {
+			return a.Value
+		}
+	}
+	return ""
 }

@@ -81,12 +81,12 @@ func PerformUpdate(kind UpdateKind, original, dest, comment, author string) (str
 }
 
 // ListUpdates lists the updates available for the given image.
-func ListUpdates(kind UpdateKind, image string) error {
+func ListUpdates(kind UpdateKind, image string, machine bool) error {
 	var cmd string
 	var err error
 
 	if kind == Security {
-		cmd, err = drivers.Current().ListSecurityUpdates()
+		cmd, err = drivers.Current().ListSecurityUpdates(machine)
 	} else {
 		cmd, err = drivers.Current().ListGeneralUpdates()
 	}

@@ -19,12 +19,23 @@ import (
 	"github.com/docker/engine-api/types/container"
 )
 
+// UpdateInfo contains all the information regarding updates so it can be
+// consumed later instead of being displayed right away.
+/*
+type UpdateInfo struct {
+	Updates  int
+	Security int
+}
+*/
+
 // Driver is the interface that any backend has to provide.
 type Driver interface {
 	GeneralUpdate() (string, error)
 	SecurityUpdate() (string, error)
 	ListGeneralUpdates() (string, error)
-	ListSecurityUpdates() (string, error)
+	ListSecurityUpdates(machine bool) (string, error)
+	// TODO
+	ParseUpdateOutput(output []byte)
 	CheckPatches() (string, error)
 	IsExitCodeSevere(code int) (bool, error)
 	NeedsCLI() bool

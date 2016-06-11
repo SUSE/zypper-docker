@@ -16,7 +16,9 @@ package drivers
 
 import (
 	"flag"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/codegangsta/cli"
@@ -207,5 +209,45 @@ func TestHostConfig(t *testing.T) {
 	}
 	if hc.ExtraHosts[0] != "host:ip" {
 		t.Fatalf("Did not expect %v", hc.ExtraHosts[0])
+	}
+}
+
+func validLog() []byte {
+	gopath := os.Getenv("GOPATH")
+	path := filepath.Join(gopath,
+		"src/github.com/SUSE/zypper-docker/backend/drivers/fixtures/valid.xml")
+	println(path)
+	output, _ := ioutil.ReadFile(path)
+	return output
+}
+
+func TestParseUpdateOutput(t *testing.T) {
+	rows := []struct {
+		output   []byte
+		updates  int
+		security int
+		err      string
+	}{
+		{validLog(), 5, 2, ""},
+	}
+
+	z := &Zypper{}
+	for _, row := range rows {
+		z.ParseUpdateOutput(row.output)
+
+		/*
+			if res.Updates != row.updates {
+				t.Fatalf("Expecting: %v; Got: %v", row.updates, res.Updates)
+			}
+			if res.Security != row.security {
+				t.Fatalf("Expecting: %v; Got: %v", row.security, res.Security)
+			}
+			if res.Log != row.log {
+				t.Fatalf("Expecting:\n%v\nGot:\n%v", row.log, res.Log)
+			}
+			if row.err != "" {
+				t.Fatalf("Expecting an empty error. Got: %v", row.err)
+			}
+		*/
 	}
 }
