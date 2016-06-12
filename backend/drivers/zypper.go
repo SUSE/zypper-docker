@@ -194,10 +194,18 @@ func cmdWithFlags(cmd string, ctx *cli.Context, boolFlags, toIgnore []string) st
 	return cmd
 }
 
+type Updates struct {
+	Updates  int
+	Security int
+	Error    string
+
+	List []UpdateInfo
+}
+
 // UpdateInfo TODO
 type UpdateInfo struct {
 	Name        string
-	Security    bool
+	IsSecurity  bool
 	Severity    string
 	Kind        string
 	Summary     string
@@ -205,8 +213,8 @@ type UpdateInfo struct {
 }
 
 // ParseUpdateOutput TODO
-func (*Zypper) ParseUpdateOutput(output []byte) {
-	var list []UpdateInfo
+func (*Zypper) ParseUpdateOutput(output []byte) Updates {
+	var up Updates
 	var t xml.Token
 	var err error
 
@@ -226,7 +234,13 @@ func (*Zypper) ParseUpdateOutput(output []byte) {
 				Severity: attrValue(e.Attr, "severity"),
 				Kind:     attrValue(e.Attr, "kind"),
 			}
-			update.Security = update.Severity == "security"
+			if update.Severity == "security" {
+				update.IsSecurity = true
+				up.Updates++
+			} else {
+				update.IsSecurity = false
+				up.Security++
+			}
 
 			if update.Summary, err = nextElementValue(d); err != nil {
 				logger.Printf("%v", err)
@@ -236,9 +250,14 @@ func (*Zypper) ParseUpdateOutput(output []byte) {
 				logger.Printf("%v", err)
 				continue
 			}
-			list = append(list, update)
+			up.List = append(up.List, update)
 		}
 	}
+
+	if err != nil {
+		up.Error = err.Error()
+	}
+	return up
 }
 
 func nextElementValue(d *xml.Decoder) (string, error) {

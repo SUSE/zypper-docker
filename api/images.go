@@ -24,24 +24,22 @@ import (
 	"github.com/mssola/capture"
 )
 
-type imagesShowResponse struct {
-	Updates  int
-	Security int
-	Error    string
-}
-
 func errorResponse(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 
-	resp := imagesShowResponse{Error: msg}
+	resp := drivers.Updates{Error: msg}
 	js, _ := json.Marshal(&resp)
 	w.Write(js)
 }
 
-func parseOutput(output []byte) imagesShowResponse {
-	drivers.Current().ParseUpdateOutput(output)
-	return imagesShowResponse{}
+func parseOutput(output []byte) drivers.Updates {
+	up := drivers.Current().ParseUpdateOutput(output)
+	if up.Error != "" {
+		logger.Printf("could not parse output: %v", up.Error)
+		up.Error = "something went wrong"
+	}
+	return up
 }
 
 func evaluateImage(w http.ResponseWriter, image string) {

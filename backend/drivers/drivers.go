@@ -35,7 +35,7 @@ type Driver interface {
 	ListGeneralUpdates() (string, error)
 	ListSecurityUpdates(machine bool) (string, error)
 	// TODO
-	ParseUpdateOutput(output []byte)
+	ParseUpdateOutput(output []byte) Updates
 	CheckPatches() (string, error)
 	IsExitCodeSevere(code int) (bool, error)
 	NeedsCLI() bool
