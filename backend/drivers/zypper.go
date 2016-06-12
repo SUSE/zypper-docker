@@ -236,10 +236,10 @@ func (*Zypper) ParseUpdateOutput(output []byte) Updates {
 			}
 			if update.Severity == "security" {
 				update.IsSecurity = true
-				up.Updates++
+				up.Security++
 			} else {
 				update.IsSecurity = false
-				up.Security++
+				up.Updates++
 			}
 
 			if update.Summary, err = nextElementValue(d); err != nil {
@@ -282,7 +282,7 @@ func nextElementValue(d *xml.Decoder) (string, error) {
 
 	var info string
 	err = d.DecodeElement(&info, &start)
-	return info, err
+	return strings.TrimSpace(info), err
 }
 
 // attrValue returns the attribute value for the case-insensitive key
