@@ -49,7 +49,7 @@ func TestMain(m *testing.M) {
 
 func TestImagesCommand(t *testing.T) {
 	cases := testCases{
-		{"List fail", &mockClient{listFail: true}, 1, []string{}, false, "Cannot proceed safely: List Failed", ""},
+		{"List fail", &mockClient{listFail: true}, 1, []string{}, false, "cannot proceed safely: List Failed", ""},
 		{"Empty list of images", &mockClient{listEmpty: true}, 0, []string{}, false, "", "REPOSITORY"},
 	}
 	cases.run(t, imagesCmd, "", "")
