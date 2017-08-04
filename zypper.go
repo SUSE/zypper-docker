@@ -28,28 +28,18 @@ const (
 	zypperExitInfSecUpdateNeeded = 101
 	zypperExitInfRebootNeeded    = 102
 	zypperExitInfRestartNeeded   = 103
-	zypperExitIndCapNotFound     = 104
+	zypperExitInfCapNotFound     = 104
 	zypperExitOnSignal           = 105
+	zypperExitInfReposSkipped    = 106
 )
 
-// Given zypper's exit code returns true if the error is
-// a severe one. False otherwise. Severe errors will cause
-// zypper-docker to exit with error.
+// isZypperExitCodeSevere returns true if errCode is a severe zypper error
+// code, and will cause zypper-docker to exit with error.
 func isZypperExitCodeSevere(errCode int) bool {
-	switch errCode {
-	case zypperExitOK:
-		return false
-	case zypperExitInfRebootNeeded:
-		return false
-	case zypperExitInfUpdateNeeded:
-		return false
-	case zypperExitInfSecUpdateNeeded:
-		return false
-	case zypperExitInfRestartNeeded:
-		return false
-	case zypperExitOnSignal:
-		return false
-	default:
+	// Codes below 100 denote an error, codes above 100 provide a specific
+	// information, 0 represents a normal successful run.
+	if errCode > 0 && errCode < 100 {
 		return true
 	}
+	return false
 }

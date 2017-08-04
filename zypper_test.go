@@ -25,7 +25,10 @@ func TestIsZypperExitCodeSevere(t *testing.T) {
 		zypperExitInfUpdateNeeded,
 		zypperExitInfSecUpdateNeeded,
 		zypperExitInfRestartNeeded,
+		zypperExitInfCapNotFound,
 		zypperExitOnSignal,
+		zypperExitInfReposSkipped,
+		666,
 	}
 
 	for _, code := range notSevereExitCodes {
@@ -43,8 +46,8 @@ func TestIsZypperExitCodeSevere(t *testing.T) {
 		zypperExitNoRepos,
 		zypperExitZyppLocked,
 		zypperExitErrCommit,
-		zypperExitIndCapNotFound,
-		127,
+		42,
+		99,
 	}
 
 	for _, code := range severeExitCodes {
