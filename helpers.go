@@ -289,7 +289,7 @@ func updatePatchCmd(zypperCmd string, ctx *cli.Context) {
 		comment,
 		author)
 	if err != nil {
-		logAndFatalf("Could not commit to the new image: %v.\n", err)
+		logAndFatalf("Could not commit to the new image: %v\n", err)
 		return
 	}
 
