@@ -200,10 +200,10 @@ func preventImageOverwrite(repo, tag string) error {
 	imageExists, err := checkImageExists(repo, tag)
 
 	if err != nil {
-		return fmt.Errorf("Cannot proceed safely: %v.", err)
+		return fmt.Errorf("Cannot proceed safely: %v", err)
 	}
 	if imageExists {
-		return fmt.Errorf("Cannot overwrite an existing image. Please use a different repository/tag.")
+		return fmt.Errorf("Cannot overwrite an existing image. Please use a different repository/tag")
 	}
 	return nil
 }
