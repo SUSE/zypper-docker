@@ -23,8 +23,7 @@ test_integration_quick ::
 		zypper-docker-integration-tests \
 		rspec -t quick
 
-# TODO: add race
-checks :: vet fmt lint race climate
+checks :: vet fmt lint gotest climate
 
 vet ::
 	@echo "+ $@"
@@ -43,9 +42,10 @@ climate:
 	@echo "+ $@"
 		@(./scripts/climate -o -p -a .)
 
-race:
+# TODO: use '-race' once it works in openSUSE's golang
+gotest:
 	@echo "+ $@"
-		@go test -race
+		@go test
 
 clean ::
 	docker rmi zypper-docker
