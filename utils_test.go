@@ -167,7 +167,7 @@ func (cases testCases) run(t *testing.T, cmd func(*cli.Context), command, debug 
 			lines := strings.Split(buffer.String(), "\n")
 			// The first line might be the cache failing to be loaded.
 			if !(len(lines) == 1 || len(lines) == 2) || lines[len(lines)-1] != "" {
-				t.Fatalf("Should've loggeed nothing, logged:\n%s\n", buffer.String())
+				t.Fatalf("Should've logged nothing, logged:\n%s\n", buffer.String())
 			}
 		} else {
 			if !strings.Contains(buffer.String(), test.msg) {
