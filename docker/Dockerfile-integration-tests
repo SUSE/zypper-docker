@@ -1,7 +1,7 @@
-FROM opensuse:13.2
+FROM opensuse:42.3
 MAINTAINER Flavio Castelli <fcastelli@suse.com>
 
-RUN zypper ar obs://Virtualization:containers/openSUSE_13.2 containers
+RUN zypper ar obs://Virtualization:containers/openSUSE_Leap_42.3 containers
 RUN zypper --gpg-auto-import-keys ref
 RUN zypper -n in --no-recommends \
   ca-certificates-mozilla \

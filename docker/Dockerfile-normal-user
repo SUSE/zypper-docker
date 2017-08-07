@@ -1,6 +1,6 @@
 # This Dockerfile sets the USER of the image, to ensure that zypper-docker runs
 # zypper as root and then resets it back to the previous USER.
 
-FROM opensuse:13.2
+FROM opensuse:42.3
 
 USER 1337:1337

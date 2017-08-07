@@ -16,7 +16,7 @@ matrix:
     - go: tip
 
 before_install:
-  - docker pull opensuse:13.2
+  - docker pull opensuse:42.3
   - docker pull alpine:latest
   - docker pull busybox:latest
   - make build_integration_tests
