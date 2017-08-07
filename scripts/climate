@@ -61,6 +61,7 @@ sub usage {
     print "Usage: climate [-a] [-o] [-h | --help] package-name\n";
     print "  -a  Continue even if the cover test is below our threshold.\n";
     print "  -o  Don't open a new tab with the coverage results.\n";
+    print "  -p  Don't delete the coverage profile (zypper-docker.cov).\n";
     print "  -t  Pass a different threshold than the default one.\n";
     print "  -h  Show this message.\n";
 }
@@ -81,6 +82,8 @@ for (my $it = 0; $it < @ARGV; $it++) {
         $opts{'a'} = 1;
     } elsif ($ARGV[$it] eq '-o') {
         $opts{'o'} = 0;
+    } elsif ($ARGV[$it] eq '-p') {
+        $opts{'p'} = 1;
     } elsif ($ARGV[$it] eq '-t') {
         usage() if (!$ARGV[$it + 1]);
         $opts{'t'} = sprintf '%.1f', $ARGV[$it + 1];
@@ -108,24 +111,28 @@ if ($cover =~ /^go tool: no such tool "cover"/) {
 }
 
 # Execute the cover tool.
-$cover = `go test -coverprofile=c.out -covermode=count`;
+$cover = `go test -coverprofile=zypper-docker.cov -covermode=count`;
 my $error = 0;
 if ($cover =~ /coverage:\s?(.+)%/) {
     my $fl = sprintf '%.1f', $1;
     if ($fl < $opts{'t'}) {
         print "Coverage required: $opts{'t'}%; got: $fl%\n";
         if (!$opts{'a'}) {
-            `rm -f c.out`;
+            if (!$opts{p}) {
+                `rm -f zy`;
+            }
             exit(1);
         }
         $error = 1;
     } else {
-        print "The tests are covering the $fl% of this package!\n";
+        print "The tests are covering $fl% of this package!\n";
     }
     if ($opts{'o'}) {
-        `go tool cover -html=c.out`;
+        `go tool cover -html=zypper-docker.cov`;
     }
-    `rm -f c.out`;
+    if (!$opts{p}) {
+        `rm -f zypper-docker.cov`;
+    }
     if ($error) {
         exit(1);
     }

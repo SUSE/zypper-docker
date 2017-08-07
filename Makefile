@@ -41,7 +41,7 @@ lint ::
 
 climate:
 	@echo "+ $@"
-		@(./scripts/climate -o -a . &> /dev/null)
+		@(./scripts/climate -o -p -a .)
 
 race:
 	@echo "+ $@"
