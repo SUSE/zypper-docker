@@ -2,7 +2,7 @@
 # This is what we need to test that the patch/update operations do not modify
 # them.
 
-FROM opensuse:13.2
+FROM opensuse:42.3
 
 CMD ["/etc/os-release"]
 ENTRYPOINT ["cat"]

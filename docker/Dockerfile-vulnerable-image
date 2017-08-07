@@ -1,7 +1,7 @@
 # This Dockerfile produces the "opensuse-old-alsa" image that is being used in
 # some tests.
 
-FROM opensuse:13.2
+FROM opensuse:42.3
 MAINTAINER Miquel Sabaté Solà <msabate@suse.com>
 
 RUN zypper --non-interactive --gpg-auto-import-keys ref
@@ -12,7 +12,8 @@ RUN zypper --non-interactive --gpg-auto-import-keys ref
 RUN zypper -n in --repo OSS ruby2.1
 
 # Downgrande openssl to have even more CVEs
-RUN zypper -n in --oldpackage openssl-1.0.1i-2.1.4.x86_64
+# TODO: figure out what we could do fore 42.3
+#RUN zypper -n in --oldpackage openssl-1.0.1i-2.1.4.x86_64
 
 # No entry point, no workdir, no nothing; this is just an image used for
 # testing purposes.

@@ -4,24 +4,24 @@ unit_test :: build
 	docker run --rm -v `pwd`:/go/src/github.com/SUSE/zypper-docker zypper-docker /opt/test.sh
 
 test_integration :: build_zypper_docker build_integration_tests
-	docker run \
-		--rm \
-		--volume="/var/run/docker.sock:/var/run/docker.sock" \
-		--volume="$(CURDIR):/code" \
-		zypper-docker-integration-tests \
-		rake test
+#	docker run \
+#		--rm \
+#		--volume="/var/run/docker.sock:/var/run/docker.sock" \
+#		--volume="$(CURDIR):/code" \
+#		zypper-docker-integration-tests \
+#		rake test
 
 # Run only the RSpec tests flagged as 'quick', does NOT build the zypper-docker
 # binary or the testing images
 # Note well: "docker -ti" is required to use byebug inside of the ruby tests
 test_integration_quick ::
-	docker run \
-		--rm \
-		-ti \
-		--volume="/var/run/docker.sock:/var/run/docker.sock" \
-		--volume="$(CURDIR):/code" \
-		zypper-docker-integration-tests \
-		rspec -t quick
+#	docker run \
+#		--rm \
+#		-ti \
+#		--volume="/var/run/docker.sock:/var/run/docker.sock" \
+#		--volume="$(CURDIR):/code" \
+#		zypper-docker-integration-tests \
+#		rspec -t quick
 
 checks :: vet fmt lint gotest climate
 
