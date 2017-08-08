@@ -300,7 +300,6 @@ func updatePatchCmd(zypperCmd string, ctx *cli.Context) {
 		log.Println("Cannot add image details to zypper-docker cache")
 		log.Println("This will break the \"zypper-docker ps\" feature")
 		log.Println(err)
-		exitWithCode(1)
 	}
 }
 

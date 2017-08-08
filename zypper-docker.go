@@ -31,4 +31,7 @@ func main() {
 	os.Args = fixArgsForZypper(os.Args)
 	app := newApp()
 	app.RunAndExitOnError()
+
+	// TODO: add tests to check for correctly passing exit codes
+	os.Exit(zypperExitCode)
 }
