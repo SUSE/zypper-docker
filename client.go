@@ -30,6 +30,9 @@ import (
 	"github.com/docker/engine-api/types/strslice"
 )
 
+// zypperExitCode is used as zypper-docker's exit code.
+var zypperExitCode int
+
 // rootUser is the explicit value to use for the USER directive to specify a user
 // as being root. Oddly, specifying the default value ("") doesn't work even though
 // images that have the default value set for .Config.User run as root.
@@ -245,6 +248,7 @@ func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string,
 
 	select {
 	case res := <-containerWait(id):
+		zypperExitCode = res.exitCode
 		if dst != nil {
 			<-sc
 		}
