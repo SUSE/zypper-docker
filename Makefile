@@ -73,4 +73,5 @@ help ::
 	@echo build: Creates the dockerimage.
 	@echo clean: Remove the dockerimage.
 	@echo test: Testing zypper-docker.
-	@echo test_intetgration: Integration Tests
+	@echo test_integration: Integration Tests
+	@echo man: Generate man pages of zypper-docker
