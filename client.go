@@ -180,7 +180,32 @@ func runStreamedCommand(img, cmd string, getError bool) error {
 // It returns the ID of the container spawned from the image.
 // Note well: the container is NOT deleted when the given command terminates.
 func runCommandInContainer(img string, cmd []string, dst io.Writer) (string, error) {
-	return startContainer(img, cmd, true, dst)
+	fmt.Printf("Executing '%v'\n", cmd)
+	id, err := createContainer(img, cmd)
+	if err != nil {
+		log.Println(err)
+		return "", err
+	}
+	fmt.Printf("Created container\n")
+
+	run_cmd:
+		fmt.Printf("Starting container\n")
+		id, err = startContainer(id, cmd, true, dst)
+		fmt.Printf("Finished container\n")
+		fmt.Printf("ContainerID: %s\n", id)
+		switch err.(type) {
+		case dockerError:
+			de := err.(dockerError)
+			if isZypperExitCodeSevere(de.exitCode) {
+				if de.exitCode == zypperExitInfRestartNeeded  {
+					goto run_cmd
+				}
+			}
+		default:
+			fmt.Printf("Finished container\n")
+			return id, err
+		}
+	return id, err
 }
 
 // Start a container from the specified image and then runs the given command
@@ -196,15 +221,10 @@ func runCommandInContainer(img string, cmd []string, dst io.Writer) (string, err
 // returned can be of type dockerError. This only happens when the container
 // has run normally (no signals, no timeout), but the exit code is not 0. Read
 // the documentation on the `dockerError` command on why we do this.
-func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string, error) {
-	id, err := createContainer(img, cmd)
-	if err != nil {
-		log.Println(err)
-		return "", err
-	}
+func startContainer(id string, cmd []string, wait bool, dst io.Writer) (string, error) {
 
 	client := getDockerClient()
-	if err = client.ContainerStart(id); err != nil {
+	if err := client.ContainerStart(id); err != nil {
 		// Silently fail, since it might be "zypper" not existing and we don't
 		// want to add noise to the log.
 		return id, err
