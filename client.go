@@ -127,10 +127,13 @@ func humanizeCommandError(cmd, image string, err error) {
 }
 
 // Looks for the specified command inside of a Docker image.
-// The given image string is just the ID of said image.
+// The given image string is just the ID of said image, which is
+// then passed to startContainer, which starts the container.
 // It returns true if the command was successful, false otherwise.
 func checkCommandInImage(img, cmd string) bool {
-	containerID, err := startContainer(img, []string{cmd}, false, nil)
+
+	containerID, err := createContainer(img, []string{cmd})
+	containerID, err = startContainer(containerID, false, nil)
 
 	defer removeContainer(containerID)
 
@@ -180,11 +183,32 @@ func runStreamedCommand(img, cmd string, getError bool) error {
 // It returns the ID of the container spawned from the image.
 // Note well: the container is NOT deleted when the given command terminates.
 func runCommandInContainer(img string, cmd []string, dst io.Writer) (string, error) {
-	return startContainer(img, cmd, true, dst)
+	id, err := createContainer(img, cmd)
+	if err != nil {
+		log.Println(err)
+		return "", err
+	}
+
+	for i := 0; i < 16; i++ {
+		id, err = startContainer(id, true, dst)
+		switch err.(type) {
+		case dockerError:
+			de := err.(dockerError)
+			if isZypperExitCodeSevere(de.exitCode) {
+				return "", err
+			}
+			if de.exitCode == zypperExitInfRestartNeeded {
+				continue
+			}
+		default:
+		}
+		return id, err
+	}
+	return "", err
 }
 
-// Start a container from the specified image and then runs the given command
-// inside of it. The given image string is just the ID of said image.
+// Start a container from the specified ID and then runs the given command inside of it.
+// The given ID string is just the ID of the container created by createContainer.
 // When `wait` is set to true the function will wait untill the container exits,
 // otherwise it will timeout raising an error.
 // The STDOUT and STDERR of the container can be streamed by providing a
@@ -192,19 +216,14 @@ func runCommandInContainer(img string, cmd []string, dst io.Writer) (string, err
 // Note well: the container is NOT deleted when the given command terminates.
 // This is again up to the caller.
 //
-// It returns the ID of the container spawned from the image. The error
+// It returns the ID of the started container. The error
 // returned can be of type dockerError. This only happens when the container
 // has run normally (no signals, no timeout), but the exit code is not 0. Read
 // the documentation on the `dockerError` command on why we do this.
-func startContainer(img string, cmd []string, wait bool, dst io.Writer) (string, error) {
-	id, err := createContainer(img, cmd)
-	if err != nil {
-		log.Println(err)
-		return "", err
-	}
+func startContainer(id string, wait bool, dst io.Writer) (string, error) {
 
 	client := getDockerClient()
-	if err = client.ContainerStart(id); err != nil {
+	if err := client.ContainerStart(id); err != nil {
 		// Silently fail, since it might be "zypper" not existing and we don't
 		// want to add noise to the log.
 		return id, err
@@ -397,15 +416,7 @@ func commitContainerToImage(img, containerID, repo, tag, comment, author string)
 func runCommandAndCommitToImage(img, targetRepo, targetTag, cmd, comment, author string) (string, error) {
 	containerID, err := runCommandInContainer(img, []string{cmd}, os.Stdout)
 	if err != nil {
-		switch err.(type) {
-		case dockerError:
-			de := err.(dockerError)
-			if isZypperExitCodeSevere(de.exitCode) {
-				return "", err
-			}
-		default:
-			return "", err
-		}
+		return "", err
 	}
 
 	imageID, err := commitContainerToImage(img, containerID, targetRepo, targetTag, comment, author)

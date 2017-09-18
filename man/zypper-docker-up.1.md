@@ -9,9 +9,11 @@ zypper\-docker update \- Install the available updates for the given image.
 
 # DESCRIPTION
 The **update** command updates the given openSUSE/SUSE Linux Enterprise image
-with all the available updates. The updated image will have a new name, as
-provided by the NEW-IMAGE argument. Note that both the IMAGE and the NEW\-IMAGE
-arguments have to follow Docker's naming format.
+with all the available updates. If there is a zypper-related update, which returns
+the exit code 103 (ZYPPER_EXIT_INF_RESTART_NEEDED), zypper-docker goes through the 
+update process once again, to install the remaining updates.
+The updated image will have a new name, as provided by the NEW-IMAGE argument.
+Note that both the IMAGE and the NEW\-IMAGE arguments have to follow Docker's naming format.
 
 To list all the updates available for a given image, use the **list-updates**
 and the **list-updates-container** commands. To show all the images based on
