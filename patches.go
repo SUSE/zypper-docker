@@ -30,6 +30,10 @@ func listPatchesCmd(ctx *cli.Context) {
 
 // zypper-docker list-patches-container [flags] <container>
 func listPatchesContainerCmd(ctx *cli.Context) {
+	lpContainer(listPatches, ctx)
+}
+
+func listPatchesContainerTest(ctx *cli.Context) {
 	commandInContainer(listPatches, ctx)
 }
 

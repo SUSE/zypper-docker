@@ -48,5 +48,5 @@ func TestListUpdatesContainerCommand(t *testing.T) {
 		{"List fails on list update container", &mockClient{listFail: true}, 1, []string{"opensuse:13.2"}, true, "Error while fetching running containers: Fake failure while listing containers", ""},
 		{"Updates container successfully", &mockClient{}, 0, []string{"suse"}, false, "Removed container zypper-docker-private-opensuse:13.2", ""},
 	}
-	cases.run(t, listUpdatesContainerCmd, "zypper lu", "")
+	cases.run(t, listUpdatesContainerTest, "zypper lu", "")
 }

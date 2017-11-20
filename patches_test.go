@@ -17,7 +17,6 @@ package main
 import "testing"
 
 // PATCH
-
 func TestPatchCommand(t *testing.T) {
 	cases := testCases{
 		{"Wrong number of arguments", &mockClient{}, 1, []string{}, true, "Wrong invocation: expected 2 arguments, 0 given.", ""},
@@ -47,8 +46,10 @@ func TestListPatchesCommand(t *testing.T) {
 
 func TestListPatchesContainerCommand(t *testing.T) {
 	cases := testCases{
+		{"No container specified", &mockClient{}, 1, []string{""}, true, "Cannot find running container: .", ""},
 		{"List fails on list patch container", &mockClient{listFail: true}, 1, []string{"opensuse:13.2"}, true, "Error while fetching running containers: Fake failure while listing containers", ""},
 		{"Patches container successfully", &mockClient{}, 0, []string{"suse"}, false, "Removed container zypper-docker-private-opensuse:13.2", "streaming buffer initialized"},
 	}
-	cases.run(t, listPatchesContainerCmd, "zypper lp", "")
+	cases.run(t, listPatchesContainerTest, "zypper lp", "")
 }
+

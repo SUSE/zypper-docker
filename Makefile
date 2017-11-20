@@ -45,7 +45,7 @@ climate:
 # TODO: use '-race' once it works in openSUSE's golang
 gotest:
 	@echo "+ $@"
-		@go test
+		@go test -v
 
 clean ::
 	docker rmi zypper-docker

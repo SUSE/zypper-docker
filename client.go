@@ -66,9 +66,11 @@ type DockerClient interface {
 	ContainerResize(options types.ResizeOptions) error
 	ContainerStart(id string) error
 	ContainerWait(containerID string) (int, error)
+	ContainerInspect(containerID string) (types.ContainerJSON, error)
 
 	ImageInspectWithRaw(imageID string, getSize bool) (types.ImageInspect, []byte, error)
 	ImageList(options types.ImageListOptions) ([]types.Image, error)
+	ImageRemove(options types.ImageRemoveOptions) ([]types.ImageDelete, error)
 }
 
 // The timeout in which the container is allowed to run a command as given
@@ -471,4 +473,99 @@ func checkContainerRunning(id string) (types.Container, error) {
 	}
 
 	return container, nil
+}
+
+// Commits the container based on the given container ID to a new image
+// and runs "zypper lu" in it. Afterwards the image will be removed.
+func listUpdatesStoppedContainer(containerID string) (string, error) {
+	client := getDockerClient()
+	commitResp, err := client.ContainerCommit(types.ContainerCommitOptions{ContainerID: containerID})
+	if err != nil {panic(err)}
+	runResp, err := runCommandAndCommitToImage(commitResp.ID, "", "", "zypper lu", "", "")
+	if err != nil {panic(err)}
+	_, err = client.ImageRemove(types.ImageRemoveOptions{
+		ImageID:       runResp,
+		Force:         true,
+		PruneChildren: true,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return runResp, err
+}
+
+// Inspects the container based on the given container ID,
+// and runs "zypper lu" in this image. The image will not be removed
+// afterwards, as it's only the image on which the container was based on.
+func listUpdatesRunningContainer(containerID string) error {
+	client := getDockerClient()
+	srcImgID, err := client.ContainerInspect(containerID)
+	logAndPrintf("Source Image ID: %s\n", srcImgID.Config.Image)
+	_ = runStreamedCommand(srcImgID.Config.Image, "lu", false)
+	if err != nil {
+		panic(err)
+	}
+	return err
+}
+
+// Commits the container based on the given container ID to a new image
+// and runs "zypper lp" in it. Afterwards the image will be removed.
+func listPatchesStoppedContainer(containerID string) (string, error) {
+	client := getDockerClient()
+	commitResp, err := client.ContainerCommit(types.ContainerCommitOptions{ContainerID: containerID})
+	_ = runStreamedCommand(commitResp.ID, "lp", false)
+	_, err = client.ImageRemove(types.ImageRemoveOptions{
+		ImageID:       commitResp.ID,
+		Force:         true,
+		PruneChildren: true,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return commitResp.ID, err
+}
+
+// Inspects the container based on the given container ID,
+// and runs "zypper lp" in this image. The image will not be removed
+// afterwards, as it's only the image on which the container was based on.
+func listPatchesRunningContainer(containerID string) error {
+	client := getDockerClient()
+	srcImgID, err := client.ContainerInspect(containerID)
+	logAndPrintf("Source Image ID: %s\n", srcImgID.Config.Image)
+	_ = runStreamedCommand(srcImgID.Config.Image, "lp", false)
+	if err != nil {
+		panic(err)
+	}
+	return err
+}
+
+// Commits the container based on the given container ID to a new image
+// and runs "zypper pchk" in it. Afterwards the image will be removed.
+func patchCheckStoppedContainer(containerID string) (string, error) {
+	client := getDockerClient()
+	commitResp, err := client.ContainerCommit(types.ContainerCommitOptions{ContainerID: containerID})
+	_ = runStreamedCommand(commitResp.ID, "pchk", false)
+	_, err = client.ImageRemove(types.ImageRemoveOptions{
+		ImageID:       commitResp.ID,
+		Force:         true,
+		PruneChildren: true,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return commitResp.ID, err
+}
+
+// Inspects the container based on the given container ID,
+// and runs "zypper pchk" in this image. The image will not be removed
+// afterwards, as it's only the image on which the container was based on.
+func patchCheckRunningContainer(containerID string) error {
+	client := getDockerClient()
+	srcImgID, err := client.ContainerInspect(containerID)
+	logAndPrintf("Source Image ID: %s\n", srcImgID.Config.Image)
+	_ = runStreamedCommand(srcImgID.Config.Image, "pchk", false)
+	if err != nil {
+		panic(err)
+	}
+	return err
 }

@@ -42,5 +42,5 @@ func TestPatchCheckContainerCommand(t *testing.T) {
 		{"Ok", &mockClient{}, 0, []string{"suse"}, false, "Removed container zypper-docker-private-opensuse:13.2",
 			"streaming buffer initialized"},
 	}
-	cases.run(t, patchCheckContainerCmd, "zypper pchk", "")
+	cases.run(t, patchCheckContainerTest, "zypper pchk", "")
 }

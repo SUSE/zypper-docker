@@ -23,6 +23,10 @@ func listUpdatesCmd(ctx *cli.Context) {
 
 // zypper-docker list-updates-container [flags] <container>
 func listUpdatesContainerCmd(ctx *cli.Context) {
+	luContainer(listUpdates, ctx)
+}
+
+func listUpdatesContainerTest(ctx *cli.Context) {
 	commandInContainer(listUpdates, ctx)
 }
 

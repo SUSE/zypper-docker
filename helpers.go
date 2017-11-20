@@ -245,11 +245,88 @@ type commandFunc func(string, *cli.Context)
 // argument as given in ctx.
 func commandInContainer(f commandFunc, ctx *cli.Context) {
 	containerID := ctx.Args().First()
-
 	if container, err := checkContainerRunning(containerID); err != nil {
 		logAndFatalf("%v.\n", err)
 	} else {
 		f(container.Image, ctx)
+	}
+}
+
+// luContainer checks whether or not the container is running, and looks for updates.
+func luContainer(f commandFunc, ctx *cli.Context) {
+	containerID := ctx.Args().First()
+	//if the container is stopped
+	if container, err := checkContainerRunning(containerID); err != nil {
+		logAndPrintf("Checking stopped container %s ...\n", containerID)
+		_, err = listUpdatesStoppedContainer(containerID)
+		if err != nil {
+			logAndPrintf("Error with container: %s", container)
+			panic(err)
+		}
+	} else {
+		// if the container is still running
+		if ctx.GlobalBool("force") {
+			logAndPrintf("WARNING: Force flag used. Manually installed packages will be analyzed as well.\n")
+			_, err = listUpdatesStoppedContainer(containerID)
+		} else {
+			logAndPrintf("WARNING: Only the source image from this container will be inspected. Manually installed packages won't be taken into account.\n")
+			err := listUpdatesRunningContainer(containerID)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
+// luContainer checks whether or not the container is running, and looks for patches.
+func lpContainer(f commandFunc, ctx *cli.Context) {
+	containerID := ctx.Args().First()
+	//if the container is stopped
+	if container, err := checkContainerRunning(containerID); err != nil {
+		logAndPrintf("Checking stopped container %s ...\n", containerID)
+		_, err = listPatchesStoppedContainer(containerID)
+		if err != nil {
+			logAndPrintf("Error with container: %s", container)
+			panic(err)
+		}
+	} else {
+		// if the container is still running
+		if ctx.GlobalBool("force") {
+			logAndPrintf("WARNING: Force flag used. Manually installed packages will be analyzed as well.\n")
+			_, err = listPatchesStoppedContainer(containerID)
+		} else {
+			logAndPrintf("WARNING: Only the source image from this container will be inspected. Manually installed packages won't be taken into account.\n")
+			err := listPatchesRunningContainer(containerID)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
+// luContainer checks whether or not the container is running, and checks for patches.
+func pcContainer(f commandFunc, ctx *cli.Context) {
+	containerID := ctx.Args().First()
+	//if the container is stopped
+	if container, err := checkContainerRunning(containerID); err != nil {
+		logAndPrintf("Checking stopped container %s ...\n", containerID)
+		_, err = patchCheckStoppedContainer(containerID)
+		if err != nil {
+			logAndPrintf("Error with container %s", container)
+			panic(err)
+		}
+	} else {
+		// if the container is still running
+		if ctx.GlobalBool("force") {
+			logAndPrintf("WARNING: Force flag used. Manually installed packages will be analyzed as well.\n")
+			_, err = patchCheckStoppedContainer(containerID)
+		} else {
+			logAndPrintf("WARNING: Only the source image from this container will be inspected. Manually installed packages won't be taken into account.\n")
+			err := patchCheckRunningContainer(containerID)
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
 }
 

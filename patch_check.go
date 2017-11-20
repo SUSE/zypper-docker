@@ -23,6 +23,10 @@ func patchCheckCmd(ctx *cli.Context) {
 
 // zypper-docker patch-check-container [flags] <image>
 func patchCheckContainerCmd(ctx *cli.Context) {
+	pcContainer(patchCheck, ctx)
+}
+
+func patchCheckContainerTest(ctx *cli.Context) {
 	commandInContainer(patchCheck, ctx)
 }
 

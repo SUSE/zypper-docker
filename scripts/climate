@@ -49,7 +49,7 @@ my $base = abs_path(getcwd);
 
 # The threshold is the percentage in which we consider that the given package
 # is covered enough by tests. It defaults to 90.0%
-my $threshold = 90.0;
+my $threshold = 75.0;
 
 
 ##
