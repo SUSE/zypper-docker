@@ -1,9 +1,9 @@
-package platform
+package platform // import "github.com/docker/docker/pkg/platform"
 
 import (
 	"runtime"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -17,7 +17,7 @@ func init() {
 	var err error
 	Architecture, err = runtimeArchitecture()
 	if err != nil {
-		logrus.Errorf("Could no read system architecture info: %v", err)
+		logrus.Errorf("Could not read system architecture info: %v", err)
 	}
 	OSType = runtime.GOOS
 }

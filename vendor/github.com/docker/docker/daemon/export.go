@@ -1,12 +1,15 @@
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
+	"fmt"
 	"io"
+	"runtime"
 
 	"github.com/docker/docker/container"
-	derr "github.com/docker/docker/errors"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/ioutils"
+	"github.com/docker/docker/pkg/system"
 )
 
 // ContainerExport writes the contents of the container to the given
@@ -17,37 +20,65 @@ func (daemon *Daemon) ContainerExport(name string, out io.Writer) error {
 		return err
 	}
 
+	if runtime.GOOS == "windows" && container.OS == "windows" {
+		return fmt.Errorf("the daemon on this operating system does not support exporting Windows containers")
+	}
+
+	if container.IsDead() {
+		err := fmt.Errorf("You cannot export container %s which is Dead", container.ID)
+		return errdefs.Conflict(err)
+	}
+
+	if container.IsRemovalInProgress() {
+		err := fmt.Errorf("You cannot export container %s which is being removed", container.ID)
+		return errdefs.Conflict(err)
+	}
+
 	data, err := daemon.containerExport(container)
 	if err != nil {
-		return derr.ErrorCodeExportFailed.WithArgs(name, err)
+		return fmt.Errorf("Error exporting container %s: %v", name, err)
 	}
 	defer data.Close()
 
 	// Stream the entire contents of the container (basically a volatile snapshot)
 	if _, err := io.Copy(out, data); err != nil {
-		return derr.ErrorCodeExportFailed.WithArgs(name, err)
+		return fmt.Errorf("Error exporting container %s: %v", name, err)
 	}
 	return nil
 }
 
-func (daemon *Daemon) containerExport(container *container.Container) (archive.Archive, error) {
-	if err := daemon.Mount(container); err != nil {
+func (daemon *Daemon) containerExport(container *container.Container) (arch io.ReadCloser, err error) {
+	if !system.IsOSSupported(container.OS) {
+		return nil, fmt.Errorf("cannot export %s: %s ", container.ID, system.ErrNotSupportedOperatingSystem)
+	}
+	rwlayer, err := daemon.imageService.GetLayerByID(container.ID, container.OS)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			daemon.imageService.ReleaseLayer(rwlayer, container.OS)
+		}
+	}()
+
+	basefs, err := rwlayer.Mount(container.GetMountLabel())
+	if err != nil {
 		return nil, err
 	}
 
-	uidMaps, gidMaps := daemon.GetUIDGIDMaps()
-	archive, err := archive.TarWithOptions(container.BaseFS, &archive.TarOptions{
+	archive, err := archivePath(basefs, basefs.Path(), &archive.TarOptions{
 		Compression: archive.Uncompressed,
-		UIDMaps:     uidMaps,
-		GIDMaps:     gidMaps,
+		UIDMaps:     daemon.idMappings.UIDs(),
+		GIDMaps:     daemon.idMappings.GIDs(),
 	})
 	if err != nil {
-		daemon.Unmount(container)
+		rwlayer.Unmount()
 		return nil, err
 	}
-	arch := ioutils.NewReadCloserWrapper(archive, func() error {
+	arch = ioutils.NewReadCloserWrapper(archive, func() error {
 		err := archive.Close()
-		daemon.Unmount(container)
+		rwlayer.Unmount()
+		daemon.imageService.ReleaseLayer(rwlayer, container.OS)
 		return err
 	})
 	daemon.LogContainerEvent(container, "export")

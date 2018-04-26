@@ -1,24 +1,39 @@
-package tarexport
+package tarexport // import "github.com/docker/docker/image/tarexport"
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/docker/distribution"
+	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/image/v1"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
+	"github.com/docker/docker/pkg/progress"
+	"github.com/docker/docker/pkg/streamformatter"
+	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/symlink"
-	"github.com/docker/docker/reference"
+	"github.com/docker/docker/pkg/system"
+	digest "github.com/opencontainers/go-digest"
+	"github.com/sirupsen/logrus"
 )
 
-func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer) error {
+func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer, quiet bool) error {
+	var progressOutput progress.Output
+	if !quiet {
+		progressOutput = streamformatter.NewJSONProgressOutput(outStream, false)
+	}
+	outStream = streamformatter.NewStdoutWriter(outStream)
+
 	tmpDir, err := ioutil.TempDir("", "docker-import-")
 	if err != nil {
 		return err
@@ -36,9 +51,9 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer) error {
 	manifestFile, err := os.Open(manifestPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return l.legacyLoad(tmpDir, outStream)
+			return l.legacyLoad(tmpDir, outStream, progressOutput)
 		}
-		return manifestFile.Close()
+		return err
 	}
 	defer manifestFile.Close()
 
@@ -46,6 +61,10 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer) error {
 	if err := json.NewDecoder(manifestFile).Decode(&manifest); err != nil {
 		return err
 	}
+
+	var parentLinks []parentLink
+	var imageIDsStr string
+	var imageRefCount int
 
 	for _, m := range manifest {
 		configPath, err := safePath(tmpDir, m.Config)
@@ -60,12 +79,25 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer) error {
 		if err != nil {
 			return err
 		}
-		var rootFS image.RootFS
-		rootFS = *img.RootFS
+		if err := checkCompatibleOS(img.OS); err != nil {
+			return err
+		}
+		rootFS := *img.RootFS
 		rootFS.DiffIDs = nil
 
 		if expected, actual := len(m.Layers), len(img.RootFS.DiffIDs); expected != actual {
-			return fmt.Errorf("invalid manifest, layers length mismatch: expected %q, got %q", expected, actual)
+			return fmt.Errorf("invalid manifest, layers length mismatch: expected %d, got %d", expected, actual)
+		}
+
+		// On Windows, validate the platform, defaulting to windows if not present.
+		os := img.OS
+		if os == "" {
+			os = runtime.GOOS
+		}
+		if runtime.GOOS == "windows" {
+			if (os != "windows") && (os != "linux") {
+				return fmt.Errorf("configuration for this image has an unsupported operating system: %s", os)
+			}
 		}
 
 		for i, diffID := range img.RootFS.DiffIDs {
@@ -75,14 +107,14 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer) error {
 			}
 			r := rootFS
 			r.Append(diffID)
-			newLayer, err := l.ls.Get(r.ChainID())
+			newLayer, err := l.lss[os].Get(r.ChainID())
 			if err != nil {
-				newLayer, err = l.loadLayer(layerPath, rootFS)
+				newLayer, err = l.loadLayer(layerPath, rootFS, diffID.String(), os, m.LayerSources[diffID], progressOutput)
 				if err != nil {
 					return err
 				}
 			}
-			defer layer.ReleaseAndLog(l.ls, newLayer)
+			defer layer.ReleaseAndLog(l.lss[os], newLayer)
 			if expected, actual := diffID, newLayer.DiffID(); expected != actual {
 				return fmt.Errorf("invalid diffID for layer %d: expected %q, got %q", i, expected, actual)
 			}
@@ -93,9 +125,11 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer) error {
 		if err != nil {
 			return err
 		}
+		imageIDsStr += fmt.Sprintf("Loaded image ID: %s\n", imgID)
 
+		imageRefCount = 0
 		for _, repoTag := range m.RepoTags {
-			named, err := reference.ParseNamed(repoTag)
+			named, err := reference.ParseNormalizedNamed(repoTag)
 			if err != nil {
 				return err
 			}
@@ -103,43 +137,93 @@ func (l *tarexporter) Load(inTar io.ReadCloser, outStream io.Writer) error {
 			if !ok {
 				return fmt.Errorf("invalid tag %q", repoTag)
 			}
-			l.setLoadedTag(ref, imgID, outStream)
+			l.setLoadedTag(ref, imgID.Digest(), outStream)
+			outStream.Write([]byte(fmt.Sprintf("Loaded image: %s\n", reference.FamiliarString(ref))))
+			imageRefCount++
 		}
 
+		parentLinks = append(parentLinks, parentLink{imgID, m.Parent})
+		l.loggerImgEvent.LogImageEvent(imgID.String(), imgID.String(), "load")
+	}
+
+	for _, p := range validatedParentLinks(parentLinks) {
+		if p.parentID != "" {
+			if err := l.setParentID(p.id, p.parentID); err != nil {
+				return err
+			}
+		}
+	}
+
+	if imageRefCount == 0 {
+		outStream.Write([]byte(imageIDsStr))
 	}
 
 	return nil
 }
 
-func (l *tarexporter) loadLayer(filename string, rootFS image.RootFS) (layer.Layer, error) {
-	rawTar, err := os.Open(filename)
+func (l *tarexporter) setParentID(id, parentID image.ID) error {
+	img, err := l.is.Get(id)
+	if err != nil {
+		return err
+	}
+	parent, err := l.is.Get(parentID)
+	if err != nil {
+		return err
+	}
+	if !checkValidParent(img, parent) {
+		return fmt.Errorf("image %v is not a valid parent for %v", parent.ID(), img.ID())
+	}
+	return l.is.SetParent(id, parentID)
+}
+
+func (l *tarexporter) loadLayer(filename string, rootFS image.RootFS, id string, os string, foreignSrc distribution.Descriptor, progressOutput progress.Output) (layer.Layer, error) {
+	// We use system.OpenSequential to use sequential file access on Windows, avoiding
+	// depleting the standby list. On Linux, this equates to a regular os.Open.
+	rawTar, err := system.OpenSequential(filename)
 	if err != nil {
 		logrus.Debugf("Error reading embedded tar: %v", err)
 		return nil, err
 	}
 	defer rawTar.Close()
 
-	inflatedLayerData, err := archive.DecompressStream(rawTar)
+	var r io.Reader
+	if progressOutput != nil {
+		fileInfo, err := rawTar.Stat()
+		if err != nil {
+			logrus.Debugf("Error statting file: %v", err)
+			return nil, err
+		}
+
+		r = progress.NewProgressReader(rawTar, progressOutput, fileInfo.Size(), stringid.TruncateID(id), "Loading layer")
+	} else {
+		r = rawTar
+	}
+
+	inflatedLayerData, err := archive.DecompressStream(r)
 	if err != nil {
 		return nil, err
 	}
 	defer inflatedLayerData.Close()
 
-	return l.ls.Register(inflatedLayerData, rootFS.ChainID())
+	if ds, ok := l.lss[os].(layer.DescribableStore); ok {
+		return ds.RegisterWithDescriptor(inflatedLayerData, rootFS.ChainID(), foreignSrc)
+	}
+	return l.lss[os].Register(inflatedLayerData, rootFS.ChainID())
 }
 
-func (l *tarexporter) setLoadedTag(ref reference.NamedTagged, imgID image.ID, outStream io.Writer) error {
+func (l *tarexporter) setLoadedTag(ref reference.Named, imgID digest.Digest, outStream io.Writer) error {
 	if prevID, err := l.rs.Get(ref); err == nil && prevID != imgID {
-		fmt.Fprintf(outStream, "The image %s already exists, renaming the old one with ID %s to empty string\n", ref.String(), string(prevID)) // todo: this message is wrong in case of multiple tags
+		fmt.Fprintf(outStream, "The image %s already exists, renaming the old one with ID %s to empty string\n", reference.FamiliarString(ref), string(prevID)) // todo: this message is wrong in case of multiple tags
 	}
 
-	if err := l.rs.AddTag(ref, imgID, true); err != nil {
-		return err
-	}
-	return nil
+	return l.rs.AddTag(ref, imgID, true)
 }
 
-func (l *tarexporter) legacyLoad(tmpDir string, outStream io.Writer) error {
+func (l *tarexporter) legacyLoad(tmpDir string, outStream io.Writer, progressOutput progress.Output) error {
+	if runtime.GOOS == "windows" {
+		return errors.New("Windows does not support legacy loading of images")
+	}
+
 	legacyLoadedMap := make(map[string]image.ID)
 
 	dirs, err := ioutil.ReadDir(tmpDir)
@@ -150,7 +234,7 @@ func (l *tarexporter) legacyLoad(tmpDir string, outStream io.Writer) error {
 	// every dir represents an image
 	for _, d := range dirs {
 		if d.IsDir() {
-			if err := l.legacyLoadImage(d.Name(), tmpDir, legacyLoadedMap); err != nil {
+			if err := l.legacyLoadImage(d.Name(), tmpDir, legacyLoadedMap, progressOutput); err != nil {
 				return err
 			}
 		}
@@ -163,10 +247,7 @@ func (l *tarexporter) legacyLoad(tmpDir string, outStream io.Writer) error {
 	}
 	repositoriesFile, err := os.Open(repositoriesPath)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-		return repositoriesFile.Close()
+		return err
 	}
 	defer repositoriesFile.Close()
 
@@ -181,7 +262,7 @@ func (l *tarexporter) legacyLoad(tmpDir string, outStream io.Writer) error {
 			if !ok {
 				return fmt.Errorf("invalid target ID: %v", oldID)
 			}
-			named, err := reference.WithName(name)
+			named, err := reference.ParseNormalizedNamed(name)
 			if err != nil {
 				return err
 			}
@@ -189,14 +270,14 @@ func (l *tarexporter) legacyLoad(tmpDir string, outStream io.Writer) error {
 			if err != nil {
 				return err
 			}
-			l.setLoadedTag(ref, imgID, outStream)
+			l.setLoadedTag(ref, imgID.Digest(), outStream)
 		}
 	}
 
 	return nil
 }
 
-func (l *tarexporter) legacyLoadImage(oldID, sourceDir string, loadedMap map[string]image.ID) error {
+func (l *tarexporter) legacyLoadImage(oldID, sourceDir string, loadedMap map[string]image.ID, progressOutput progress.Output) error {
 	if _, loaded := loadedMap[oldID]; loaded {
 		return nil
 	}
@@ -210,9 +291,19 @@ func (l *tarexporter) legacyLoadImage(oldID, sourceDir string, loadedMap map[str
 		return err
 	}
 
-	var img struct{ Parent string }
+	var img struct {
+		OS     string
+		Parent string
+	}
 	if err := json.Unmarshal(imageJSON, &img); err != nil {
 		return err
+	}
+
+	if err := checkCompatibleOS(img.OS); err != nil {
+		return err
+	}
+	if img.OS == "" {
+		img.OS = runtime.GOOS
 	}
 
 	var parentID image.ID
@@ -220,7 +311,7 @@ func (l *tarexporter) legacyLoadImage(oldID, sourceDir string, loadedMap map[str
 		for {
 			var loaded bool
 			if parentID, loaded = loadedMap[img.Parent]; !loaded {
-				if err := l.legacyLoadImage(img.Parent, sourceDir, loadedMap); err != nil {
+				if err := l.legacyLoadImage(img.Parent, sourceDir, loadedMap, progressOutput); err != nil {
 					return err
 				}
 			} else {
@@ -247,7 +338,7 @@ func (l *tarexporter) legacyLoadImage(oldID, sourceDir string, loadedMap map[str
 	if err != nil {
 		return err
 	}
-	newLayer, err := l.loadLayer(layerPath, *rootFS)
+	newLayer, err := l.loadLayer(layerPath, *rootFS, oldID, img.OS, distribution.Descriptor{}, progressOutput)
 	if err != nil {
 		return err
 	}
@@ -268,7 +359,7 @@ func (l *tarexporter) legacyLoadImage(oldID, sourceDir string, loadedMap map[str
 		return err
 	}
 
-	metadata, err := l.ls.Release(newLayer)
+	metadata, err := l.lss[img.OS].Release(newLayer)
 	layer.LogReleaseMetadata(metadata)
 	if err != nil {
 		return err
@@ -286,4 +377,53 @@ func (l *tarexporter) legacyLoadImage(oldID, sourceDir string, loadedMap map[str
 
 func safePath(base, path string) (string, error) {
 	return symlink.FollowSymlinkInScope(filepath.Join(base, path), base)
+}
+
+type parentLink struct {
+	id, parentID image.ID
+}
+
+func validatedParentLinks(pl []parentLink) (ret []parentLink) {
+mainloop:
+	for i, p := range pl {
+		ret = append(ret, p)
+		for _, p2 := range pl {
+			if p2.id == p.parentID && p2.id != p.id {
+				continue mainloop
+			}
+		}
+		ret[i].parentID = ""
+	}
+	return
+}
+
+func checkValidParent(img, parent *image.Image) bool {
+	if len(img.History) == 0 && len(parent.History) == 0 {
+		return true // having history is not mandatory
+	}
+	if len(img.History)-len(parent.History) != 1 {
+		return false
+	}
+	for i, h := range parent.History {
+		if !reflect.DeepEqual(h, img.History[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func checkCompatibleOS(imageOS string) error {
+	// always compatible if the images OS matches the host OS; also match an empty image OS
+	if imageOS == runtime.GOOS || imageOS == "" {
+		return nil
+	}
+	// On non-Windows hosts, for compatibility, fail if the image is Windows.
+	if runtime.GOOS != "windows" && imageOS == "windows" {
+		return fmt.Errorf("cannot load %s image on %s", imageOS, runtime.GOOS)
+	}
+	// Finally, check the image OS is supported for the platform.
+	if err := system.ValidatePlatform(system.ParsePlatform(imageOS)); err != nil {
+		return fmt.Errorf("cannot load %s image on %s: %s", imageOS, runtime.GOOS, err)
+	}
+	return nil
 }

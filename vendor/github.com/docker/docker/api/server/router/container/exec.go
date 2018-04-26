@@ -1,18 +1,19 @@
-package container
+package container // import "github.com/docker/docker/api/server/router/container"
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/server/httputils"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/versions"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/docker/utils"
-	"github.com/docker/engine-api/types"
-	"golang.org/x/net/context"
+	"github.com/sirupsen/logrus"
 )
 
 func (s *containerRouter) getExecByID(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
@@ -23,6 +24,14 @@ func (s *containerRouter) getExecByID(ctx context.Context, w http.ResponseWriter
 
 	return httputils.WriteJSON(w, http.StatusOK, eConfig)
 }
+
+type execCommandError struct{}
+
+func (execCommandError) Error() string {
+	return "No exec command specified"
+}
+
+func (execCommandError) InvalidParameter() {}
 
 func (s *containerRouter) postContainerExecCreate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := httputils.ParseForm(r); err != nil {
@@ -37,20 +46,19 @@ func (s *containerRouter) postContainerExecCreate(ctx context.Context, w http.Re
 	if err := json.NewDecoder(r.Body).Decode(execConfig); err != nil {
 		return err
 	}
-	execConfig.Container = name
 
 	if len(execConfig.Cmd) == 0 {
-		return fmt.Errorf("No exec command specified")
+		return execCommandError{}
 	}
 
 	// Register an instance of Exec in container.
-	id, err := s.backend.ContainerExecCreate(execConfig)
+	id, err := s.backend.ContainerExecCreate(name, execConfig)
 	if err != nil {
-		logrus.Errorf("Error setting up exec command in container %s: %s", name, utils.GetErrorMessage(err))
+		logrus.Errorf("Error setting up exec command in container %s: %v", name, err)
 		return err
 	}
 
-	return httputils.WriteJSON(w, http.StatusCreated, &types.ContainerExecCreateResponse{
+	return httputils.WriteJSON(w, http.StatusCreated, &types.IDResponse{
 		ID: id,
 	})
 }
@@ -62,7 +70,7 @@ func (s *containerRouter) postContainerExecStart(ctx context.Context, w http.Res
 	}
 
 	version := httputils.VersionFromContext(ctx)
-	if version.GreaterThan("1.21") {
+	if versions.GreaterThan(version, "1.21") {
 		if err := httputils.CheckForJSON(r); err != nil {
 			return err
 		}
@@ -93,10 +101,16 @@ func (s *containerRouter) postContainerExecStart(ctx context.Context, w http.Res
 		defer httputils.CloseStreams(inStream, outStream)
 
 		if _, ok := r.Header["Upgrade"]; ok {
-			fmt.Fprintf(outStream, "HTTP/1.1 101 UPGRADED\r\nContent-Type: application/vnd.docker.raw-stream\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n\r\n")
+			fmt.Fprint(outStream, "HTTP/1.1 101 UPGRADED\r\nContent-Type: application/vnd.docker.raw-stream\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n")
 		} else {
-			fmt.Fprintf(outStream, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.docker.raw-stream\r\n\r\n")
+			fmt.Fprint(outStream, "HTTP/1.1 200 OK\r\nContent-Type: application/vnd.docker.raw-stream\r\n")
 		}
+
+		// copy headers that were removed as part of hijack
+		if err := w.Header().WriteSubset(outStream, nil); err != nil {
+			return err
+		}
+		fmt.Fprint(outStream, "\r\n")
 
 		stdin = inStream
 		stdout = outStream
@@ -104,16 +118,16 @@ func (s *containerRouter) postContainerExecStart(ctx context.Context, w http.Res
 			stderr = stdcopy.NewStdWriter(outStream, stdcopy.Stderr)
 			stdout = stdcopy.NewStdWriter(outStream, stdcopy.Stdout)
 		}
-	} else {
-		outStream = w
 	}
 
 	// Now run the user process in container.
-	if err := s.backend.ContainerExecStart(execName, stdin, stdout, stderr); err != nil {
+	// Maybe we should we pass ctx here if we're not detaching?
+	if err := s.backend.ContainerExecStart(context.Background(), execName, stdin, stdout, stderr); err != nil {
 		if execStartCheck.Detach {
 			return err
 		}
-		logrus.Errorf("Error running exec in container: %v\n", utils.GetErrorMessage(err))
+		stdout.Write([]byte(err.Error() + "\r\n"))
+		logrus.Errorf("Error running exec %s in container: %v", execName, err)
 	}
 	return nil
 }
@@ -124,11 +138,11 @@ func (s *containerRouter) postContainerExecResize(ctx context.Context, w http.Re
 	}
 	height, err := strconv.Atoi(r.Form.Get("h"))
 	if err != nil {
-		return err
+		return errdefs.InvalidParameter(err)
 	}
 	width, err := strconv.Atoi(r.Form.Get("w"))
 	if err != nil {
-		return err
+		return errdefs.InvalidParameter(err)
 	}
 
 	return s.backend.ContainerExecResize(vars["name"], height, width)

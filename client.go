@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -23,31 +24,31 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/engine-api/client"
-	"github.com/docker/engine-api/types"
-	"github.com/docker/engine-api/types/container"
-	"github.com/docker/engine-api/types/network"
-	"github.com/docker/engine-api/types/strslice"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/client"
 )
 
 // zypperExitCode is used as zypper-docker's exit code.
-var zypperExitCode int
+var zypperExitCode int64
 
 // rootUser is the explicit value to use for the USER directive to specify a user
 // as being root. Oddly, specifying the default value ("") doesn't work even though
 // images that have the default value set for .Config.User run as root.
 const rootUser = "0:0"
 
-// dockerError encapsulates a WaitResult that has an exit status
-// different than 0. This is done this way because, for some commands, zypper
-// might set an exit code different than 0, even if there was no error. For
-// example, the patch-check command can set the exit code 100, to determine
-// that there are patches to be installed. In this case, the caller can decide
-// what to do depending on the error returned by zypper. Therefore, the caller
-// of functions such as `startContainer` should only care about this type if
-// the command being implemented has this kind of behavior.
+// dockerError encapsulates an exit status that has a value different than 0.
+// This is done this way because, for some commands, zypper might set an exit
+// code different than 0, even if there was no error. For example, the patch-check
+// command can set the exit code 100, to determine that there are patches to be
+// installed. In this case, the caller can decide what to do depending on the
+// error returned by zypper. Therefore, the caller of functions such as
+// `startContainer` should only care about this type if the command being
+// implemented has this kind of behavior.
 type dockerError struct {
-	waitResult
+	exitCode int64
+	err      error
 }
 
 func (de dockerError) Error() string {
@@ -57,18 +58,18 @@ func (de dockerError) Error() string {
 // DockerClient is an interface listing all the functions that we use from
 // Docker clients.
 type DockerClient interface {
-	ContainerCommit(options types.ContainerCommitOptions) (types.ContainerCommitResponse, error)
-	ContainerCreate(config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (types.ContainerCreateResponse, error)
-	ContainerKill(containerID, signal string) error
-	ContainerList(options types.ContainerListOptions) ([]types.Container, error)
-	ContainerLogs(options types.ContainerLogsOptions) (io.ReadCloser, error)
-	ContainerRemove(options types.ContainerRemoveOptions) error
-	ContainerResize(options types.ResizeOptions) error
-	ContainerStart(id string) error
-	ContainerWait(containerID string) (int, error)
+	ContainerCommit(ctx context.Context, container string, options types.ContainerCommitOptions) (types.IDResponse, error)
+	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
+	ContainerKill(ctx context.Context, containerID, signal string) error
+	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
+	ContainerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error)
+	ContainerRemove(ctx context.Context, containerID string, options types.ContainerRemoveOptions) error
+	ContainerResize(ctx context.Context, containerID string, options types.ResizeOptions) error
+	ContainerStart(ctx context.Context, containerID string, options types.ContainerStartOptions) error
+	ContainerWait(ctx context.Context, containerID string, condition container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error)
 
-	ImageInspectWithRaw(imageID string, getSize bool) (types.ImageInspect, []byte, error)
-	ImageList(options types.ImageListOptions) ([]types.Image, error)
+	ImageInspectWithRaw(ctx context.Context, imageID string) (types.ImageInspect, []byte, error)
+	ImageList(ctx context.Context, options types.ImageListOptions) ([]types.ImageSummary, error)
 }
 
 // The timeout in which the container is allowed to run a command as given
@@ -194,7 +195,7 @@ func runCommandInContainer(img string, cmd []string, dst io.Writer) (string, err
 		switch err.(type) {
 		case dockerError:
 			de := err.(dockerError)
-			if isZypperExitCodeSevere(de.exitCode) {
+			if isZypperExitCodeSevere(int(de.exitCode)) {
 				return "", err
 			}
 			if de.exitCode == zypperExitInfRestartNeeded {
@@ -220,29 +221,28 @@ func runCommandInContainer(img string, cmd []string, dst io.Writer) (string, err
 // returned can be of type dockerError. This only happens when the container
 // has run normally (no signals, no timeout), but the exit code is not 0. Read
 // the documentation on the `dockerError` command on why we do this.
-func startContainer(id string, wait bool, dst io.Writer) (string, error) {
+func startContainer(containerID string, wait bool, dst io.Writer) (string, error) {
 
 	client := getDockerClient()
-	if err := client.ContainerStart(id); err != nil {
+	if err := client.ContainerStart(context.Background(), containerID, types.ContainerStartOptions{}); err != nil {
 		// Silently fail, since it might be "zypper" not existing and we don't
 		// want to add noise to the log.
-		return id, err
+		return containerID, err
 	}
-	resizeTty(id)
+	resizeTty(containerID)
 
 	sc := make(chan bool)
 
 	if dst != nil {
 		// setup logging
-		rc, err := client.ContainerLogs(types.ContainerLogsOptions{
-			ContainerID: id,
-			Follow:      true, // required to keep streaming
-			ShowStdout:  true,
-			ShowStderr:  true,
+		rc, err := client.ContainerLogs(context.Background(), containerID, types.ContainerLogsOptions{
+			Follow:     true, // required to keep streaming
+			ShowStdout: true,
+			ShowStderr: true,
 		})
 		if err != nil {
 			log.Println(err)
-			return id, err
+			return containerID, err
 		}
 		defer func() {
 			if err := rc.Close(); err != nil {
@@ -257,57 +257,45 @@ func startContainer(id string, wait bool, dst io.Writer) (string, error) {
 		}()
 	}
 
-	timeout := make(chan int)
-	go func() {
-		if !wait {
-			time.Sleep(containerTimeout)
-			timeout <- 1
-		}
-	}()
+	var waitErr error
+	ctx := context.Background()
+	if !wait {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, containerTimeout)
+		defer cancel()
+	}
+
+	statusCh, errCh := client.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 
 	select {
-	case res := <-containerWait(id):
-		zypperExitCode = res.exitCode
+	case <-ctx.Done():
+		return containerID, fmt.Errorf("Timed out when waiting for a container")
+
+	case <-killChannel:
+		if err := client.ContainerKill(context.Background(), containerID, "KILL"); err != nil {
+			fmt.Println("Error while killing running container:", err)
+		} else {
+			removeContainer(containerID)
+		}
+		exitWithCode(1)
+
+	case err := <-errCh:
+		waitErr = err
+
+	case exitCode := <-statusCh:
+		zypperExitCode = exitCode.StatusCode
 		if dst != nil {
 			<-sc
 		}
-		if res.err != nil {
-			return id, res.err
-		} else if res.exitCode != 0 {
-			return id, dockerError{res}
-		}
-	case <-timeout:
-		return id, fmt.Errorf("Timed out when waiting for a container")
-	case <-killChannel:
-		if err := client.ContainerKill(id, "KILL"); err != nil {
-			fmt.Println("Error while killing running container:", err)
-		} else {
-			removeContainer(id)
-		}
-		exitWithCode(1)
 	}
-
-	return id, nil
-}
-
-// waitResult encapsulates the result of the client.ContainerWait function.
-// Defined for the convenience of the containerWait function.
-type waitResult struct {
-	exitCode int
-	err      error
-}
-
-// containerWait is a tiny wrapper on top of the client.ContainerWait function
-// so it returns a channel instead.
-func containerWait(id string) chan waitResult {
-	wr := make(chan waitResult)
-	client := getDockerClient()
-
-	go func() {
-		code, err := client.ContainerWait(id)
-		wr <- waitResult{exitCode: code, err: err}
-	}()
-	return wr
+	if waitErr != nil {
+		return containerID, waitErr
+	} else if zypperExitCode != 0 {
+		return containerID, dockerError{
+			exitCode: zypperExitCode,
+			err:      nil}
+	}
+	return containerID, waitErr
 }
 
 // Get the host config to be used for starting containers.
@@ -331,8 +319,8 @@ func createContainer(img string, cmd []string) (string, error) {
 	// First of all we create a container in which we will run the command.
 	config := &container.Config{
 		Image:        img,
-		Cmd:          strslice.New(cmd...),
-		Entrypoint:   strslice.New("/bin/sh", "-c"),
+		Cmd:          cmd,
+		Entrypoint:   []string{"/bin/sh", "-c"},
 		AttachStdout: true,
 		AttachStderr: true,
 		// We need to run as root in order to run zypper commands.
@@ -341,7 +329,7 @@ func createContainer(img string, cmd []string) (string, error) {
 		// like "zypper ref" does
 		Tty: true,
 	}
-	resp, err := client.ContainerCreate(config, getHostConfig(), nil, "")
+	resp, err := client.ContainerCreate(context.Background(), config, getHostConfig(), nil, "")
 	if err != nil {
 		return "", err
 	}
@@ -354,11 +342,10 @@ func createContainer(img string, cmd []string) (string, error) {
 
 // Safely remove the given container. It will deal with the error by logging
 // it.
-func removeContainer(id string) {
+func removeContainer(containerID string) {
 	client := getDockerClient()
 
-	err := client.ContainerRemove(types.ContainerRemoveOptions{
-		ContainerID:   id,
+	err := client.ContainerRemove(context.Background(), containerID, types.ContainerRemoveOptions{
 		RemoveVolumes: true,
 		Force:         true,
 	})
@@ -376,7 +363,7 @@ func commitContainerToImage(img, containerID, repo, tag, comment, author string)
 	// First of all, we inspect the parent image and fetch the values for the
 	// entrypoint and the cmd. We do this to preserve them on the committed
 	// image. See issue: https://github.com/SUSE/zypper-docker/issues/75.
-	info, _, err := client.ImageInspectWithRaw(img, false)
+	info, _, err := client.ImageInspectWithRaw(context.Background(), img)
 	if err != nil {
 		return "", fmt.Errorf("could not inspect image '%s': %v", img, err)
 	}
@@ -390,19 +377,17 @@ func commitContainerToImage(img, containerID, repo, tag, comment, author string)
 
 	changes := []string{
 		"USER " + user,
-		"ENTRYPOINT " + joinAsArray(info.Config.Entrypoint.Slice(), false),
-		"CMD " + joinAsArray(info.Config.Cmd.Slice(), true),
+		"ENTRYPOINT " + joinAsArray(info.Config.Entrypoint, false),
+		"CMD " + joinAsArray(info.Config.Cmd, true),
 	}
 
 	// And we commit into the new image.
-	resp, err := client.ContainerCommit(types.ContainerCommitOptions{
-		ContainerID:    containerID,
-		RepositoryName: repo,
-		Tag:            tag,
-		Comment:        comment,
-		Author:         author,
-		Changes:        changes,
-		Config:         &container.Config{},
+	resp, err := client.ContainerCommit(context.Background(), containerID, types.ContainerCommitOptions{
+		Reference: repo + ":" + tag,
+		Comment:   comment,
+		Author:    author,
+		Changes:   changes,
+		Config:    &container.Config{},
 	})
 	return resp.ID, err
 }
@@ -433,7 +418,7 @@ func checkContainerRunning(id string) (types.Container, error) {
 	client := getDockerClient()
 	var container types.Container
 
-	containers, err := client.ContainerList(types.ContainerListOptions{})
+	containers, err := client.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
 		return container, fmt.Errorf("Error while fetching running containers: %v", err)
 	}

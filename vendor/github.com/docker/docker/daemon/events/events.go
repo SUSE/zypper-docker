@@ -1,15 +1,15 @@
-package events
+package events // import "github.com/docker/docker/daemon/events"
 
 import (
 	"sync"
 	"time"
 
+	eventtypes "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/pkg/pubsub"
-	eventtypes "github.com/docker/engine-api/types/events"
 )
 
 const (
-	eventsLimit = 64
+	eventsLimit = 256
 	bufferSize  = 1024
 )
 
@@ -28,11 +28,12 @@ func New() *Events {
 	}
 }
 
-// Subscribe adds new listener to events, returns slice of 64 stored
+// Subscribe adds new listener to events, returns slice of 256 stored
 // last events, a channel in which you can expect new events (in form
 // of interface{}, so you need type assertion), and a function to call
 // to stop the stream of events.
 func (e *Events) Subscribe() ([]eventtypes.Message, chan interface{}, func()) {
+	eventSubscribers.Inc()
 	e.mu.Lock()
 	current := make([]eventtypes.Message, len(e.events))
 	copy(current, e.events)
@@ -45,54 +46,46 @@ func (e *Events) Subscribe() ([]eventtypes.Message, chan interface{}, func()) {
 	return current, l, cancel
 }
 
-// SubscribeTopic adds new listener to events, returns slice of 64 stored
+// SubscribeTopic adds new listener to events, returns slice of 256 stored
 // last events, a channel in which you can expect new events (in form
 // of interface{}, so you need type assertion).
-func (e *Events) SubscribeTopic(since, sinceNano int64, ef *Filter) ([]eventtypes.Message, chan interface{}) {
+func (e *Events) SubscribeTopic(since, until time.Time, ef *Filter) ([]eventtypes.Message, chan interface{}) {
+	eventSubscribers.Inc()
 	e.mu.Lock()
-	defer e.mu.Unlock()
 
-	var buffered []eventtypes.Message
-	topic := func(m interface{}) bool {
-		return ef.Include(m.(eventtypes.Message))
+	var topic func(m interface{}) bool
+	if ef != nil && ef.filter.Len() > 0 {
+		topic = func(m interface{}) bool { return ef.Include(m.(eventtypes.Message)) }
 	}
 
-	if since != -1 {
-		for i := len(e.events) - 1; i >= 0; i-- {
-			ev := e.events[i]
-			if ev.Time < since || ((ev.Time == since) && (ev.TimeNano < sinceNano)) {
-				break
-			}
-			if ef.filter.Len() == 0 || topic(ev) {
-				buffered = append([]eventtypes.Message{ev}, buffered...)
-			}
-		}
-	}
+	buffered := e.loadBufferedEvents(since, until, topic)
 
 	var ch chan interface{}
-	if ef.filter.Len() > 0 {
+	if topic != nil {
 		ch = e.pub.SubscribeTopic(topic)
 	} else {
 		// Subscribe to all events if there are no filters
 		ch = e.pub.Subscribe()
 	}
 
+	e.mu.Unlock()
 	return buffered, ch
 }
 
 // Evict evicts listener from pubsub
 func (e *Events) Evict(l chan interface{}) {
+	eventSubscribers.Dec()
 	e.pub.Evict(l)
 }
 
-// Log broadcasts event to listeners. Each listener has 100 millisecond for
-// receiving event or it will be skipped.
+// Log creates a local scope message and publishes it
 func (e *Events) Log(action, eventType string, actor eventtypes.Actor) {
 	now := time.Now().UTC()
 	jm := eventtypes.Message{
 		Action:   action,
 		Type:     eventType,
 		Actor:    actor,
+		Scope:    "local",
 		Time:     now.Unix(),
 		TimeNano: now.UnixNano(),
 	}
@@ -107,6 +100,14 @@ func (e *Events) Log(action, eventType string, actor eventtypes.Actor) {
 		jm.ID = actor.ID
 		jm.Status = action
 	}
+
+	e.PublishMessage(jm)
+}
+
+// PublishMessage broadcasts event to listeners. Each listener has 100 milliseconds to
+// receive the event or it will be skipped.
+func (e *Events) PublishMessage(jm eventtypes.Message) {
+	eventsCounter.Inc()
 
 	e.mu.Lock()
 	if len(e.events) == cap(e.events) {
@@ -123,4 +124,42 @@ func (e *Events) Log(action, eventType string, actor eventtypes.Actor) {
 // SubscribersCount returns number of event listeners
 func (e *Events) SubscribersCount() int {
 	return e.pub.Len()
+}
+
+// loadBufferedEvents iterates over the cached events in the buffer
+// and returns those that were emitted between two specific dates.
+// It uses `time.Unix(seconds, nanoseconds)` to generate valid dates with those arguments.
+// It filters those buffered messages with a topic function if it's not nil, otherwise it adds all messages.
+func (e *Events) loadBufferedEvents(since, until time.Time, topic func(interface{}) bool) []eventtypes.Message {
+	var buffered []eventtypes.Message
+	if since.IsZero() && until.IsZero() {
+		return buffered
+	}
+
+	var sinceNanoUnix int64
+	if !since.IsZero() {
+		sinceNanoUnix = since.UnixNano()
+	}
+
+	var untilNanoUnix int64
+	if !until.IsZero() {
+		untilNanoUnix = until.UnixNano()
+	}
+
+	for i := len(e.events) - 1; i >= 0; i-- {
+		ev := e.events[i]
+
+		if ev.TimeNano < sinceNanoUnix {
+			break
+		}
+
+		if untilNanoUnix > 0 && ev.TimeNano > untilNanoUnix {
+			continue
+		}
+
+		if topic == nil || topic(ev) {
+			buffered = append([]eventtypes.Message{ev}, buffered...)
+		}
+	}
+	return buffered
 }

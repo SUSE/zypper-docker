@@ -1,177 +1,74 @@
-// +build windows
-
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
-	"strings"
+	"fmt"
+	"io/ioutil"
+	"os"
 
 	"github.com/docker/docker/container"
-	"github.com/docker/docker/daemon/execdriver"
-	"github.com/docker/docker/daemon/execdriver/windows"
-	derr "github.com/docker/docker/errors"
-	"github.com/docker/docker/layer"
-	networktypes "github.com/docker/engine-api/types/network"
+	"github.com/docker/docker/pkg/system"
 	"github.com/docker/libnetwork"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 func (daemon *Daemon) setupLinkedContainers(container *container.Container) ([]string, error) {
 	return nil, nil
 }
 
-// updateContainerNetworkSettings update the network settings
-func (daemon *Daemon) updateContainerNetworkSettings(container *container.Container, endpointsConfig map[string]*networktypes.EndpointSettings) error {
-	return nil
-}
-
-func (daemon *Daemon) initializeNetworking(container *container.Container) error {
-	return nil
-}
-
-// ConnectToNetwork connects a container to the network
-func (daemon *Daemon) ConnectToNetwork(container *container.Container, idOrName string, endpointConfig *networktypes.EndpointSettings) error {
-	return nil
-}
-
-// ForceEndpointDelete deletes an endpoing from a network forcefully
-func (daemon *Daemon) ForceEndpointDelete(name string, n libnetwork.Network) error {
-	return nil
-}
-
-// DisconnectFromNetwork disconnects a container from the network.
-func (daemon *Daemon) DisconnectFromNetwork(container *container.Container, n libnetwork.Network, force bool) error {
-	return nil
-}
-
-func (daemon *Daemon) populateCommand(c *container.Container, env []string) error {
-	en := &execdriver.Network{
-		Interface: nil,
+func (daemon *Daemon) setupConfigDir(c *container.Container) (setupErr error) {
+	if len(c.ConfigReferences) == 0 {
+		return nil
 	}
 
-	parts := strings.SplitN(string(c.HostConfig.NetworkMode), ":", 2)
-	switch parts[0] {
-	case "none":
-	case "default", "": // empty string to support existing containers
-		if !c.Config.NetworkDisabled {
-			en.Interface = &execdriver.NetworkInterface{
-				MacAddress:   c.Config.MacAddress,
-				Bridge:       daemon.configStore.Bridge.VirtualSwitchName,
-				PortBindings: c.HostConfig.PortBindings,
+	localPath := c.ConfigsDirPath()
+	logrus.Debugf("configs: setting up config dir: %s", localPath)
 
-				// TODO Windows. Include IPAddress. There already is a
-				// property IPAddress on execDrive.CommonNetworkInterface,
-				// but there is no CLI option in docker to pass through
-				// an IPAddress on docker run.
+	// create local config root
+	if err := system.MkdirAllWithACL(localPath, 0, system.SddlAdministratorsLocalSystem); err != nil {
+		return errors.Wrap(err, "error creating config dir")
+	}
+
+	defer func() {
+		if setupErr != nil {
+			if err := os.RemoveAll(localPath); err != nil {
+				logrus.Errorf("error cleaning up config dir: %s", err)
 			}
 		}
-	default:
-		return derr.ErrorCodeInvalidNetworkMode.WithArgs(c.HostConfig.NetworkMode)
+	}()
+
+	if c.DependencyStore == nil {
+		return fmt.Errorf("config store is not initialized")
 	}
 
-	// TODO Windows. More resource controls to be implemented later.
-	resources := &execdriver.Resources{
-		CommonResources: execdriver.CommonResources{
-			CPUShares: c.HostConfig.CPUShares,
-		},
-	}
+	for _, configRef := range c.ConfigReferences {
+		// TODO (ehazlett): use type switch when more are supported
+		if configRef.File == nil {
+			logrus.Error("config target type is not a file target")
+			continue
+		}
 
-	processConfig := execdriver.ProcessConfig{
-		CommonProcessConfig: execdriver.CommonProcessConfig{
-			Entrypoint: c.Path,
-			Arguments:  c.Args,
-			Tty:        c.Config.Tty,
-		},
-		ConsoleSize: c.HostConfig.ConsoleSize,
-	}
+		fPath := c.ConfigFilePath(*configRef)
+		log := logrus.WithFields(logrus.Fields{"name": configRef.File.Name, "path": fPath})
 
-	processConfig.Env = env
-
-	var layerPaths []string
-	img, err := daemon.imageStore.Get(c.ImageID)
-	if err != nil {
-		return derr.ErrorCodeGetGraph.WithArgs(c.ImageID, err)
-	}
-
-	if img.RootFS != nil && img.RootFS.Type == "layers+base" {
-		max := len(img.RootFS.DiffIDs)
-		for i := 0; i <= max; i++ {
-			img.RootFS.DiffIDs = img.RootFS.DiffIDs[:i]
-			path, err := layer.GetLayerPath(daemon.layerStore, img.RootFS.ChainID())
-			if err != nil {
-				return derr.ErrorCodeGetLayer.WithArgs(err)
-			}
-			// Reverse order, expecting parent most first
-			layerPaths = append([]string{path}, layerPaths...)
+		log.Debug("injecting config")
+		config, err := c.DependencyStore.Configs().Get(configRef.ConfigID)
+		if err != nil {
+			return errors.Wrap(err, "unable to get config from config store")
+		}
+		if err := ioutil.WriteFile(fPath, config.Spec.Data, configRef.File.Mode); err != nil {
+			return errors.Wrap(err, "error injecting config")
 		}
 	}
 
-	m, err := c.RWLayer.Metadata()
-	if err != nil {
-		return derr.ErrorCodeGetLayerMetadata.WithArgs(err)
-	}
-	layerFolder := m["dir"]
-
-	var hvPartition bool
-	// Work out the isolation (whether it is a hypervisor partition)
-	if c.HostConfig.Isolation.IsDefault() {
-		// Not specified by caller. Take daemon default
-		hvPartition = windows.DefaultIsolation.IsHyperV()
-	} else {
-		// Take value specified by caller
-		hvPartition = c.HostConfig.Isolation.IsHyperV()
-	}
-
-	c.Command = &execdriver.Command{
-		CommonCommand: execdriver.CommonCommand{
-			ID:            c.ID,
-			Rootfs:        c.BaseFS,
-			InitPath:      "/.dockerinit",
-			WorkingDir:    c.Config.WorkingDir,
-			Network:       en,
-			MountLabel:    c.GetMountLabel(),
-			Resources:     resources,
-			ProcessConfig: processConfig,
-			ProcessLabel:  c.GetProcessLabel(),
-		},
-		FirstStart:  !c.HasBeenStartedBefore,
-		LayerFolder: layerFolder,
-		LayerPaths:  layerPaths,
-		Hostname:    c.Config.Hostname,
-		Isolation:   string(c.HostConfig.Isolation),
-		ArgsEscaped: c.Config.ArgsEscaped,
-		HvPartition: hvPartition,
-	}
-
 	return nil
-}
-
-// getSize returns real size & virtual size
-func (daemon *Daemon) getSize(container *container.Container) (int64, int64) {
-	// TODO Windows
-	return 0, 0
-}
-
-// setNetworkNamespaceKey is a no-op on Windows.
-func (daemon *Daemon) setNetworkNamespaceKey(containerID string, pid int) error {
-	return nil
-}
-
-// allocateNetwork is a no-op on Windows.
-func (daemon *Daemon) allocateNetwork(container *container.Container) error {
-	return nil
-}
-
-func (daemon *Daemon) updateNetwork(container *container.Container) error {
-	return nil
-}
-
-func (daemon *Daemon) releaseNetwork(container *container.Container) {
 }
 
 func (daemon *Daemon) setupIpcDirs(container *container.Container) error {
 	return nil
 }
 
-// TODO Windows: Fix Post-TP4. This is a hack to allow docker cp to work
+// TODO Windows: Fix Post-TP5. This is a hack to allow docker cp to work
 // against containers which have volumes. You will still be able to cp
 // to somewhere on the container drive, but not to any mounted volumes
 // inside the container. Without this fix, docker cp is broken to any
@@ -185,6 +82,120 @@ func detachMounted(path string) error {
 	return nil
 }
 
+func (daemon *Daemon) setupSecretDir(c *container.Container) (setupErr error) {
+	if len(c.SecretReferences) == 0 {
+		return nil
+	}
+
+	localMountPath, err := c.SecretMountPath()
+	if err != nil {
+		return err
+	}
+	logrus.Debugf("secrets: setting up secret dir: %s", localMountPath)
+
+	// create local secret root
+	if err := system.MkdirAllWithACL(localMountPath, 0, system.SddlAdministratorsLocalSystem); err != nil {
+		return errors.Wrap(err, "error creating secret local directory")
+	}
+
+	defer func() {
+		if setupErr != nil {
+			if err := os.RemoveAll(localMountPath); err != nil {
+				logrus.Errorf("error cleaning up secret mount: %s", err)
+			}
+		}
+	}()
+
+	if c.DependencyStore == nil {
+		return fmt.Errorf("secret store is not initialized")
+	}
+
+	for _, s := range c.SecretReferences {
+		// TODO (ehazlett): use type switch when more are supported
+		if s.File == nil {
+			logrus.Error("secret target type is not a file target")
+			continue
+		}
+
+		// secrets are created in the SecretMountPath on the host, at a
+		// single level
+		fPath, err := c.SecretFilePath(*s)
+		if err != nil {
+			return err
+		}
+		logrus.WithFields(logrus.Fields{
+			"name": s.File.Name,
+			"path": fPath,
+		}).Debug("injecting secret")
+		secret, err := c.DependencyStore.Secrets().Get(s.SecretID)
+		if err != nil {
+			return errors.Wrap(err, "unable to get secret from secret store")
+		}
+		if err := ioutil.WriteFile(fPath, secret.Spec.Data, s.File.Mode); err != nil {
+			return errors.Wrap(err, "error injecting secret")
+		}
+	}
+
+	return nil
+}
+
 func killProcessDirectly(container *container.Container) error {
+	return nil
+}
+
+func isLinkable(child *container.Container) bool {
+	return false
+}
+
+func enableIPOnPredefinedNetwork() bool {
+	return true
+}
+
+func (daemon *Daemon) isNetworkHotPluggable() bool {
+	return true
+}
+
+func setupPathsAndSandboxOptions(container *container.Container, sboxOptions *[]libnetwork.SandboxOption) error {
+	return nil
+}
+
+func (daemon *Daemon) initializeNetworkingPaths(container *container.Container, nc *container.Container) error {
+
+	if nc.HostConfig.Isolation.IsHyperV() {
+		return fmt.Errorf("sharing of hyperv containers network is not supported")
+	}
+
+	container.NetworkSharedContainerID = nc.ID
+
+	if nc.NetworkSettings != nil {
+		for n := range nc.NetworkSettings.Networks {
+			sn, err := daemon.FindNetwork(n)
+			if err != nil {
+				continue
+			}
+
+			ep, err := nc.GetEndpointInNetwork(sn)
+			if err != nil {
+				continue
+			}
+
+			data, err := ep.DriverInfo()
+			if err != nil {
+				continue
+			}
+
+			if data["GW_INFO"] != nil {
+				gwInfo := data["GW_INFO"].(map[string]interface{})
+				if gwInfo["hnsid"] != nil {
+					container.SharedEndpointList = append(container.SharedEndpointList, gwInfo["hnsid"].(string))
+				}
+			}
+
+			if data["hnsid"] != nil {
+				container.SharedEndpointList = append(container.SharedEndpointList, data["hnsid"].(string))
+			}
+		}
+	}
+
 	return nil
 }

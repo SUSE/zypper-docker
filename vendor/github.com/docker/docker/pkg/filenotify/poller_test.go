@@ -1,13 +1,14 @@
-package filenotify
+package filenotify // import "github.com/docker/docker/pkg/filenotify"
 
 import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
-	"gopkg.in/fsnotify.v1"
+	"github.com/fsnotify/fsnotify"
 )
 
 func TestPollerAddRemove(t *testing.T) {
@@ -36,6 +37,9 @@ func TestPollerAddRemove(t *testing.T) {
 }
 
 func TestPollerEvent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("No chmod on Windows")
+	}
 	w := NewPollingWatcher()
 
 	f, err := ioutil.TempFile("", "test-poller")
@@ -57,7 +61,7 @@ func TestPollerEvent(t *testing.T) {
 	default:
 	}
 
-	if err := ioutil.WriteFile(f.Name(), []byte("hello"), 644); err != nil {
+	if err := ioutil.WriteFile(f.Name(), []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := assertEvent(w, fsnotify.Write); err != nil {
@@ -89,24 +93,6 @@ func TestPollerClose(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	select {
-	case _, open := <-w.Events():
-		if open {
-			t.Fatal("event chan should be closed")
-		}
-	default:
-		t.Fatal("event chan should be closed")
-	}
-
-	select {
-	case _, open := <-w.Errors():
-		if open {
-			t.Fatal("errors chan should be closed")
-		}
-	default:
-		t.Fatal("errors chan should be closed")
-	}
-
 	f, err := ioutil.TempFile("", "asdf")
 	if err != nil {
 		t.Fatal(err)
@@ -122,7 +108,7 @@ func assertEvent(w FileWatcher, eType fsnotify.Op) error {
 	select {
 	case e := <-w.Events():
 		if e.Op != eType {
-			err = fmt.Errorf("got wrong event type, expected %q: %v", eType, e)
+			err = fmt.Errorf("got wrong event type, expected %q: %v", eType, e.Op)
 		}
 	case e := <-w.Errors():
 		err = fmt.Errorf("got unexpected error waiting for events %v: %v", eType, e)

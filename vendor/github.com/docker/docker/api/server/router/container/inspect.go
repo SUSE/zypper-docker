@@ -1,13 +1,13 @@
-package container
+package container // import "github.com/docker/docker/api/server/router/container"
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/docker/docker/api/server/httputils"
-	"golang.org/x/net/context"
 )
 
-// getContainersByName inspects containers configuration and serializes it as json.
+// getContainersByName inspects container's configuration and serializes it as json.
 func (s *containerRouter) getContainersByName(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	displaySize := httputils.BoolValue(r, "size")
 

@@ -1,15 +1,17 @@
-package distribution
+package distribution // import "github.com/docker/docker/distribution"
 
 import (
 	"encoding/json"
 	"io/ioutil"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
-	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/manifest/schema1"
-	"github.com/docker/docker/reference"
+	"github.com/docker/distribution/reference"
+	"github.com/docker/docker/internal/testutil"
+	"github.com/opencontainers/go-digest"
 )
 
 // TestFixManifestLayers checks that fixManifestLayers removes a duplicate
@@ -62,6 +64,10 @@ func TestFixManifestLayers(t *testing.T) {
 // TestFixManifestLayersBaseLayerParent makes sure that fixManifestLayers fails
 // if the base layer configuration specifies a parent.
 func TestFixManifestLayersBaseLayerParent(t *testing.T) {
+	// TODO Windows: Fix this unit text
+	if runtime.GOOS == "windows" {
+		t.Skip("Needs fixing on Windows")
+	}
 	duplicateLayerManifest := schema1.Manifest{
 		FSLayers: []schema1.FSLayer{
 			{BlobSum: digest.Digest("sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4")},
@@ -75,7 +81,7 @@ func TestFixManifestLayersBaseLayerParent(t *testing.T) {
 		},
 	}
 
-	if err := fixManifestLayers(&duplicateLayerManifest); err == nil || !strings.Contains(err.Error(), "Invalid parent ID in the base layer of the image.") {
+	if err := fixManifestLayers(&duplicateLayerManifest); err == nil || !strings.Contains(err.Error(), "invalid parent ID in the base layer of the image") {
 		t.Fatalf("expected an invalid parent ID error from fixManifestLayers")
 	}
 }
@@ -97,14 +103,17 @@ func TestFixManifestLayersBadParent(t *testing.T) {
 		},
 	}
 
-	if err := fixManifestLayers(&duplicateLayerManifest); err == nil || !strings.Contains(err.Error(), "Invalid parent ID.") {
-		t.Fatalf("expected an invalid parent ID error from fixManifestLayers")
-	}
+	err := fixManifestLayers(&duplicateLayerManifest)
+	testutil.ErrorContains(t, err, "invalid parent ID")
 }
 
 // TestValidateManifest verifies the validateManifest function
 func TestValidateManifest(t *testing.T) {
-	expectedDigest, err := reference.ParseNamed("repo@sha256:02fee8c3220ba806531f606525eceb83f4feb654f62b207191b1c9209188dedd")
+	// TODO Windows: Fix this unit text
+	if runtime.GOOS == "windows" {
+		t.Skip("Needs fixing on Windows")
+	}
+	expectedDigest, err := reference.ParseNormalizedNamed("repo@sha256:02fee8c3220ba806531f606525eceb83f4feb654f62b207191b1c9209188dedd")
 	if err != nil {
 		t.Fatal("could not parse reference")
 	}

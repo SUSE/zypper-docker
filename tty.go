@@ -15,11 +15,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"syscall"
 	"unsafe"
 
-	"github.com/docker/engine-api/types"
+	"github.com/docker/docker/api/types"
 )
 
 // Resize the TTY of the container with the given id to the size of the current
@@ -31,8 +32,7 @@ func resizeTty(id string) {
 	}
 
 	client := getDockerClient()
-	err := client.ContainerResize(types.ResizeOptions{
-		ID:     id,
+	err := client.ContainerResize(context.Background(), id, types.ResizeOptions{
 		Height: height,
 		Width:  width,
 	})
@@ -44,14 +44,14 @@ func resizeTty(id string) {
 
 // Get the size of the current TTY. On error, the returned values will be zero
 // and the error itself will be logged.
-func getTtySize() (int, int) {
+func getTtySize() (uint, uint) {
 	size := &struct {
-		Height uint16
-		Width  uint16
+		Height uint
+		Width  uint
 
 		// Not needed but we may avoid some random crashes.
-		x uint16
-		y uint16
+		x uint
+		y uint
 	}{}
 
 	// Call ioctl, requesting the size of the window.
@@ -61,5 +61,5 @@ func getTtySize() (int, int) {
 	if errno != 0 {
 		return 0, 0
 	}
-	return int(size.Height), int(size.Width)
+	return uint(size.Height), uint(size.Width)
 }

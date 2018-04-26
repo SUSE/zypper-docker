@@ -33,5 +33,5 @@ func main() {
 	app.RunAndExitOnError()
 
 	// TODO: add tests to check for correctly passing exit codes
-	os.Exit(zypperExitCode)
+	os.Exit(int(zypperExitCode))
 }

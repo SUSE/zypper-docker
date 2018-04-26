@@ -1,11 +1,13 @@
-package events
+package events // import "github.com/docker/docker/daemon/events"
 
 import (
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/docker/engine-api/types/events"
+	"github.com/docker/docker/api/types/events"
+	timetypes "github.com/docker/docker/api/types/time"
+	eventstestutils "github.com/docker/docker/daemon/events/testutils"
 )
 
 func TestEventsLog(t *testing.T) {
@@ -133,20 +135,148 @@ func TestLogEvents(t *testing.T) {
 		t.Fatalf("Must be %d events, got %d", eventsLimit, len(current))
 	}
 	first := current[0]
-	if first.Status != "action_16" {
-		t.Fatalf("First action is %s, must be action_16", first.Status)
+
+	// TODO remove this once we removed the deprecated `ID`, `Status`, and `From` fields
+	if first.Action != first.Status {
+		// Verify that the (deprecated) Status is set to the expected value
+		t.Fatalf("Action (%s) does not match Status (%s)", first.Action, first.Status)
+	}
+
+	if first.Action != "action_16" {
+		t.Fatalf("First action is %s, must be action_16", first.Action)
 	}
 	last := current[len(current)-1]
-	if last.Status != "action_79" {
-		t.Fatalf("Last action is %s, must be action_79", last.Status)
+	if last.Action != "action_271" {
+		t.Fatalf("Last action is %s, must be action_271", last.Action)
 	}
 
 	firstC := msgs[0]
-	if firstC.Status != "action_80" {
-		t.Fatalf("First action is %s, must be action_80", firstC.Status)
+	if firstC.Action != "action_272" {
+		t.Fatalf("First action is %s, must be action_272", firstC.Action)
 	}
 	lastC := msgs[len(msgs)-1]
-	if lastC.Status != "action_89" {
-		t.Fatalf("Last action is %s, must be action_89", lastC.Status)
+	if lastC.Action != "action_281" {
+		t.Fatalf("Last action is %s, must be action_281", lastC.Action)
+	}
+}
+
+// https://github.com/docker/docker/issues/20999
+// Fixtures:
+//
+//2016-03-07T17:28:03.022433271+02:00 container die 0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079 (image=ubuntu, name=small_hoover)
+//2016-03-07T17:28:03.091719377+02:00 network disconnect 19c5ed41acb798f26b751e0035cd7821741ab79e2bbd59a66b5fd8abf954eaa0 (type=bridge, container=0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079, name=bridge)
+//2016-03-07T17:28:03.129014751+02:00 container destroy 0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079 (image=ubuntu, name=small_hoover)
+func TestLoadBufferedEvents(t *testing.T) {
+	now := time.Now()
+	f, err := timetypes.GetTimestamp("2016-03-07T17:28:03.100000000+02:00", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, sNano, err := timetypes.ParseTimestamps(f, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m1, err := eventstestutils.Scan("2016-03-07T17:28:03.022433271+02:00 container die 0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079 (image=ubuntu, name=small_hoover)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m2, err := eventstestutils.Scan("2016-03-07T17:28:03.091719377+02:00 network disconnect 19c5ed41acb798f26b751e0035cd7821741ab79e2bbd59a66b5fd8abf954eaa0 (type=bridge, container=0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079, name=bridge)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m3, err := eventstestutils.Scan("2016-03-07T17:28:03.129014751+02:00 container destroy 0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079 (image=ubuntu, name=small_hoover)")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events := &Events{
+		events: []events.Message{*m1, *m2, *m3},
+	}
+
+	since := time.Unix(s, sNano)
+	until := time.Time{}
+
+	out := events.loadBufferedEvents(since, until, nil)
+	if len(out) != 1 {
+		t.Fatalf("expected 1 message, got %d: %v", len(out), out)
+	}
+}
+
+func TestLoadBufferedEventsOnlyFromPast(t *testing.T) {
+	now := time.Now()
+	f, err := timetypes.GetTimestamp("2016-03-07T17:28:03.090000000+02:00", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, sNano, err := timetypes.ParseTimestamps(f, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = timetypes.GetTimestamp("2016-03-07T17:28:03.100000000+02:00", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, uNano, err := timetypes.ParseTimestamps(f, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m1, err := eventstestutils.Scan("2016-03-07T17:28:03.022433271+02:00 container die 0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079 (image=ubuntu, name=small_hoover)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m2, err := eventstestutils.Scan("2016-03-07T17:28:03.091719377+02:00 network disconnect 19c5ed41acb798f26b751e0035cd7821741ab79e2bbd59a66b5fd8abf954eaa0 (type=bridge, container=0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079, name=bridge)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m3, err := eventstestutils.Scan("2016-03-07T17:28:03.129014751+02:00 container destroy 0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079 (image=ubuntu, name=small_hoover)")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events := &Events{
+		events: []events.Message{*m1, *m2, *m3},
+	}
+
+	since := time.Unix(s, sNano)
+	until := time.Unix(u, uNano)
+
+	out := events.loadBufferedEvents(since, until, nil)
+	if len(out) != 1 {
+		t.Fatalf("expected 1 message, got %d: %v", len(out), out)
+	}
+
+	if out[0].Type != "network" {
+		t.Fatalf("expected network event, got %s", out[0].Type)
+	}
+}
+
+// #13753
+func TestIgnoreBufferedWhenNoTimes(t *testing.T) {
+	m1, err := eventstestutils.Scan("2016-03-07T17:28:03.022433271+02:00 container die 0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079 (image=ubuntu, name=small_hoover)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m2, err := eventstestutils.Scan("2016-03-07T17:28:03.091719377+02:00 network disconnect 19c5ed41acb798f26b751e0035cd7821741ab79e2bbd59a66b5fd8abf954eaa0 (type=bridge, container=0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079, name=bridge)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m3, err := eventstestutils.Scan("2016-03-07T17:28:03.129014751+02:00 container destroy 0b863f2a26c18557fc6cdadda007c459f9ec81b874780808138aea78a3595079 (image=ubuntu, name=small_hoover)")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events := &Events{
+		events: []events.Message{*m1, *m2, *m3},
+	}
+
+	since := time.Time{}
+	until := time.Time{}
+
+	out := events.loadBufferedEvents(since, until, nil)
+	if len(out) != 0 {
+		t.Fatalf("expected 0 buffered events, got %q", out)
 	}
 }

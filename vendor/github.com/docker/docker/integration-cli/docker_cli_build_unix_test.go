@@ -12,29 +12,33 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/docker/docker/pkg/integration/checker"
-	"github.com/docker/go-units"
+	"github.com/docker/docker/integration-cli/checker"
+	"github.com/docker/docker/integration-cli/cli"
+	"github.com/docker/docker/integration-cli/cli/build"
+	"github.com/docker/docker/internal/test/fakecontext"
+	units "github.com/docker/go-units"
 	"github.com/go-check/check"
+	"github.com/gotestyourself/gotestyourself/icmd"
 )
 
 func (s *DockerSuite) TestBuildResourceConstraintsAreUsed(c *check.C) {
 	testRequires(c, cpuCfsQuota)
 	name := "testbuildresourceconstraints"
+	buildLabel := "DockerSuite.TestBuildResourceConstraintsAreUsed"
 
-	ctx, err := fakeContext(`
+	ctx := fakecontext.New(c, "", fakecontext.WithDockerfile(`
 	FROM hello-world:frozen
 	RUN ["/hello"]
-	`, map[string]string{})
-	c.Assert(err, checker.IsNil)
+	`))
+	cli.Docker(
+		cli.Args("build", "--no-cache", "--rm=false", "--memory=64m", "--memory-swap=-1", "--cpuset-cpus=0", "--cpuset-mems=0", "--cpu-shares=100", "--cpu-quota=8000", "--ulimit", "nofile=42", "--label="+buildLabel, "-t", name, "."),
+		cli.InDir(ctx.Dir),
+	).Assert(c, icmd.Success)
 
-	_, _, err = dockerCmdInDir(c, ctx.Dir, "build", "--no-cache", "--rm=false", "--memory=64m", "--memory-swap=-1", "--cpuset-cpus=0", "--cpuset-mems=0", "--cpu-shares=100", "--cpu-quota=8000", "--ulimit", "nofile=42", "-t", name, ".")
-	if err != nil {
-		c.Fatal(err)
-	}
-
-	out, _ := dockerCmd(c, "ps", "-lq")
+	out := cli.DockerCmd(c, "ps", "-lq", "--filter", "label="+buildLabel).Combined()
 	cID := strings.TrimSpace(out)
 
 	type hostConfig struct {
@@ -47,11 +51,10 @@ func (s *DockerSuite) TestBuildResourceConstraintsAreUsed(c *check.C) {
 		Ulimits    []*units.Ulimit
 	}
 
-	cfg, err := inspectFieldJSON(cID, "HostConfig")
-	c.Assert(err, checker.IsNil)
+	cfg := inspectFieldJSON(c, cID, "HostConfig")
 
 	var c1 hostConfig
-	err = json.Unmarshal([]byte(cfg), &c1)
+	err := json.Unmarshal([]byte(cfg), &c1)
 	c.Assert(err, checker.IsNil, check.Commentf(cfg))
 
 	c.Assert(c1.Memory, checker.Equals, int64(64*1024*1024), check.Commentf("resource constraints not set properly for Memory"))
@@ -64,10 +67,9 @@ func (s *DockerSuite) TestBuildResourceConstraintsAreUsed(c *check.C) {
 	c.Assert(c1.Ulimits[0].Hard, checker.Equals, int64(42), check.Commentf("resource constraints not set properly for Ulimits"))
 
 	// Make sure constraints aren't saved to image
-	dockerCmd(c, "run", "--name=test", name)
+	cli.DockerCmd(c, "run", "--name=test", name)
 
-	cfg, err = inspectFieldJSON("test", "HostConfig")
-	c.Assert(err, checker.IsNil)
+	cfg = inspectFieldJSON(c, "test", "HostConfig")
 
 	var c2 hostConfig
 	err = json.Unmarshal([]byte(cfg), &c2)
@@ -86,7 +88,7 @@ func (s *DockerSuite) TestBuildAddChangeOwnership(c *check.C) {
 	testRequires(c, DaemonIsLinux)
 	name := "testbuildaddown"
 
-	ctx := func() *FakeContext {
+	ctx := func() *fakecontext.Fake {
 		dockerfile := `
 			FROM busybox
 			ADD foo /bar/
@@ -101,24 +103,20 @@ func (s *DockerSuite) TestBuildAddChangeOwnership(c *check.C) {
 		}
 		defer testFile.Close()
 
-		chownCmd := exec.Command("chown", "daemon:daemon", "foo")
-		chownCmd.Dir = tmpDir
-		out, _, err := runCommandWithOutput(chownCmd)
-		if err != nil {
-			c.Fatal(err, out)
-		}
+		icmd.RunCmd(icmd.Cmd{
+			Command: []string{"chown", "daemon:daemon", "foo"},
+			Dir:     tmpDir,
+		}).Assert(c, icmd.Success)
 
 		if err := ioutil.WriteFile(filepath.Join(tmpDir, "Dockerfile"), []byte(dockerfile), 0644); err != nil {
 			c.Fatalf("failed to open destination dockerfile: %v", err)
 		}
-		return fakeContextFromDir(tmpDir)
+		return fakecontext.New(c, tmpDir)
 	}()
 
 	defer ctx.Close()
 
-	if _, err := buildImageFromContext(name, ctx, true); err != nil {
-		c.Fatalf("build failed to complete for TestBuildAddChangeOwnership: %v", err)
-	}
+	buildImageSuccessfully(c, name, build.WithExternalBuildContext(ctx))
 }
 
 // Test that an infinite sleep during a build is killed if the client disconnects.
@@ -139,19 +137,23 @@ func (s *DockerSuite) TestBuildCancellationKillsSleep(c *check.C) {
 	defer observer.Stop()
 
 	// (Note: one year, will never finish)
-	ctx, err := fakeContext("FROM busybox\nRUN sleep 31536000", nil)
-	if err != nil {
-		c.Fatal(err)
-	}
+	ctx := fakecontext.New(c, "", fakecontext.WithDockerfile("FROM busybox\nRUN sleep 31536000"))
 	defer ctx.Close()
 
 	buildCmd := exec.Command(dockerBinary, "build", "-t", name, ".")
 	buildCmd.Dir = ctx.Dir
 
 	stdoutBuild, err := buildCmd.StdoutPipe()
+	c.Assert(err, checker.IsNil)
+
 	if err := buildCmd.Start(); err != nil {
 		c.Fatalf("failed to run build: %s", err)
 	}
+	// always clean up
+	defer func() {
+		buildCmd.Process.Kill()
+		buildCmd.Wait()
+	}()
 
 	matchCID := regexp.MustCompile("Running in (.+)")
 	scanner := bufio.NewScanner(stdoutBuild)
@@ -173,12 +175,13 @@ func (s *DockerSuite) TestBuildCancellationKillsSleep(c *check.C) {
 	}
 
 	testActions := map[string]chan bool{
-		"start": make(chan bool),
-		"die":   make(chan bool),
+		"start": make(chan bool, 1),
+		"die":   make(chan bool, 1),
 	}
 
 	matcher := matchEventLine(buildID, "container", testActions)
-	go observer.Match(matcher)
+	processor := processEventMatch(testActions)
+	go observer.Match(matcher, processor)
 
 	select {
 	case <-time.After(10 * time.Second):
@@ -204,4 +207,18 @@ func (s *DockerSuite) TestBuildCancellationKillsSleep(c *check.C) {
 	case <-testActions["die"]:
 		// ignore, done
 	}
+}
+
+func isKilled(err error) bool {
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		status, ok := exitErr.Sys().(syscall.WaitStatus)
+		if !ok {
+			return false
+		}
+		// status.ExitStatus() is required on Windows because it does not
+		// implement Signal() nor Signaled(). Just check it had a bad exit
+		// status could mean it was killed (and in tests we do kill)
+		return (status.Signaled() && status.Signal() == os.Kill) || status.ExitStatus() != 0
+	}
+	return false
 }

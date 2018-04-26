@@ -43,7 +43,7 @@ func patchCheck(image string, ctx *cli.Context) {
 		// then we do nothing.
 		de := err.(dockerError)
 		if de.exitCode == 100 || de.exitCode == 101 {
-			exitWithCode(de.exitCode)
+			exitWithCode(int(de.exitCode))
 			return
 		}
 	}
