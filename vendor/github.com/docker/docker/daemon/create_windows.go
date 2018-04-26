@@ -1,20 +1,35 @@
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
 	"fmt"
+	"runtime"
 
+	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/container"
-	"github.com/docker/docker/image"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/volume"
-	containertypes "github.com/docker/engine-api/types/container"
+	volumemounts "github.com/docker/docker/volume/mounts"
 )
 
-// createContainerPlatformSpecificSettings performs platform specific container create functionality
-func (daemon *Daemon) createContainerPlatformSpecificSettings(container *container.Container, config *containertypes.Config, hostConfig *containertypes.HostConfig, img *image.Image) error {
+// createContainerOSSpecificSettings performs host-OS specific container create functionality
+func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Container, config *containertypes.Config, hostConfig *containertypes.HostConfig) error {
+
+	if container.OS == runtime.GOOS {
+		// Make sure the host config has the default daemon isolation if not specified by caller.
+		if containertypes.Isolation.IsDefault(containertypes.Isolation(hostConfig.Isolation)) {
+			hostConfig.Isolation = daemon.defaultIsolation
+		}
+	} else {
+		// LCOW must be a Hyper-V container as you can't run a shared kernel when one
+		// is a Windows kernel, the other is a Linux kernel.
+		if containertypes.Isolation.IsProcess(containertypes.Isolation(hostConfig.Isolation)) {
+			return fmt.Errorf("process isolation is invalid for Linux containers on Windows")
+		}
+		hostConfig.Isolation = "hyperv"
+	}
+	parser := volumemounts.NewParser(container.OS)
 	for spec := range config.Volumes {
 
-		mp, err := volume.ParseMountSpec(spec, hostConfig.VolumeDriver)
+		mp, err := parser.ParseMountRaw(spec, hostConfig.VolumeDriver)
 		if err != nil {
 			return fmt.Errorf("Unrecognised volume spec: %v", err)
 		}
@@ -31,18 +46,10 @@ func (daemon *Daemon) createContainerPlatformSpecificSettings(container *contain
 		}
 
 		volumeDriver := hostConfig.VolumeDriver
-		if mp.Destination != "" && img != nil {
-			if _, ok := img.ContainerConfig.Volumes[mp.Destination]; ok {
-				// check for whether bind is not specified and then set to local
-				if _, ok := container.MountPoints[mp.Destination]; !ok {
-					volumeDriver = volume.DefaultDriverName
-				}
-			}
-		}
 
 		// Create the volume in the volume driver. If it doesn't exist,
 		// a new one will be created.
-		v, err := daemon.volumes.CreateWithRef(mp.Name, volumeDriver, container.ID, nil)
+		v, err := daemon.volumes.CreateWithRef(mp.Name, volumeDriver, container.ID, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -55,7 +62,7 @@ func (daemon *Daemon) createContainerPlatformSpecificSettings(container *contain
 		// is deferred for now. A case where this would be useful is when
 		// a dockerfile includes a VOLUME statement, but something is created
 		// in that directory during the dockerfile processing. What this means
-		// on Windows for TP4 is that in that scenario, the contents will not
+		// on Windows for TP5 is that in that scenario, the contents will not
 		// copied, but that's (somewhat) OK as HCS will bomb out soon after
 		// at it doesn't support mapped directories which have contents in the
 		// destination path anyway.

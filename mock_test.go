@@ -16,15 +16,16 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"time"
 
-	"github.com/docker/engine-api/types"
-	"github.com/docker/engine-api/types/container"
-	"github.com/docker/engine-api/types/network"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 )
 
 type mockClient struct {
@@ -49,7 +50,7 @@ type mockClient struct {
 	suppressLog        bool
 }
 
-func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, error) {
+func (mc *mockClient) ImageList(ctx context.Context, options types.ImageListOptions) ([]types.ImageSummary, error) {
 	if mc.listFail {
 		return nil, errors.New("List Failed")
 	}
@@ -59,8 +60,8 @@ func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, 
 
 	// Let's return some more or less realistic images.
 	if mc.listReturnOneImage {
-		return []types.Image{
-			types.Image{
+		return []types.ImageSummary{
+			types.ImageSummary{
 				ID:          "2",
 				ParentID:    "0",       // Not used
 				Size:        254515796, // 254.5 MB
@@ -71,8 +72,8 @@ func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, 
 		}, nil
 	}
 
-	return []types.Image{
-		types.Image{
+	return []types.ImageSummary{
+		types.ImageSummary{
 			ID:          "1",
 			ParentID:    "0",       // Not used
 			Size:        254515796, // 254.5 MB
@@ -80,7 +81,7 @@ func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, 
 			RepoTags:    []string{"opensuse:latest", "opensuse:tag"},
 			Created:     time.Now().UnixNano(),
 		},
-		types.Image{
+		types.ImageSummary{
 			ID:          "2",
 			ParentID:    "0",       // Not used
 			Size:        254515796, // 254.5 MB
@@ -88,7 +89,7 @@ func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, 
 			RepoTags:    []string{"opensuse:13.2"},
 			Created:     time.Now().UnixNano(),
 		},
-		types.Image{
+		types.ImageSummary{
 			ID:          "3",
 			ParentID:    "0",       // Not used
 			Size:        254515796, // 254.5 MB
@@ -96,7 +97,7 @@ func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, 
 			RepoTags:    []string{"ubuntu:latest"},
 			Created:     time.Now().UnixNano(),
 		},
-		types.Image{
+		types.ImageSummary{
 			ID:          "4",
 			ParentID:    "0",       // Not used
 			Size:        254515796, // 254.5 MB
@@ -104,7 +105,7 @@ func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, 
 			RepoTags:    []string{}, // Invalid image
 			Created:     time.Now().UnixNano(),
 		},
-		types.Image{
+		types.ImageSummary{
 			ID:          "5",
 			ParentID:    "0",       // Not used
 			Size:        254515796, // 254.5 MB
@@ -115,14 +116,14 @@ func (mc *mockClient) ImageList(options types.ImageListOptions) ([]types.Image, 
 	}, nil
 }
 
-func (mc *mockClient) ContainerCreate(config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (types.ContainerCreateResponse, error) {
+func (mc *mockClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error) {
 	var (
 		warnings []string
 		name     string
 	)
 
 	if mc.createFail {
-		return types.ContainerCreateResponse{}, errors.New("Create failed")
+		return container.ContainerCreateCreatedBody{}, errors.New("Create failed")
 	}
 	if mc.createWarnings {
 		warnings = []string{"warning"}
@@ -134,48 +135,61 @@ func (mc *mockClient) ContainerCreate(config *container.Config, hostConfig *cont
 		name = fmt.Sprintf("zypper-docker-private-%s", config.Image)
 	}
 
-	mc.lastCmd = config.Cmd.Slice()
+	mc.lastCmd = config.Cmd
 
-	return types.ContainerCreateResponse{ID: name, Warnings: warnings}, nil
+	return container.ContainerCreateCreatedBody{ID: name, Warnings: warnings}, nil
 }
 
-func (mc *mockClient) ContainerStart(id string) error {
+func (mc *mockClient) ContainerStart(ctx context.Context, containerID string, options types.ContainerStartOptions) error {
 	if mc.startFail {
 		return errors.New("Start failed")
 	}
-	if id == "zypper-docker-private-3" {
+	if containerID == "zypper-docker-private-3" {
 		// Ubuntu doesn't have zypper: fail.
 		return errors.New("Start failed")
 	}
 	return nil
 }
 
-func (mc *mockClient) ContainerRemove(options types.ContainerRemoveOptions) error {
+func (mc *mockClient) ContainerRemove(ctx context.Context, containerID string, options types.ContainerRemoveOptions) error {
 	if mc.removeFail {
 		return errors.New("Remove failed")
 	}
 	if !mc.suppressLog {
-		log.Printf("Removed container %v", options.ContainerID)
+		log.Printf("Removed container %v", containerID)
 	}
 	return nil
 }
 
-func (mc *mockClient) ContainerWait(containerID string) (int, error) {
-	time.Sleep(mc.waitSleep)
-	if mc.waitFail {
-		return -1, errors.New("Wait failed")
-	}
-	if mc.commandFail {
-		// If commandExit was not specified, just exit with 1.
-		if mc.commandExit == 0 {
-			mc.commandExit = 1
+func (mc *mockClient) ContainerWait(ctx context.Context, containerID string, condition container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error) {
+	resultC := make(chan container.ContainerWaitOKBody)
+	errC := make(chan error)
+
+	go func() {
+		time.Sleep(mc.waitSleep)
+		if mc.waitFail {
+			errC <- errors.New("Wait failed")
+			resultC <- container.ContainerWaitOKBody{StatusCode: -1}
+			return
 		}
-		return mc.commandExit, nil
-	}
-	return 0, nil
+		if mc.commandFail {
+			// If commandExit was not specified, just exit with 1.
+			if mc.commandExit == 0 {
+				resultC <- container.ContainerWaitOKBody{StatusCode: 1}
+				errC <- nil
+				return
+			}
+			resultC <- container.ContainerWaitOKBody{StatusCode: (int64)(mc.commandExit)}
+			errC <- nil
+			return
+		}
+		resultC <- container.ContainerWaitOKBody{StatusCode: 0}
+		errC <- nil
+	}()
+	return resultC, errC
 }
 
-func (mc *mockClient) ContainerLogs(options types.ContainerLogsOptions) (io.ReadCloser, error) {
+func (mc *mockClient) ContainerLogs(ctx context.Context, container string, options types.ContainerLogsOptions) (io.ReadCloser, error) {
 	var err error
 
 	if mc.logFail {
@@ -192,21 +206,21 @@ func (mc *mockClient) ContainerLogs(options types.ContainerLogsOptions) (io.Read
 	return cb, err
 }
 
-func (mc *mockClient) ContainerKill(id, signal string) error {
+func (mc *mockClient) ContainerKill(ctx context.Context, containerID, signal string) error {
 	if mc.killFail {
 		return fmt.Errorf("Fake failure while killing container")
 	}
 	return nil
 }
 
-func (mc *mockClient) ContainerCommit(options types.ContainerCommitOptions) (types.ContainerCommitResponse, error) {
+func (mc *mockClient) ContainerCommit(ctx context.Context, container string, options types.ContainerCommitOptions) (types.IDResponse, error) {
 	if mc.commitFail {
-		return types.ContainerCommitResponse{ID: ""}, fmt.Errorf("Fake failure while committing container")
+		return types.IDResponse{ID: ""}, fmt.Errorf("Fake failure while committing container")
 	}
-	return types.ContainerCommitResponse{ID: "fake image ID"}, nil
+	return types.IDResponse{ID: "fake image ID"}, nil
 }
 
-func (mc *mockClient) ContainerList(options types.ContainerListOptions) ([]types.Container, error) {
+func (mc *mockClient) ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error) {
 	if mc.listFail {
 		return []types.Container{},
 			fmt.Errorf("Fake failure while listing containers")
@@ -240,12 +254,12 @@ func (mc *mockClient) ContainerList(options types.ContainerListOptions) ([]types
 	}, nil
 }
 
-func (mc *mockClient) ContainerResize(options types.ResizeOptions) error {
+func (mc *mockClient) ContainerResize(ctx context.Context, containerID string, options types.ResizeOptions) error {
 	// Do nothing
 	return nil
 }
 
-func (mc *mockClient) ImageInspectWithRaw(imageID string, getSize bool) (types.ImageInspect, []byte, error) {
+func (mc *mockClient) ImageInspectWithRaw(ctx context.Context, imageID string) (types.ImageInspect, []byte, error) {
 	if mc.inspectFail {
 		return types.ImageInspect{}, []byte{}, errors.New("inspect fail")
 	}

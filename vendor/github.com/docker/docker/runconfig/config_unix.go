@@ -1,13 +1,13 @@
 // +build !windows
 
-package runconfig
+package runconfig // import "github.com/docker/docker/runconfig"
 
 import (
-	"github.com/docker/engine-api/types/container"
-	networktypes "github.com/docker/engine-api/types/network"
+	"github.com/docker/docker/api/types/container"
+	networktypes "github.com/docker/docker/api/types/network"
 )
 
-// ContainerConfigWrapper is a Config wrapper that hold the container Config (portable)
+// ContainerConfigWrapper is a Config wrapper that holds the container Config (portable)
 // and the corresponding HostConfig (non-portable).
 type ContainerConfigWrapper struct {
 	*container.Config
@@ -53,7 +53,7 @@ func (w *ContainerConfigWrapper) getHostConfig() *container.HostConfig {
 
 	// Make sure NetworkMode has an acceptable value. We do this to ensure
 	// backwards compatible API behavior.
-	hc = SetDefaultNetModeIfBlank(hc)
+	SetDefaultNetModeIfBlank(hc)
 
 	return hc
 }

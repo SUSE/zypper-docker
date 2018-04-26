@@ -1,4 +1,4 @@
-package archive
+package archive // import "github.com/docker/docker/pkg/archive"
 
 import (
 	"archive/tar"
@@ -20,7 +20,7 @@ func TestHardLinkOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//defer os.RemoveAll(src)
+	defer os.RemoveAll(src)
 	for _, name := range names {
 		func() {
 			fh, err := os.Create(path.Join(src, name))

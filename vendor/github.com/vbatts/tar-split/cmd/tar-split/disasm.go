@@ -3,10 +3,11 @@ package main
 import (
 	"compress/gzip"
 	"io"
+	"io/ioutil"
 	"os"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 	"github.com/vbatts/tar-split/tar/asm"
 	"github.com/vbatts/tar-split/tar/storage"
 )
@@ -48,7 +49,13 @@ func CommandDisasm(c *cli.Context) {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	i, err := io.Copy(os.Stdout, its)
+	var out io.Writer
+	if c.Bool("no-stdout") {
+		out = ioutil.Discard
+	} else {
+		out = os.Stdout
+	}
+	i, err := io.Copy(out, its)
 	if err != nil {
 		logrus.Fatal(err)
 	}

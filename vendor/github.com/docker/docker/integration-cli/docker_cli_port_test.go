@@ -5,9 +5,10 @@ import (
 	"net"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
-	"github.com/docker/docker/pkg/integration/checker"
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
 )
 
@@ -148,9 +149,8 @@ func (s *DockerSuite) TestPortList(c *check.C) {
 
 	out, _ = dockerCmd(c, "port", ID)
 
-	err = assertPortList(c, out, []string{
-		"80/tcp -> 0.0.0.0:8000",
-		"80/udp -> 0.0.0.0:8000"})
+	// Running this test multiple times causes the TCP port to increment.
+	err = assertPortRange(c, out, []int{8000, 8080}, []int{8000, 8080})
 	// Port list is not correct
 	c.Assert(err, checker.IsNil)
 	dockerCmd(c, "rm", "-f", ID)
@@ -170,6 +170,38 @@ func assertPortList(c *check.C, out string, expected []string) error {
 		}
 	}
 
+	return nil
+}
+
+func assertPortRange(c *check.C, out string, expectedTcp, expectedUdp []int) error {
+	lines := strings.Split(strings.Trim(out, "\n "), "\n")
+
+	var validTcp, validUdp bool
+	for _, l := range lines {
+		// 80/tcp -> 0.0.0.0:8015
+		port, err := strconv.Atoi(strings.Split(l, ":")[1])
+		if err != nil {
+			return err
+		}
+		if strings.Contains(l, "tcp") && expectedTcp != nil {
+			if port < expectedTcp[0] || port > expectedTcp[1] {
+				return fmt.Errorf("tcp port (%d) not in range expected range %d-%d", port, expectedTcp[0], expectedTcp[1])
+			}
+			validTcp = true
+		}
+		if strings.Contains(l, "udp") && expectedUdp != nil {
+			if port < expectedUdp[0] || port > expectedUdp[1] {
+				return fmt.Errorf("udp port (%d) not in range expected range %d-%d", port, expectedUdp[0], expectedUdp[1])
+			}
+			validUdp = true
+		}
+	}
+	if !validTcp {
+		return fmt.Errorf("tcp port not found")
+	}
+	if !validUdp {
+		return fmt.Errorf("udp port not found")
+	}
 	return nil
 }
 
@@ -292,4 +324,28 @@ func (s *DockerSuite) TestPortExposeHostBinding(c *check.C) {
 		"nc", "localhost", strings.TrimSpace(exposedPort))
 	// Port is still bound after the Container is removed
 	c.Assert(err, checker.NotNil, check.Commentf("out: %s", out))
+}
+
+func (s *DockerSuite) TestPortBindingOnSandbox(c *check.C) {
+	testRequires(c, DaemonIsLinux, NotUserNamespace)
+	dockerCmd(c, "network", "create", "--internal", "-d", "bridge", "internal-net")
+	nr := getNetworkResource(c, "internal-net")
+	c.Assert(nr.Internal, checker.Equals, true)
+
+	dockerCmd(c, "run", "--net", "internal-net", "-d", "--name", "c1",
+		"-p", "8080:8080", "busybox", "nc", "-l", "-p", "8080")
+	c.Assert(waitRun("c1"), check.IsNil)
+
+	_, _, err := dockerCmdWithError("run", "--net=host", "busybox", "nc", "localhost", "8080")
+	c.Assert(err, check.NotNil,
+		check.Commentf("Port mapping on internal network is expected to fail"))
+
+	// Connect container to another normal bridge network
+	dockerCmd(c, "network", "create", "-d", "bridge", "foo-net")
+	dockerCmd(c, "network", "connect", "foo-net", "c1")
+
+	_, _, err = dockerCmdWithError("run", "--net=host", "busybox", "nc", "localhost", "8080")
+	c.Assert(err, check.IsNil,
+		check.Commentf("Port mapping on the new network is expected to succeed"))
+
 }

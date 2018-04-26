@@ -1,44 +1,165 @@
-package dockerfile
+package dockerfile // import "github.com/docker/docker/builder/dockerfile"
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"strings"
-	"sync"
+	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/backend"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/builder"
+	"github.com/docker/docker/builder/dockerfile/instructions"
 	"github.com/docker/docker/builder/dockerfile/parser"
+	"github.com/docker/docker/builder/dockerfile/shell"
+	"github.com/docker/docker/builder/fscache"
+	"github.com/docker/docker/builder/remotecontext"
+	"github.com/docker/docker/errdefs"
+	"github.com/docker/docker/pkg/idtools"
+	"github.com/docker/docker/pkg/streamformatter"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/engine-api/types"
-	"github.com/docker/engine-api/types/container"
+	"github.com/docker/docker/pkg/system"
+	"github.com/moby/buildkit/session"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/syncmap"
 )
 
 var validCommitCommands = map[string]bool{
-	"cmd":        true,
-	"entrypoint": true,
-	"env":        true,
-	"expose":     true,
-	"label":      true,
-	"onbuild":    true,
-	"user":       true,
-	"volume":     true,
-	"workdir":    true,
+	"cmd":         true,
+	"entrypoint":  true,
+	"healthcheck": true,
+	"env":         true,
+	"expose":      true,
+	"label":       true,
+	"onbuild":     true,
+	"user":        true,
+	"volume":      true,
+	"workdir":     true,
 }
 
-// BuiltinAllowedBuildArgs is list of built-in allowed build args
-var BuiltinAllowedBuildArgs = map[string]bool{
-	"HTTP_PROXY":  true,
-	"http_proxy":  true,
-	"HTTPS_PROXY": true,
-	"https_proxy": true,
-	"FTP_PROXY":   true,
-	"ftp_proxy":   true,
-	"NO_PROXY":    true,
-	"no_proxy":    true,
+const (
+	stepFormat = "Step %d/%d : %v"
+)
+
+// SessionGetter is object used to get access to a session by uuid
+type SessionGetter interface {
+	Get(ctx context.Context, uuid string) (session.Caller, error)
+}
+
+// BuildManager is shared across all Builder objects
+type BuildManager struct {
+	idMappings *idtools.IDMappings
+	backend    builder.Backend
+	pathCache  pathCache // TODO: make this persistent
+	sg         SessionGetter
+	fsCache    *fscache.FSCache
+}
+
+// NewBuildManager creates a BuildManager
+func NewBuildManager(b builder.Backend, sg SessionGetter, fsCache *fscache.FSCache, idMappings *idtools.IDMappings) (*BuildManager, error) {
+	bm := &BuildManager{
+		backend:    b,
+		pathCache:  &syncmap.Map{},
+		sg:         sg,
+		idMappings: idMappings,
+		fsCache:    fsCache,
+	}
+	if err := fsCache.RegisterTransport(remotecontext.ClientSessionRemote, NewClientSessionTransport()); err != nil {
+		return nil, err
+	}
+	return bm, nil
+}
+
+// Build starts a new build from a BuildConfig
+func (bm *BuildManager) Build(ctx context.Context, config backend.BuildConfig) (*builder.Result, error) {
+	buildsTriggered.Inc()
+	if config.Options.Dockerfile == "" {
+		config.Options.Dockerfile = builder.DefaultDockerfileName
+	}
+
+	source, dockerfile, err := remotecontext.Detect(config)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if source != nil {
+			if err := source.Close(); err != nil {
+				logrus.Debugf("[BUILDER] failed to remove temporary context: %v", err)
+			}
+		}
+	}()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	if src, err := bm.initializeClientSession(ctx, cancel, config.Options); err != nil {
+		return nil, err
+	} else if src != nil {
+		source = src
+	}
+
+	os := ""
+	apiPlatform := system.ParsePlatform(config.Options.Platform)
+	if apiPlatform.OS != "" {
+		os = apiPlatform.OS
+	}
+	config.Options.Platform = os
+
+	builderOptions := builderOptions{
+		Options:        config.Options,
+		ProgressWriter: config.ProgressWriter,
+		Backend:        bm.backend,
+		PathCache:      bm.pathCache,
+		IDMappings:     bm.idMappings,
+	}
+	return newBuilder(ctx, builderOptions).build(source, dockerfile)
+}
+
+func (bm *BuildManager) initializeClientSession(ctx context.Context, cancel func(), options *types.ImageBuildOptions) (builder.Source, error) {
+	if options.SessionID == "" || bm.sg == nil {
+		return nil, nil
+	}
+	logrus.Debug("client is session enabled")
+
+	connectCtx, cancelCtx := context.WithTimeout(ctx, sessionConnectTimeout)
+	defer cancelCtx()
+
+	c, err := bm.sg.Get(connectCtx, options.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		<-c.Context().Done()
+		cancel()
+	}()
+	if options.RemoteContext == remotecontext.ClientSessionRemote {
+		st := time.Now()
+		csi, err := NewClientSessionSourceIdentifier(ctx, bm.sg, options.SessionID)
+		if err != nil {
+			return nil, err
+		}
+		src, err := bm.fsCache.SyncFrom(ctx, csi)
+		if err != nil {
+			return nil, err
+		}
+		logrus.Debugf("sync-time: %v", time.Since(st))
+		return src, nil
+	}
+	return nil, nil
+}
+
+// builderOptions are the dependencies required by the builder
+type builderOptions struct {
+	Options        *types.ImageBuildOptions
+	Backend        builder.Backend
+	ProgressWriter backend.ProgressWriter
+	PathCache      pathCache
+	IDMappings     *idtools.IDMappings
 }
 
 // Builder is a Dockerfile builder
@@ -48,164 +169,245 @@ type Builder struct {
 
 	Stdout io.Writer
 	Stderr io.Writer
-
-	docker  builder.Backend
-	context builder.Context
-
-	dockerfile       *parser.Node
-	runConfig        *container.Config // runconfig for cmd, run, entrypoint etc.
-	flags            *BFlags
-	tmpContainers    map[string]struct{}
-	image            string // imageID
-	noBaseImage      bool
-	maintainer       string
-	cmdSet           bool
-	disableCommit    bool
-	cacheBusted      bool
-	cancelled        chan struct{}
-	cancelOnce       sync.Once
-	allowedBuildArgs map[string]bool // list of build-time args that are allowed for expansion/substitution and passing to commands in 'run'.
-
-	// TODO: remove once docker.Commit can receive a tag
-	id     string
+	Aux    *streamformatter.AuxFormatter
 	Output io.Writer
+
+	docker    builder.Backend
+	clientCtx context.Context
+
+	idMappings       *idtools.IDMappings
+	disableCommit    bool
+	imageSources     *imageSources
+	pathCache        pathCache
+	containerManager *containerManager
+	imageProber      ImageProber
 }
 
-// NewBuilder creates a new Dockerfile builder from an optional dockerfile and a Config.
-// If dockerfile is nil, the Dockerfile specified by Config.DockerfileName,
-// will be read from the Context passed to Build().
-func NewBuilder(config *types.ImageBuildOptions, backend builder.Backend, context builder.Context, dockerfile io.ReadCloser) (b *Builder, err error) {
+// newBuilder creates a new Dockerfile builder from an optional dockerfile and a Options.
+func newBuilder(clientCtx context.Context, options builderOptions) *Builder {
+	config := options.Options
 	if config == nil {
 		config = new(types.ImageBuildOptions)
 	}
-	if config.BuildArgs == nil {
-		config.BuildArgs = make(map[string]string)
-	}
-	b = &Builder{
+
+	b := &Builder{
+		clientCtx:        clientCtx,
 		options:          config,
-		Stdout:           os.Stdout,
-		Stderr:           os.Stderr,
-		docker:           backend,
-		context:          context,
-		runConfig:        new(container.Config),
-		tmpContainers:    map[string]struct{}{},
-		cancelled:        make(chan struct{}),
-		id:               stringid.GenerateNonCryptoID(),
-		allowedBuildArgs: make(map[string]bool),
+		Stdout:           options.ProgressWriter.StdoutFormatter,
+		Stderr:           options.ProgressWriter.StderrFormatter,
+		Aux:              options.ProgressWriter.AuxFormatter,
+		Output:           options.ProgressWriter.Output,
+		docker:           options.Backend,
+		idMappings:       options.IDMappings,
+		imageSources:     newImageSources(clientCtx, options),
+		pathCache:        options.PathCache,
+		imageProber:      newImageProber(options.Backend, config.CacheFrom, config.NoCache),
+		containerManager: newContainerManager(options.Backend),
 	}
-	if dockerfile != nil {
-		b.dockerfile, err = parser.Parse(dockerfile)
+
+	return b
+}
+
+// Build runs the Dockerfile builder by parsing the Dockerfile and executing
+// the instructions from the file.
+func (b *Builder) build(source builder.Source, dockerfile *parser.Result) (*builder.Result, error) {
+	defer b.imageSources.Unmount()
+
+	addNodesForLabelOption(dockerfile.AST, b.options.Labels)
+
+	stages, metaArgs, err := instructions.Parse(dockerfile.AST)
+	if err != nil {
+		if instructions.IsUnknownInstruction(err) {
+			buildsFailed.WithValues(metricsUnknownInstructionError).Inc()
+		}
+		return nil, errdefs.InvalidParameter(err)
+	}
+	if b.options.Target != "" {
+		targetIx, found := instructions.HasStage(stages, b.options.Target)
+		if !found {
+			buildsFailed.WithValues(metricsBuildTargetNotReachableError).Inc()
+			return nil, errdefs.InvalidParameter(errors.Errorf("failed to reach build target %s in Dockerfile", b.options.Target))
+		}
+		stages = stages[:targetIx+1]
+	}
+
+	dockerfile.PrintWarnings(b.Stderr)
+	dispatchState, err := b.dispatchDockerfileWithCancellation(stages, metaArgs, dockerfile.EscapeToken, source)
+	if err != nil {
+		return nil, err
+	}
+	if dispatchState.imageID == "" {
+		buildsFailed.WithValues(metricsDockerfileEmptyError).Inc()
+		return nil, errors.New("No image was generated. Is your Dockerfile empty?")
+	}
+	return &builder.Result{ImageID: dispatchState.imageID, FromImage: dispatchState.baseImage}, nil
+}
+
+func emitImageID(aux *streamformatter.AuxFormatter, state *dispatchState) error {
+	if aux == nil || state.imageID == "" {
+		return nil
+	}
+	return aux.Emit(types.BuildResult{ID: state.imageID})
+}
+
+func processMetaArg(meta instructions.ArgCommand, shlex *shell.Lex, args *buildArgs) error {
+	// shell.Lex currently only support the concatenated string format
+	envs := convertMapToEnvList(args.GetAllAllowed())
+	if err := meta.Expand(func(word string) (string, error) {
+		return shlex.ProcessWord(word, envs)
+	}); err != nil {
+		return err
+	}
+	args.AddArg(meta.Key, meta.Value)
+	args.AddMetaArg(meta.Key, meta.Value)
+	return nil
+}
+
+func printCommand(out io.Writer, currentCommandIndex int, totalCommands int, cmd interface{}) int {
+	fmt.Fprintf(out, stepFormat, currentCommandIndex, totalCommands, cmd)
+	fmt.Fprintln(out)
+	return currentCommandIndex + 1
+}
+
+func (b *Builder) dispatchDockerfileWithCancellation(parseResult []instructions.Stage, metaArgs []instructions.ArgCommand, escapeToken rune, source builder.Source) (*dispatchState, error) {
+	dispatchRequest := dispatchRequest{}
+	buildArgs := newBuildArgs(b.options.BuildArgs)
+	totalCommands := len(metaArgs) + len(parseResult)
+	currentCommandIndex := 1
+	for _, stage := range parseResult {
+		totalCommands += len(stage.Commands)
+	}
+	shlex := shell.NewLex(escapeToken)
+	for _, meta := range metaArgs {
+		currentCommandIndex = printCommand(b.Stdout, currentCommandIndex, totalCommands, &meta)
+
+		err := processMetaArg(meta, shlex, buildArgs)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return b, nil
-}
+	stagesResults := newStagesBuildResults()
 
-// Build runs the Dockerfile builder from a context and a docker object that allows to make calls
-// to Docker.
-//
-// This will (barring errors):
-//
-// * read the dockerfile from context
-// * parse the dockerfile if not already parsed
-// * walk the AST and execute it by dispatching to handlers. If Remove
-//   or ForceRemove is set, additional cleanup around containers happens after
-//   processing.
-// * Print a happy message and return the image ID.
-// * NOT tag the image, that is responsibility of the caller.
-//
-func (b *Builder) Build() (string, error) {
-	// If Dockerfile was not parsed yet, extract it from the Context
-	if b.dockerfile == nil {
-		if err := b.readDockerfile(); err != nil {
-			return "", err
+	for _, stage := range parseResult {
+		if err := stagesResults.checkStageNameAvailable(stage.Name); err != nil {
+			return nil, err
 		}
-	}
+		dispatchRequest = newDispatchRequest(b, escapeToken, source, buildArgs, stagesResults)
 
-	var shortImgID string
-	for i, n := range b.dockerfile.Children {
-		select {
-		case <-b.cancelled:
-			logrus.Debug("Builder: build cancelled!")
-			fmt.Fprintf(b.Stdout, "Build cancelled")
-			return "", fmt.Errorf("Build cancelled")
-		default:
-			// Not cancelled yet, keep going...
+		currentCommandIndex = printCommand(b.Stdout, currentCommandIndex, totalCommands, stage.SourceCode)
+		if err := initializeStage(dispatchRequest, &stage); err != nil {
+			return nil, err
 		}
-		if err := b.dispatch(i, n); err != nil {
-			if b.options.ForceRemove {
-				b.clearTmp()
+		dispatchRequest.state.updateRunConfig()
+		fmt.Fprintf(b.Stdout, " ---> %s\n", stringid.TruncateID(dispatchRequest.state.imageID))
+		for _, cmd := range stage.Commands {
+			select {
+			case <-b.clientCtx.Done():
+				logrus.Debug("Builder: build cancelled!")
+				fmt.Fprint(b.Stdout, "Build cancelled\n")
+				buildsFailed.WithValues(metricsBuildCanceled).Inc()
+				return nil, errors.New("Build cancelled")
+			default:
+				// Not cancelled yet, keep going...
 			}
-			return "", err
-		}
-		shortImgID = stringid.TruncateID(b.image)
-		fmt.Fprintf(b.Stdout, " ---> %s\n", shortImgID)
-		if b.options.Remove {
-			b.clearTmp()
-		}
-	}
 
-	// check if there are any leftover build-args that were passed but not
-	// consumed during build. Return an error, if there are any.
-	leftoverArgs := []string{}
-	for arg := range b.options.BuildArgs {
-		if !b.isBuildArgAllowed(arg) {
-			leftoverArgs = append(leftoverArgs, arg)
+			currentCommandIndex = printCommand(b.Stdout, currentCommandIndex, totalCommands, cmd)
+
+			if err := dispatch(dispatchRequest, cmd); err != nil {
+				return nil, err
+			}
+			dispatchRequest.state.updateRunConfig()
+			fmt.Fprintf(b.Stdout, " ---> %s\n", stringid.TruncateID(dispatchRequest.state.imageID))
+
+		}
+		if err := emitImageID(b.Aux, dispatchRequest.state); err != nil {
+			return nil, err
+		}
+		buildArgs.MergeReferencedArgs(dispatchRequest.state.buildArgs)
+		if err := commitStage(dispatchRequest.state, stagesResults); err != nil {
+			return nil, err
 		}
 	}
-	if len(leftoverArgs) > 0 {
-		return "", fmt.Errorf("One or more build-args %v were not consumed, failing build.", leftoverArgs)
-	}
-
-	if b.image == "" {
-		return "", fmt.Errorf("No image was generated. Is your Dockerfile empty?")
-	}
-
-	fmt.Fprintf(b.Stdout, "Successfully built %s\n", shortImgID)
-	return b.image, nil
+	buildArgs.WarnOnUnusedBuildArgs(b.Stdout)
+	return dispatchRequest.state, nil
 }
 
-// Cancel cancels an ongoing Dockerfile build.
-func (b *Builder) Cancel() {
-	b.cancelOnce.Do(func() {
-		close(b.cancelled)
-	})
+func addNodesForLabelOption(dockerfile *parser.Node, labels map[string]string) {
+	if len(labels) == 0 {
+		return
+	}
+
+	node := parser.NodeFromLabels(labels)
+	dockerfile.Children = append(dockerfile.Children, node)
 }
 
-// BuildFromConfig will do build directly from parameter 'changes', which comes
-// from Dockerfile entries, it will:
-// - call parse.Parse() to get AST root from Dockerfile entries
-// - do build by calling builder.dispatch() to call all entries' handling routines
-// TODO: remove?
-func BuildFromConfig(config *container.Config, changes []string) (*container.Config, error) {
-	ast, err := parser.Parse(bytes.NewBufferString(strings.Join(changes, "\n")))
+// BuildFromConfig builds directly from `changes`, treating it as if it were the contents of a Dockerfile
+// It will:
+// - Call parse.Parse() to get an AST root for the concatenated Dockerfile entries.
+// - Do build by calling builder.dispatch() to call all entries' handling routines
+//
+// BuildFromConfig is used by the /commit endpoint, with the changes
+// coming from the query parameter of the same name.
+//
+// TODO: Remove?
+func BuildFromConfig(config *container.Config, changes []string, os string) (*container.Config, error) {
+	if !system.IsOSSupported(os) {
+		return nil, errdefs.InvalidParameter(system.ErrNotSupportedOperatingSystem)
+	}
+	if len(changes) == 0 {
+		return config, nil
+	}
+
+	dockerfile, err := parser.Parse(bytes.NewBufferString(strings.Join(changes, "\n")))
 	if err != nil {
-		return nil, err
+		return nil, errdefs.InvalidParameter(err)
 	}
+
+	b := newBuilder(context.Background(), builderOptions{
+		Options: &types.ImageBuildOptions{NoCache: true},
+	})
 
 	// ensure that the commands are valid
-	for _, n := range ast.Children {
+	for _, n := range dockerfile.AST.Children {
 		if !validCommitCommands[n.Value] {
-			return nil, fmt.Errorf("%s is not a valid change command", n.Value)
+			return nil, errdefs.InvalidParameter(errors.Errorf("%s is not a valid change command", n.Value))
 		}
 	}
 
-	b, err := NewBuilder(nil, nil, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	b.runConfig = config
 	b.Stdout = ioutil.Discard
 	b.Stderr = ioutil.Discard
 	b.disableCommit = true
 
-	for i, n := range ast.Children {
-		if err := b.dispatch(i, n); err != nil {
-			return nil, err
+	commands := []instructions.Command{}
+	for _, n := range dockerfile.AST.Children {
+		cmd, err := instructions.ParseCommand(n)
+		if err != nil {
+			return nil, errdefs.InvalidParameter(err)
 		}
+		commands = append(commands, cmd)
 	}
 
-	return b.runConfig, nil
+	dispatchRequest := newDispatchRequest(b, dockerfile.EscapeToken, nil, newBuildArgs(b.options.BuildArgs), newStagesBuildResults())
+	// We make mutations to the configuration, ensure we have a copy
+	dispatchRequest.state.runConfig = copyRunConfig(config)
+	dispatchRequest.state.imageID = config.Image
+	dispatchRequest.state.operatingSystem = os
+	for _, cmd := range commands {
+		err := dispatch(dispatchRequest, cmd)
+		if err != nil {
+			return nil, errdefs.InvalidParameter(err)
+		}
+		dispatchRequest.state.updateRunConfig()
+	}
+
+	return dispatchRequest.state.runConfig, nil
+}
+
+func convertMapToEnvList(m map[string]string) []string {
+	result := []string{}
+	for k, v := range m {
+		result = append(result, k+"="+v)
+	}
+	return result
 }

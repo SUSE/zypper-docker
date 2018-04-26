@@ -15,17 +15,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/engine-api/types"
+	"github.com/docker/docker/api/types"
 )
 
 // zypper-docker ps
 func psCmd(ctx *cli.Context) {
 	client := getDockerClient()
-	containers, err := client.ContainerList(types.ContainerListOptions{})
+	containers, err := client.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
 		logAndFatalf("Error while fetching running containers: %v\n", err)
 		return

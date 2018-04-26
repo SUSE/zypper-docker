@@ -1,25 +1,24 @@
-package httputils
+package httputils // import "github.com/docker/docker/api/server/httputils"
 
 import (
-	"encoding/json"
-	"fmt"
+	"context"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 
-	"golang.org/x/net/context"
-
-	"github.com/Sirupsen/logrus"
-	"github.com/docker/distribution/registry/api/errcode"
-	"github.com/docker/docker/api"
-	"github.com/docker/docker/pkg/version"
+	"github.com/docker/docker/errdefs"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
+type contextKey string
+
 // APIVersionKey is the client's requested API version.
-const APIVersionKey = "api-version"
+const APIVersionKey contextKey = "api-version"
 
 // APIFunc is an adapter to allow the use of ordinary functions as Docker API endpoints.
-// Any function that has the appropriate signature can be register as a API endpoint (e.g. getVersion).
+// Any function that has the appropriate signature can be registered as an API endpoint (e.g. getVersion).
 type APIFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error
 
 // HijackConnection interrupts the http response writer to get the
@@ -59,10 +58,10 @@ func CheckForJSON(r *http.Request) error {
 	}
 
 	// Otherwise it better be json
-	if api.MatchesContentType(ct, "application/json") {
+	if matchesContentType(ct, "application/json") {
 		return nil
 	}
-	return fmt.Errorf("Content-Type specified (%s) must be 'application/json'", ct)
+	return errdefs.InvalidParameter(errors.Errorf("Content-Type specified (%s) must be 'application/json'", ct))
 }
 
 // ParseForm ensures the request form is parsed even with invalid content types.
@@ -72,107 +71,30 @@ func ParseForm(r *http.Request) error {
 		return nil
 	}
 	if err := r.ParseForm(); err != nil && !strings.HasPrefix(err.Error(), "mime:") {
-		return err
+		return errdefs.InvalidParameter(err)
 	}
 	return nil
-}
-
-// ParseMultipartForm ensure the request form is parsed, even with invalid content types.
-func ParseMultipartForm(r *http.Request) error {
-	if err := r.ParseMultipartForm(4096); err != nil && !strings.HasPrefix(err.Error(), "mime:") {
-		return err
-	}
-	return nil
-}
-
-// WriteError decodes a specific docker error and sends it in the response.
-func WriteError(w http.ResponseWriter, err error) {
-	if err == nil || w == nil {
-		logrus.WithFields(logrus.Fields{"error": err, "writer": w}).Error("unexpected HTTP error handling")
-		return
-	}
-
-	statusCode := http.StatusInternalServerError
-	errMsg := err.Error()
-
-	// Based on the type of error we get we need to process things
-	// slightly differently to extract the error message.
-	// In the 'errcode.*' cases there are two different type of
-	// error that could be returned. errocode.ErrorCode is the base
-	// type of error object - it is just an 'int' that can then be
-	// used as the look-up key to find the message. errorcode.Error
-	// extends errorcode.Error by adding error-instance specific
-	// data, like 'details' or variable strings to be inserted into
-	// the message.
-	//
-	// Ideally, we should just be able to call err.Error() for all
-	// cases but the errcode package doesn't support that yet.
-	//
-	// Additionally, in both errcode cases, there might be an http
-	// status code associated with it, and if so use it.
-	switch err.(type) {
-	case errcode.ErrorCode:
-		daError, _ := err.(errcode.ErrorCode)
-		statusCode = daError.Descriptor().HTTPStatusCode
-		errMsg = daError.Message()
-
-	case errcode.Error:
-		// For reference, if you're looking for a particular error
-		// then you can do something like :
-		//   import ( derr "github.com/docker/docker/errors" )
-		//   if daError.ErrorCode() == derr.ErrorCodeNoSuchContainer { ... }
-
-		daError, _ := err.(errcode.Error)
-		statusCode = daError.ErrorCode().Descriptor().HTTPStatusCode
-		errMsg = daError.Message
-
-	default:
-		// This part of will be removed once we've
-		// converted everything over to use the errcode package
-
-		// FIXME: this is brittle and should not be necessary.
-		// If we need to differentiate between different possible error types,
-		// we should create appropriate error types with clearly defined meaning
-		errStr := strings.ToLower(err.Error())
-		for keyword, status := range map[string]int{
-			"not found":             http.StatusNotFound,
-			"no such":               http.StatusNotFound,
-			"bad parameter":         http.StatusBadRequest,
-			"conflict":              http.StatusConflict,
-			"impossible":            http.StatusNotAcceptable,
-			"wrong login/password":  http.StatusUnauthorized,
-			"hasn't been activated": http.StatusForbidden,
-		} {
-			if strings.Contains(errStr, keyword) {
-				statusCode = status
-				break
-			}
-		}
-	}
-
-	if statusCode == 0 {
-		statusCode = http.StatusInternalServerError
-	}
-
-	http.Error(w, errMsg, statusCode)
-}
-
-// WriteJSON writes the value v to the http response stream as json with standard json encoding.
-func WriteJSON(w http.ResponseWriter, code int, v interface{}) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	return json.NewEncoder(w).Encode(v)
 }
 
 // VersionFromContext returns an API version from the context using APIVersionKey.
 // It panics if the context value does not have version.Version type.
-func VersionFromContext(ctx context.Context) (ver version.Version) {
+func VersionFromContext(ctx context.Context) string {
 	if ctx == nil {
-		return
+		return ""
 	}
-	val := ctx.Value(APIVersionKey)
-	if val == nil {
-		return
+
+	if val := ctx.Value(APIVersionKey); val != nil {
+		return val.(string)
 	}
-	return val.(version.Version)
+
+	return ""
+}
+
+// matchesContentType validates the content type against the expected one
+func matchesContentType(contentType, expectedType string) bool {
+	mimetype, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		logrus.Errorf("Error parsing media type: %s error: %v", contentType, err)
+	}
+	return err == nil && mimetype == expectedType
 }

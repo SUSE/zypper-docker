@@ -16,13 +16,20 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
+	"text/tabwriter"
+	"time"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/distribution/reference"
-	"github.com/docker/engine-api/types"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/pkg/stringid"
+	"github.com/docker/go-units"
 )
 
 var specialFlags = []string{
@@ -219,7 +226,7 @@ func getImageID(name string) (string, error) {
 		name = name + ":" + tag
 	}
 
-	images, err := client.ImageList(types.ImageListOptions{MatchName: repo, All: false})
+	images, err := client.ImageList(context.Background(), types.ImageListOptions{All: false, Filters: filters.NewArgs(filters.Arg("reference", repo))})
 	if err != nil {
 		return "", err
 	}
@@ -357,4 +364,23 @@ func removeDuplicates(elements []string) []string {
 	}
 
 	return res
+}
+
+// format and print given images to match `docker images` output
+func formatAndPrint(images []types.ImageSummary) {
+	writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+	fmt.Fprintln(writer, "REPOSITORY\tTAG\tIMAGE ID\tCREATED\tSIZE")
+
+	for _, img := range images {
+		for _, repoTag := range img.RepoTags {
+			repo := strings.Split(repoTag, ":")[0]
+			tag := strings.Split(repoTag, ":")[1]
+			truncID := stringid.TruncateID(img.ID)
+			createdSince := units.HumanDuration(time.Now().UTC().Sub(time.Unix(img.Created, 0))) + " ago"
+			hSize := units.HumanSize(float64(img.Size))
+
+			fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n", repo, tag, truncID, createdSince, hSize)
+		}
+	}
+	writer.Flush()
 }

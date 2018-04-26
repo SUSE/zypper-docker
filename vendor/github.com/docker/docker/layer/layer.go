@@ -1,21 +1,23 @@
-// Package layer is package for managing read only
+// Package layer is package for managing read-only
 // and read-write mounts on the union file system
 // driver. Read-only mounts are referenced using a
 // content hash and are protected from mutation in
 // the exposed interface. The tar format is used
-// to create read only layers and export both
-// read only and writable layers. The exported
-// tar data for a read only layer should match
+// to create read-only layers and export both
+// read-only and writable layers. The exported
+// tar data for a read-only layer should match
 // the tar used to create the layer.
-package layer
+package layer // import "github.com/docker/docker/layer"
 
 import (
 	"errors"
 	"io"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/docker/distribution/digest"
+	"github.com/docker/distribution"
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/containerfs"
+	"github.com/opencontainers/go-digest"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -49,6 +51,10 @@ var (
 	// to be created which would result in a layer depth
 	// greater than the 125 max.
 	ErrMaxDepthExceeded = errors.New("max depth exceeded")
+
+	// ErrNotSupported is used when the action is not supported
+	// on the current host operating system.
+	ErrNotSupported = errors.New("not support on this host operating system")
 )
 
 // ChainID is the content-addressable ID of a layer.
@@ -75,9 +81,13 @@ type TarStreamer interface {
 	TarStream() (io.ReadCloser, error)
 }
 
-// Layer represents a read only layer
+// Layer represents a read-only layer
 type Layer interface {
 	TarStreamer
+
+	// TarStreamFrom returns a tar archive stream for all the layer chain with
+	// arbitrary depth.
+	TarStreamFrom(ChainID) (io.ReadCloser, error)
 
 	// ChainID returns the content hash of the entire layer chain. The hash
 	// chain is made up of DiffID of top layer and all of its parents.
@@ -117,7 +127,7 @@ type RWLayer interface {
 
 	// Mount mounts the RWLayer and returns the filesystem path
 	// the to the writable layer.
-	Mount(mountLabel string) (string, error)
+	Mount(mountLabel string) (containerfs.ContainerFS, error)
 
 	// Unmount unmounts the RWLayer. This should be called
 	// for every mount. If there are multiple mount calls
@@ -138,7 +148,7 @@ type RWLayer interface {
 }
 
 // Metadata holds information about a
-// read only layer
+// read-only layer
 type Metadata struct {
 	// ChainID is the content hash of the layer
 	ChainID ChainID
@@ -158,17 +168,26 @@ type Metadata struct {
 // writable mount. Changes made here will
 // not be included in the Tar stream of the
 // RWLayer.
-type MountInit func(root string) error
+type MountInit func(root containerfs.ContainerFS) error
+
+// CreateRWLayerOpts contains optional arguments to be passed to CreateRWLayer
+type CreateRWLayerOpts struct {
+	MountLabel string
+	InitFunc   MountInit
+	StorageOpt map[string]string
+}
 
 // Store represents a backend for managing both
 // read-only and read-write layers.
 type Store interface {
 	Register(io.Reader, ChainID) (Layer, error)
 	Get(ChainID) (Layer, error)
+	Map() map[ChainID]Layer
 	Release(Layer) ([]Metadata, error)
 
-	CreateRWLayer(id string, parent ChainID, mountLabel string, initFunc MountInit) (RWLayer, error)
+	CreateRWLayer(id string, parent ChainID, opts *CreateRWLayerOpts) (RWLayer, error)
 	GetRWLayer(id string) (RWLayer, error)
+	GetMountID(id string) (string, error)
 	ReleaseRWLayer(RWLayer) ([]Metadata, error)
 
 	Cleanup() error
@@ -176,48 +195,10 @@ type Store interface {
 	DriverName() string
 }
 
-// MetadataTransaction represents functions for setting layer metadata
-// with a single transaction.
-type MetadataTransaction interface {
-	SetSize(int64) error
-	SetParent(parent ChainID) error
-	SetDiffID(DiffID) error
-	SetCacheID(string) error
-	TarSplitWriter(compressInput bool) (io.WriteCloser, error)
-
-	Commit(ChainID) error
-	Cancel() error
-	String() string
-}
-
-// MetadataStore represents a backend for persisting
-// metadata about layers and providing the metadata
-// for restoring a Store.
-type MetadataStore interface {
-	// StartTransaction starts an update for new metadata
-	// which will be used to represent an ID on commit.
-	StartTransaction() (MetadataTransaction, error)
-
-	GetSize(ChainID) (int64, error)
-	GetParent(ChainID) (ChainID, error)
-	GetDiffID(ChainID) (DiffID, error)
-	GetCacheID(ChainID) (string, error)
-	TarSplitReader(ChainID) (io.ReadCloser, error)
-
-	SetMountID(string, string) error
-	SetInitID(string, string) error
-	SetMountParent(string, ChainID) error
-
-	GetMountID(string) (string, error)
-	GetInitID(string) (string, error)
-	GetMountParent(string) (ChainID, error)
-
-	// List returns the full list of referenced
-	// read-only and read-write layers
-	List() ([]ChainID, []string, error)
-
-	Remove(ChainID) error
-	RemoveMount(string) error
+// DescribableStore represents a layer store capable of storing
+// descriptors for layers.
+type DescribableStore interface {
+	RegisterWithDescriptor(io.Reader, ChainID, distribution.Descriptor) (Layer, error)
 }
 
 // CreateChainID returns ID for a layerDigest slice
@@ -247,7 +228,7 @@ func ReleaseAndLog(ls Store, l Layer) {
 	LogReleaseMetadata(metadata)
 }
 
-// LogReleaseMetadata logs a metadata array, use this to
+// LogReleaseMetadata logs a metadata array, uses this to
 // ensure consistent logging for release metadata
 func LogReleaseMetadata(metadatas []Metadata) {
 	for _, metadata := range metadatas {

@@ -1,14 +1,14 @@
-// +build linux
+// +build linux,cgo
 
-package loopback
+package loopback // import "github.com/docker/docker/pkg/loopback"
 
 import (
 	"errors"
 	"fmt"
 	"os"
-	"syscall"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 // Loopback related errors
@@ -47,7 +47,7 @@ func openNextAvailableLoopback(index int, sparseFile *os.File) (loopFile *os.Fil
 		fi, err := os.Stat(target)
 		if err != nil {
 			if os.IsNotExist(err) {
-				logrus.Errorf("There are no more loopback devices available.")
+				logrus.Error("There are no more loopback devices available.")
 			}
 			return nil, ErrAttachLoopbackDevice
 		}
@@ -69,7 +69,7 @@ func openNextAvailableLoopback(index int, sparseFile *os.File) (loopFile *os.Fil
 			loopFile.Close()
 
 			// If the error is EBUSY, then try the next loopback
-			if err != syscall.EBUSY {
+			if err != unix.EBUSY {
 				logrus.Errorf("Cannot set up loopback device %s: %s", target, err)
 				return nil, ErrAttachLoopbackDevice
 			}
@@ -127,7 +127,7 @@ func AttachLoopDevice(sparseName string) (loop *os.File, err error) {
 
 		// If the call failed, then free the loopback device
 		if err := ioctlLoopClrFd(loopFile.Fd()); err != nil {
-			logrus.Errorf("Error while cleaning up the loopback device")
+			logrus.Error("Error while cleaning up the loopback device")
 		}
 		loopFile.Close()
 		return nil, ErrAttachLoopbackDevice

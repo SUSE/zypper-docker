@@ -1,6 +1,6 @@
 // +build linux
 
-package zfs
+package zfs // import "github.com/docker/docker/daemon/graphdriver/zfs"
 
 import (
 	"testing"
@@ -24,6 +24,10 @@ func TestZfsCreateBase(t *testing.T) {
 
 func TestZfsCreateSnap(t *testing.T) {
 	graphtest.DriverTestCreateSnap(t, "zfs")
+}
+
+func TestZfsSetQuota(t *testing.T) {
+	graphtest.DriverTestSetQuota(t, "zfs", true)
 }
 
 func TestZfsTeardown(t *testing.T) {

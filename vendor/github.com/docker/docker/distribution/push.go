@@ -1,55 +1,18 @@
-package distribution
+package distribution // import "github.com/docker/docker/distribution"
 
 import (
 	"bufio"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/distribution/metadata"
-	"github.com/docker/docker/distribution/xfer"
-	"github.com/docker/docker/image"
-	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/progress"
-	"github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
-	"github.com/docker/engine-api/types"
-	"github.com/docker/libtrust"
-	"golang.org/x/net/context"
+	"github.com/sirupsen/logrus"
 )
-
-// ImagePushConfig stores push configuration.
-type ImagePushConfig struct {
-	// MetaHeaders store HTTP headers with metadata about the image
-	// (DockerHeaders with prefix X-Meta- in the request).
-	MetaHeaders map[string][]string
-	// AuthConfig holds authentication credentials for authenticating with
-	// the registry.
-	AuthConfig *types.AuthConfig
-	// ProgressOutput is the interface for showing the status of the push
-	// operation.
-	ProgressOutput progress.Output
-	// RegistryService is the registry service to use for TLS configuration
-	// and endpoint lookup.
-	RegistryService *registry.Service
-	// ImageEventLogger notifies events for a given image
-	ImageEventLogger func(id, name, action string)
-	// MetadataStore is the storage backend for distribution-specific
-	// metadata.
-	MetadataStore metadata.Store
-	// LayerStore manages layers.
-	LayerStore layer.Store
-	// ImageStore manages images.
-	ImageStore image.Store
-	// ReferenceStore manages tags.
-	ReferenceStore reference.Store
-	// TrustKey is the private key for legacy signatures. This is typically
-	// an ephemeral key, since these signatures are no longer verified.
-	TrustKey libtrust.PrivateKey
-	// UploadManager dispatches uploads.
-	UploadManager *xfer.LayerUploadManager
-}
 
 // Pusher is an interface that abstracts pushing for different API versions.
 type Pusher interface {
@@ -89,7 +52,7 @@ func NewPusher(ref reference.Named, endpoint registry.APIEndpoint, repoInfo *reg
 	return nil, fmt.Errorf("unknown version %d for registry %s", endpoint.Version, endpoint.URL)
 }
 
-// Push initiates a push operation on the repository named localName.
+// Push initiates a push operation on ref.
 // ref is the specific variant of the image to be pushed.
 // If no tag is provided, all tags will be pushed.
 func Push(ctx context.Context, ref reference.Named, imagePushConfig *ImagePushConfig) error {
@@ -101,16 +64,16 @@ func Push(ctx context.Context, ref reference.Named, imagePushConfig *ImagePushCo
 		return err
 	}
 
-	endpoints, err := imagePushConfig.RegistryService.LookupPushEndpoints(repoInfo)
+	endpoints, err := imagePushConfig.RegistryService.LookupPushEndpoints(reference.Domain(repoInfo.Name))
 	if err != nil {
 		return err
 	}
 
-	progress.Messagef(imagePushConfig.ProgressOutput, "", "The push refers to a repository [%s]", repoInfo.FullName())
+	progress.Messagef(imagePushConfig.ProgressOutput, "", "The push refers to repository [%s]", repoInfo.Name.Name())
 
-	associations := imagePushConfig.ReferenceStore.ReferencesByName(repoInfo)
+	associations := imagePushConfig.ReferenceStore.ReferencesByName(repoInfo.Name)
 	if len(associations) == 0 {
-		return fmt.Errorf("Repository does not exist: %s", repoInfo.Name())
+		return fmt.Errorf("An image does not exist locally with the tag: %s", reference.FamiliarName(repoInfo.Name))
 	}
 
 	var (
@@ -120,15 +83,30 @@ func Push(ctx context.Context, ref reference.Named, imagePushConfig *ImagePushCo
 		// confirm that it was talking to a v2 registry. This will
 		// prevent fallback to the v1 protocol.
 		confirmedV2 bool
+
+		// confirmedTLSRegistries is a map indicating which registries
+		// are known to be using TLS. There should never be a plaintext
+		// retry for any of these.
+		confirmedTLSRegistries = make(map[string]struct{})
 	)
 
 	for _, endpoint := range endpoints {
+		if imagePushConfig.RequireSchema2 && endpoint.Version == registry.APIVersion1 {
+			continue
+		}
 		if confirmedV2 && endpoint.Version == registry.APIVersion1 {
 			logrus.Debugf("Skipping v1 endpoint %s because v2 registry was detected", endpoint.URL)
 			continue
 		}
 
-		logrus.Debugf("Trying to push %s to %s %s", repoInfo.FullName(), endpoint.URL, endpoint.Version)
+		if endpoint.URL.Scheme != "https" {
+			if _, confirmedTLS := confirmedTLSRegistries[endpoint.URL.Host]; confirmedTLS {
+				logrus.Debugf("Skipping non-TLS endpoint %s for host/port that appears to use TLS", endpoint.URL)
+				continue
+			}
+		}
+
+		logrus.Debugf("Trying to push %s to %s %s", repoInfo.Name.Name(), endpoint.URL, endpoint.Version)
 
 		pusher, err := NewPusher(ref, endpoint, repoInfo, imagePushConfig)
 		if err != nil {
@@ -143,22 +121,26 @@ func Push(ctx context.Context, ref reference.Named, imagePushConfig *ImagePushCo
 			default:
 				if fallbackErr, ok := err.(fallbackError); ok {
 					confirmedV2 = confirmedV2 || fallbackErr.confirmedV2
+					if fallbackErr.transportOK && endpoint.URL.Scheme == "https" {
+						confirmedTLSRegistries[endpoint.URL.Host] = struct{}{}
+					}
 					err = fallbackErr.err
 					lastErr = err
+					logrus.Infof("Attempting next endpoint for push after error: %v", err)
 					continue
 				}
 			}
 
-			logrus.Debugf("Not continuing with error: %v", err)
+			logrus.Errorf("Not continuing with push after error: %v", err)
 			return err
 		}
 
-		imagePushConfig.ImageEventLogger(ref.String(), repoInfo.Name(), "push")
+		imagePushConfig.ImageEventLogger(reference.FamiliarString(ref), reference.FamiliarName(repoInfo.Name), "push")
 		return nil
 	}
 
 	if lastErr == nil {
-		lastErr = fmt.Errorf("no endpoints found for %s", repoInfo.FullName())
+		lastErr = fmt.Errorf("no endpoints found for %s", repoInfo.Name.Name())
 	}
 	return lastErr
 }
@@ -171,7 +153,14 @@ func Push(ctx context.Context, ref reference.Named, imagePushConfig *ImagePushCo
 // argument so that it can be used with httpBlobWriter's ReadFrom method.
 // Using httpBlobWriter's Write method would send a PATCH request for every
 // Write call.
-func compress(in io.Reader) io.ReadCloser {
+//
+// The second return value is a channel that gets closed when the goroutine
+// is finished. This allows the caller to make sure the goroutine finishes
+// before it releases any resources connected with the reader that was
+// passed in.
+func compress(in io.Reader) (io.ReadCloser, chan struct{}) {
+	compressionDone := make(chan struct{})
+
 	pipeReader, pipeWriter := io.Pipe()
 	// Use a bufio.Writer to avoid excessive chunking in HTTP request.
 	bufWriter := bufio.NewWriterSize(pipeWriter, compressionBufSize)
@@ -190,7 +179,8 @@ func compress(in io.Reader) io.ReadCloser {
 		} else {
 			pipeWriter.Close()
 		}
+		close(compressionDone)
 	}()
 
-	return pipeReader
+	return pipeReader, compressionDone
 }

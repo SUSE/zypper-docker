@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/engine-api/client"
+	"github.com/docker/docker/client"
 	"github.com/mssola/capture"
 )
 

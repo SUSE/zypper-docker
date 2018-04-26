@@ -1,4 +1,4 @@
-// Copyright 2016 CoreOS, Inc.
+// Copyright 2016 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package fileutil
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"syscall"
 )
@@ -36,7 +38,7 @@ const (
 var (
 	wrlck = syscall.Flock_t{
 		Type:   syscall.F_WRLCK,
-		Whence: int16(os.SEEK_SET),
+		Whence: int16(io.SeekStart),
 		Start:  0,
 		Len:    0,
 	}
@@ -61,7 +63,7 @@ func TryLockFile(path string, flag int, perm os.FileMode) (*LockedFile, error) {
 func ofdTryLockFile(path string, flag int, perm os.FileMode) (*LockedFile, error) {
 	f, err := os.OpenFile(path, flag, perm)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ofdTryLockFile failed to open %q (%v)", path, err)
 	}
 
 	flock := wrlck
@@ -82,15 +84,14 @@ func LockFile(path string, flag int, perm os.FileMode) (*LockedFile, error) {
 func ofdLockFile(path string, flag int, perm os.FileMode) (*LockedFile, error) {
 	f, err := os.OpenFile(path, flag, perm)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ofdLockFile failed to open %q (%v)", path, err)
 	}
 
 	flock := wrlck
 	err = syscall.FcntlFlock(f.Fd(), F_OFD_SETLKW, &flock)
-
 	if err != nil {
 		f.Close()
 		return nil, err
 	}
-	return &LockedFile{f}, err
+	return &LockedFile{f}, nil
 }

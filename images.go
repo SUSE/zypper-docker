@@ -15,18 +15,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"os"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/docker/api/client/formatter"
-	"github.com/docker/engine-api/types"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 )
 
 // Print all the images based on SUSE. It will print in a format that is as
 // close to the `docker` command as possible.
-func printImages(images []types.Image) {
-	suseImages := make([]types.Image, 0, len(images))
+func printImages(images []types.ImageSummary) {
+	suseImages := make([]types.ImageSummary, 0, len(images))
 	cache := getCacheFile()
 	counter := 0
 
@@ -42,19 +42,7 @@ func printImages(images []types.Image) {
 		}
 		counter++
 	}
-
-	imagesCtx := formatter.ImageContext{
-		Context: formatter.Context{
-			Output: os.Stdout,
-			Format: "table",
-			Quiet:  false,
-			Trunc:  true,
-		},
-		Digest: false,
-		Images: suseImages,
-	}
-
-	imagesCtx.Write()
+	formatAndPrint(suseImages)
 	cache.flush()
 }
 
@@ -68,7 +56,7 @@ func imagesCmd(ctx *cli.Context) {
 		cd.reset()
 	}
 
-	if imgs, err := client.ImageList(types.ImageListOptions{All: false}); err != nil {
+	if imgs, err := client.ImageList(context.Background(), types.ImageListOptions{}); err != nil {
 		logAndFatalf("Cannot proceed safely: %v.", err)
 	} else {
 		printImages(imgs)
@@ -81,9 +69,9 @@ func imagesCmd(ctx *cli.Context) {
 func checkImageExists(repo, tag string) (bool, error) {
 	client := getDockerClient()
 
-	images, err := client.ImageList(types.ImageListOptions{
-		MatchName: repo,
-		All:       false,
+	images, err := client.ImageList(context.Background(), types.ImageListOptions{
+		All:     false,
+		Filters: filters.NewArgs(filters.Arg("reference", repo)),
 	})
 	if err != nil {
 		return false, err

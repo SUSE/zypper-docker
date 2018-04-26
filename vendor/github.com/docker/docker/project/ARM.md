@@ -12,16 +12,34 @@ From the root of the Docker/Docker repo one can use make to execute the followin
 - make validate
 - make binary
 - make build
+- make deb
 - make bundles
 - make default
 - make shell
+- make test-unit
+- make test-integration
 - make
 
 The Makefile does include logic to determine on which OS and architecture the Docker Development Image is built.
 Based on OS and architecture it chooses the correct Dockerfile.
-For the ARM 32bit architecture it uses `Dockerfile.arm`.
+For the ARM 32bit architecture it uses `Dockerfile.armhf`.
 
-So for example in order to build a Docker binary one has to  
-1. clone the Docker/Docker repository on an ARM device `git clone git@github.com:docker/docker.git`  
+So for example in order to build a Docker binary one has to:
+1. clone the Docker/Docker repository on an ARM device `git clone https://github.com/docker/docker.git`  
 2. change into the checked out repository with `cd docker`  
 3. execute `make binary` to create a Docker Engine binary for ARM  
+
+## Kernel modules
+A few libnetwork integration tests require that the kernel be
+configured with "dummy" network interface and has the module
+loaded. However, the dummy module may be not loaded automatically.
+
+To load the kernel module permanently, run these commands as `root`.
+
+    modprobe dummy
+    echo "dummy" >> /etc/modules
+
+On some systems you also have to sync your kernel modules.
+
+    oc-sync-kernel-modules
+    depmod

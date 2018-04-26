@@ -1,9 +1,11 @@
-package pubsub
+package pubsub // import "github.com/docker/docker/pkg/pubsub"
 
 import (
 	"sync"
 	"time"
 )
+
+var wgPool = sync.Pool{New: func() interface{} { return new(sync.WaitGroup) }}
 
 // NewPublisher creates a new pub/sub publisher to broadcast messages.
 // The duration is used as the send timeout as to not block the publisher publishing
@@ -51,6 +53,16 @@ func (p *Publisher) SubscribeTopic(topic topicFunc) chan interface{} {
 	return ch
 }
 
+// SubscribeTopicWithBuffer adds a new subscriber that filters messages sent by a topic.
+// The returned channel has a buffer of the specified size.
+func (p *Publisher) SubscribeTopicWithBuffer(topic topicFunc, buffer int) chan interface{} {
+	ch := make(chan interface{}, buffer)
+	p.m.Lock()
+	p.subscribers[ch] = topic
+	p.m.Unlock()
+	return ch
+}
+
 // Evict removes the specified subscriber from receiving any more messages.
 func (p *Publisher) Evict(sub chan interface{}) {
 	p.m.Lock()
@@ -62,13 +74,18 @@ func (p *Publisher) Evict(sub chan interface{}) {
 // Publish sends the data in v to all subscribers currently registered with the publisher.
 func (p *Publisher) Publish(v interface{}) {
 	p.m.RLock()
-	wg := new(sync.WaitGroup)
+	if len(p.subscribers) == 0 {
+		p.m.RUnlock()
+		return
+	}
+
+	wg := wgPool.Get().(*sync.WaitGroup)
 	for sub, topic := range p.subscribers {
 		wg.Add(1)
-
 		go p.sendTopic(sub, topic, v, wg)
 	}
 	wg.Wait()
+	wgPool.Put(wg)
 	p.m.RUnlock()
 }
 

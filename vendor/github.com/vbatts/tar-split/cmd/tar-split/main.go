@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 	"github.com/vbatts/tar-split/version"
 )
 
@@ -41,6 +41,10 @@ func main() {
 					Name:  "output",
 					Value: "tar-data.json.gz",
 					Usage: "output of disassembled tar stream",
+				},
+				cli.BoolFlag{
+					Name:  "no-stdout",
+					Usage: "do not throughput the stream to STDOUT",
 				},
 			},
 		},

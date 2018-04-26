@@ -1,8 +1,7 @@
-// +build windows
+package dockerfile // import "github.com/docker/docker/builder/dockerfile"
 
-package dockerfile
+import "github.com/docker/docker/pkg/idtools"
 
-func fixPermissions(source, destination string, uid, gid int, destExisted bool) error {
-	// chown is not supported on Windows
-	return nil
+func parseChownFlag(chown, ctrRootPath string, idMappings *idtools.IDMappings) (idtools.IDPair, error) {
+	return idMappings.RootPair(), nil
 }

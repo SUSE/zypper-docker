@@ -1,29 +1,29 @@
 // +build !windows
 
-package daemon
+package daemon // import "github.com/docker/docker/daemon"
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/Sirupsen/logrus"
+	containertypes "github.com/docker/docker/api/types/container"
+	mounttypes "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/container"
-	derr "github.com/docker/docker/errors"
-	"github.com/docker/docker/image"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/volume"
-	containertypes "github.com/docker/engine-api/types/container"
-	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/sirupsen/logrus"
 )
 
-// createContainerPlatformSpecificSettings performs platform specific container create functionality
-func (daemon *Daemon) createContainerPlatformSpecificSettings(container *container.Container, config *containertypes.Config, hostConfig *containertypes.HostConfig, img *image.Image) error {
+// createContainerOSSpecificSettings performs host-OS specific container create functionality
+func (daemon *Daemon) createContainerOSSpecificSettings(container *container.Container, config *containertypes.Config, hostConfig *containertypes.HostConfig) error {
 	if err := daemon.Mount(container); err != nil {
 		return err
 	}
 	defer daemon.Unmount(container)
 
-	if err := container.SetupWorkingDirectory(); err != nil {
+	rootIDs := daemon.idMappings.RootPair()
+	if err := container.SetupWorkingDirectory(rootIDs); err != nil {
 		return err
 	}
 
@@ -43,20 +43,10 @@ func (daemon *Daemon) createContainerPlatformSpecificSettings(container *contain
 
 		stat, err := os.Stat(path)
 		if err == nil && !stat.IsDir() {
-			return derr.ErrorCodeMountOverFile.WithArgs(path)
+			return fmt.Errorf("cannot mount volume over existing file, file exists %s", path)
 		}
 
-		volumeDriver := hostConfig.VolumeDriver
-		if destination != "" && img != nil {
-			if _, ok := img.ContainerConfig.Volumes[destination]; ok {
-				// check for whether bind is not specified and then set to local
-				if _, ok := container.MountPoints[destination]; !ok {
-					volumeDriver = volume.DefaultDriverName
-				}
-			}
-		}
-
-		v, err := daemon.volumes.CreateWithRef(name, volumeDriver, container.ID, nil)
+		v, err := daemon.volumes.CreateWithRef(name, hostConfig.VolumeDriver, container.ID, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -74,8 +64,11 @@ func (daemon *Daemon) createContainerPlatformSpecificSettings(container *contain
 // this is only called when the container is created.
 func (daemon *Daemon) populateVolumes(c *container.Container) error {
 	for _, mnt := range c.MountPoints {
-		// skip binds and volumes referenced by other containers (ie, volumes-from)
-		if mnt.Driver == "" || mnt.Volume == nil || len(daemon.volumes.Refs(mnt.Volume)) > 1 {
+		if mnt.Volume == nil {
+			continue
+		}
+
+		if mnt.Type != mounttypes.TypeVolume || !mnt.CopyData {
 			continue
 		}
 

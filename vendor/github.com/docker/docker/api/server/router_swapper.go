@@ -1,4 +1,4 @@
-package server
+package server // import "github.com/docker/docker/api/server"
 
 import (
 	"net/http"
@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// routerSwapper is an http.Handler that allow you to swap
+// routerSwapper is an http.Handler that allows you to swap
 // mux routers.
 type routerSwapper struct {
 	mu     sync.Mutex

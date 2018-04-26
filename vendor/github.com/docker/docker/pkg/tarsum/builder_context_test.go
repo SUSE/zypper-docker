@@ -1,4 +1,4 @@
-package tarsum
+package tarsum // import "github.com/docker/docker/pkg/tarsum"
 
 import (
 	"io"
@@ -14,6 +14,8 @@ func TestTarSumRemoveNonExistent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer reader.Close()
+
 	ts, err := NewTarSum(reader, false, Version0)
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +44,8 @@ func TestTarSumRemove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer reader.Close()
+
 	ts, err := NewTarSum(reader, false, Version0)
 	if err != nil {
 		t.Fatal(err)

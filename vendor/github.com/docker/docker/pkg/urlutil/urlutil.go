@@ -1,6 +1,6 @@
 // Package urlutil provides helper function to check urls kind.
 // It supports http urls, git urls and transport url (tcp://, …)
-package urlutil
+package urlutil // import "github.com/docker/docker/pkg/urlutil"
 
 import (
 	"regexp"
@@ -11,7 +11,7 @@ var (
 	validPrefixes = map[string][]string{
 		"url":       {"http://", "https://"},
 		"git":       {"git://", "github.com/", "git@"},
-		"transport": {"tcp://", "udp://", "unix://"},
+		"transport": {"tcp://", "tcp+tls://", "udp://", "unix://", "unixgram://"},
 	}
 	urlPathWithFragmentSuffix = regexp.MustCompile(".git(?:#.+)?$")
 )
@@ -29,13 +29,7 @@ func IsGitURL(str string) bool {
 	return checkURL(str, "git")
 }
 
-// IsGitTransport returns true if the provided str is a git transport by inspecting
-// the prefix of the string for known protocols used in git.
-func IsGitTransport(str string) bool {
-	return IsURL(str) || strings.HasPrefix(str, "git://") || strings.HasPrefix(str, "git@")
-}
-
-// IsTransportURL returns true if the provided str is a transport (tcp, udp, unix) URL.
+// IsTransportURL returns true if the provided str is a transport (tcp, tcp+tls, udp, unix) URL.
 func IsTransportURL(str string) bool {
 	return checkURL(str, "transport")
 }

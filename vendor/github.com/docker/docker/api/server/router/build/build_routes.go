@@ -1,82 +1,52 @@
-package build
+package build // import "github.com/docker/docker/api/server/router/build"
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/server/httputils"
-	"github.com/docker/docker/builder"
-	"github.com/docker/docker/builder/dockerfile"
-	"github.com/docker/docker/daemon/daemonbuilder"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/backend"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/versions"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/progress"
 	"github.com/docker/docker/pkg/streamformatter"
-	"github.com/docker/docker/reference"
-	"github.com/docker/docker/utils"
-	"github.com/docker/engine-api/types"
-	"github.com/docker/engine-api/types/container"
-	"github.com/docker/go-units"
-	"golang.org/x/net/context"
+	"github.com/docker/docker/pkg/system"
+	units "github.com/docker/go-units"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
-// sanitizeRepoAndTags parses the raw "t" parameter received from the client
-// to a slice of repoAndTag.
-// It also validates each repoName and tag.
-func sanitizeRepoAndTags(names []string) ([]reference.Named, error) {
-	var (
-		repoAndTags []reference.Named
-		// This map is used for deduplicating the "-t" parameter.
-		uniqNames = make(map[string]struct{})
-	)
-	for _, repo := range names {
-		if repo == "" {
-			continue
-		}
+type invalidIsolationError string
 
-		ref, err := reference.ParseNamed(repo)
-		if err != nil {
-			return nil, err
-		}
-
-		ref = reference.WithDefaultTag(ref)
-
-		if _, isCanonical := ref.(reference.Canonical); isCanonical {
-			return nil, errors.New("build tag cannot contain a digest")
-		}
-
-		if _, isTagged := ref.(reference.NamedTagged); !isTagged {
-			ref, err = reference.WithTag(ref, reference.DefaultTag)
-		}
-
-		nameWithTag := ref.String()
-
-		if _, exists := uniqNames[nameWithTag]; !exists {
-			uniqNames[nameWithTag] = struct{}{}
-			repoAndTags = append(repoAndTags, ref)
-		}
-	}
-	return repoAndTags, nil
+func (e invalidIsolationError) Error() string {
+	return fmt.Sprintf("Unsupported isolation: %q", string(e))
 }
+
+func (e invalidIsolationError) InvalidParameter() {}
 
 func newImageBuildOptions(ctx context.Context, r *http.Request) (*types.ImageBuildOptions, error) {
 	version := httputils.VersionFromContext(ctx)
 	options := &types.ImageBuildOptions{}
-	if httputils.BoolValue(r, "forcerm") && version.GreaterThanOrEqualTo("1.12") {
+	if httputils.BoolValue(r, "forcerm") && versions.GreaterThanOrEqualTo(version, "1.12") {
 		options.Remove = true
-	} else if r.FormValue("rm") == "" && version.GreaterThanOrEqualTo("1.12") {
+	} else if r.FormValue("rm") == "" && versions.GreaterThanOrEqualTo(version, "1.12") {
 		options.Remove = true
 	} else {
 		options.Remove = httputils.BoolValue(r, "rm")
 	}
-	if httputils.BoolValue(r, "pull") && version.GreaterThanOrEqualTo("1.16") {
+	if httputils.BoolValue(r, "pull") && versions.GreaterThanOrEqualTo(version, "1.16") {
 		options.PullParent = true
 	}
 
@@ -92,6 +62,21 @@ func newImageBuildOptions(ctx context.Context, r *http.Request) (*types.ImageBui
 	options.CPUSetCPUs = r.FormValue("cpusetcpus")
 	options.CPUSetMems = r.FormValue("cpusetmems")
 	options.CgroupParent = r.FormValue("cgroupparent")
+	options.NetworkMode = r.FormValue("networkmode")
+	options.Tags = r.Form["t"]
+	options.ExtraHosts = r.Form["extrahosts"]
+	options.SecurityOpt = r.Form["securityopt"]
+	options.Squash = httputils.BoolValue(r, "squash")
+	options.Target = r.FormValue("target")
+	options.RemoteContext = r.FormValue("remote")
+	if versions.GreaterThanOrEqualTo(version, "1.32") {
+		apiPlatform := r.FormValue("platform")
+		p := system.ParsePlatform(apiPlatform)
+		if err := system.ValidatePlatform(p); err != nil {
+			return nil, errdefs.InvalidParameter(errors.Errorf("invalid platform: %s", err))
+		}
+		options.Platform = p.OS
+	}
 
 	if r.Form.Get("shmsize") != "" {
 		shmSize, err := strconv.ParseInt(r.Form.Get("shmsize"), 10, 64)
@@ -101,54 +86,87 @@ func newImageBuildOptions(ctx context.Context, r *http.Request) (*types.ImageBui
 		options.ShmSize = shmSize
 	}
 
-	if i := container.IsolationLevel(r.FormValue("isolation")); i != "" {
-		if !container.IsolationLevel.IsValid(i) {
-			return nil, fmt.Errorf("Unsupported isolation: %q", i)
+	if i := container.Isolation(r.FormValue("isolation")); i != "" {
+		if !container.Isolation.IsValid(i) {
+			return nil, invalidIsolationError(i)
 		}
-		options.IsolationLevel = i
+		options.Isolation = i
+	}
+
+	if runtime.GOOS != "windows" && options.SecurityOpt != nil {
+		return nil, errdefs.InvalidParameter(errors.New("The daemon on this platform does not support setting security options on build"))
 	}
 
 	var buildUlimits = []*units.Ulimit{}
 	ulimitsJSON := r.FormValue("ulimits")
 	if ulimitsJSON != "" {
-		if err := json.NewDecoder(strings.NewReader(ulimitsJSON)).Decode(&buildUlimits); err != nil {
-			return nil, err
+		if err := json.Unmarshal([]byte(ulimitsJSON), &buildUlimits); err != nil {
+			return nil, errors.Wrap(errdefs.InvalidParameter(err), "error reading ulimit settings")
 		}
 		options.Ulimits = buildUlimits
 	}
 
-	var buildArgs = map[string]string{}
+	// Note that there are two ways a --build-arg might appear in the
+	// json of the query param:
+	//     "foo":"bar"
+	// and "foo":nil
+	// The first is the normal case, ie. --build-arg foo=bar
+	// or  --build-arg foo
+	// where foo's value was picked up from an env var.
+	// The second ("foo":nil) is where they put --build-arg foo
+	// but "foo" isn't set as an env var. In that case we can't just drop
+	// the fact they mentioned it, we need to pass that along to the builder
+	// so that it can print a warning about "foo" being unused if there is
+	// no "ARG foo" in the Dockerfile.
 	buildArgsJSON := r.FormValue("buildargs")
 	if buildArgsJSON != "" {
-		if err := json.NewDecoder(strings.NewReader(buildArgsJSON)).Decode(&buildArgs); err != nil {
-			return nil, err
+		var buildArgs = map[string]*string{}
+		if err := json.Unmarshal([]byte(buildArgsJSON), &buildArgs); err != nil {
+			return nil, errors.Wrap(errdefs.InvalidParameter(err), "error reading build args")
 		}
 		options.BuildArgs = buildArgs
 	}
+
+	labelsJSON := r.FormValue("labels")
+	if labelsJSON != "" {
+		var labels = map[string]string{}
+		if err := json.Unmarshal([]byte(labelsJSON), &labels); err != nil {
+			return nil, errors.Wrap(errdefs.InvalidParameter(err), "error reading labels")
+		}
+		options.Labels = labels
+	}
+
+	cacheFromJSON := r.FormValue("cachefrom")
+	if cacheFromJSON != "" {
+		var cacheFrom = []string{}
+		if err := json.Unmarshal([]byte(cacheFromJSON), &cacheFrom); err != nil {
+			return nil, err
+		}
+		options.CacheFrom = cacheFrom
+	}
+	options.SessionID = r.FormValue("session")
+
 	return options, nil
+}
+
+func (br *buildRouter) postPrune(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	report, err := br.backend.PruneCache(ctx)
+	if err != nil {
+		return err
+	}
+	return httputils.WriteJSON(w, http.StatusOK, report)
 }
 
 func (br *buildRouter) postBuild(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	var (
-		authConfigs        = map[string]types.AuthConfig{}
-		authConfigsEncoded = r.Header.Get("X-Registry-Config")
-		notVerboseBuffer   = bytes.NewBuffer(nil)
+		notVerboseBuffer = bytes.NewBuffer(nil)
+		version          = httputils.VersionFromContext(ctx)
 	)
-
-	if authConfigsEncoded != "" {
-		authConfigsJSON := base64.NewDecoder(base64.URLEncoding, strings.NewReader(authConfigsEncoded))
-		if err := json.NewDecoder(authConfigsJSON).Decode(&authConfigs); err != nil {
-			// for a pull it is not an error if no auth was given
-			// to increase compatibility with the existing api it is defaulting
-			// to be empty.
-		}
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	output := ioutils.NewWriteFlusher(w)
 	defer output.Close()
-	sf := streamformatter.NewJSONStreamFormatter()
 	errf := func(err error) error {
 		if httputils.BoolValue(r, "q") && notVerboseBuffer.Len() > 0 {
 			output.Write(notVerboseBuffer.Bytes())
@@ -158,7 +176,7 @@ func (br *buildRouter) postBuild(ctx context.Context, w http.ResponseWriter, r *
 		if !output.Flushed() {
 			return err
 		}
-		_, err = w.Write(sf.FormatError(errors.New(utils.GetErrorMessage(err))))
+		_, err = w.Write(streamformatter.FormatError(err))
 		if err != nil {
 			logrus.Warnf("could not write error response: %v", err)
 		}
@@ -169,92 +187,83 @@ func (br *buildRouter) postBuild(ctx context.Context, w http.ResponseWriter, r *
 	if err != nil {
 		return errf(err)
 	}
+	buildOptions.AuthConfigs = getAuthConfigs(r.Header)
 
-	repoAndTags, err := sanitizeRepoAndTags(r.Form["t"])
-	if err != nil {
-		return errf(err)
+	if buildOptions.Squash && !br.daemon.HasExperimental() {
+		return errdefs.InvalidParameter(errors.New("squash is only supported with experimental mode"))
 	}
 
-	remoteURL := r.FormValue("remote")
+	out := io.Writer(output)
+	if buildOptions.SuppressOutput {
+		out = notVerboseBuffer
+	}
 
 	// Currently, only used if context is from a remote url.
 	// Look at code in DetectContextFromRemoteURL for more information.
 	createProgressReader := func(in io.ReadCloser) io.ReadCloser {
-		progressOutput := sf.NewProgressOutput(output, true)
-		if buildOptions.SuppressOutput {
-			progressOutput = sf.NewProgressOutput(notVerboseBuffer, true)
-		}
-		return progress.NewProgressReader(in, progressOutput, r.ContentLength, "Downloading context", remoteURL)
+		progressOutput := streamformatter.NewJSONProgressOutput(out, true)
+		return progress.NewProgressReader(in, progressOutput, r.ContentLength, "Downloading context", buildOptions.RemoteContext)
 	}
 
-	var (
-		context        builder.ModifiableContext
-		dockerfileName string
-	)
-	context, dockerfileName, err = daemonbuilder.DetectContextFromRemoteURL(r.Body, remoteURL, createProgressReader)
+	wantAux := versions.GreaterThanOrEqualTo(version, "1.30")
+
+	imgID, err := br.backend.Build(ctx, backend.BuildConfig{
+		Source:         r.Body,
+		Options:        buildOptions,
+		ProgressWriter: buildProgressWriter(out, wantAux, createProgressReader),
+	})
 	if err != nil {
 		return errf(err)
-	}
-	defer func() {
-		if err := context.Close(); err != nil {
-			logrus.Debugf("[BUILDER] failed to remove temporary context: %v", err)
-		}
-	}()
-	if len(dockerfileName) > 0 {
-		buildOptions.Dockerfile = dockerfileName
-	}
-
-	b, err := dockerfile.NewBuilder(
-		buildOptions, // result of newBuildConfig
-		&daemonbuilder.Docker{br.backend},
-		builder.DockerIgnoreContext{ModifiableContext: context},
-		nil)
-	if err != nil {
-		return errf(err)
-	}
-	if buildOptions.SuppressOutput {
-		b.Output = notVerboseBuffer
-	} else {
-		b.Output = output
-	}
-	b.Stdout = &streamformatter.StdoutFormatter{Writer: output, StreamFormatter: sf}
-	b.Stderr = &streamformatter.StderrFormatter{Writer: output, StreamFormatter: sf}
-	if buildOptions.SuppressOutput {
-		b.Stdout = &streamformatter.StdoutFormatter{Writer: notVerboseBuffer, StreamFormatter: sf}
-		b.Stderr = &streamformatter.StderrFormatter{Writer: notVerboseBuffer, StreamFormatter: sf}
-	}
-
-	if closeNotifier, ok := w.(http.CloseNotifier); ok {
-		finished := make(chan struct{})
-		defer close(finished)
-		clientGone := closeNotifier.CloseNotify()
-		go func() {
-			select {
-			case <-finished:
-			case <-clientGone:
-				logrus.Infof("Client disconnected, cancelling job: build")
-				b.Cancel()
-			}
-		}()
-	}
-
-	imgID, err := b.Build()
-	if err != nil {
-		return errf(err)
-	}
-
-	for _, rt := range repoAndTags {
-		if err := br.backend.TagImage(rt, imgID); err != nil {
-			return errf(err)
-		}
 	}
 
 	// Everything worked so if -q was provided the output from the daemon
 	// should be just the image ID and we'll print that to stdout.
 	if buildOptions.SuppressOutput {
-		stdout := &streamformatter.StdoutFormatter{Writer: output, StreamFormatter: sf}
-		fmt.Fprintf(stdout, "%s\n", string(imgID))
+		fmt.Fprintln(streamformatter.NewStdoutWriter(output), imgID)
+	}
+	return nil
+}
+
+func getAuthConfigs(header http.Header) map[string]types.AuthConfig {
+	authConfigs := map[string]types.AuthConfig{}
+	authConfigsEncoded := header.Get("X-Registry-Config")
+
+	if authConfigsEncoded == "" {
+		return authConfigs
 	}
 
-	return nil
+	authConfigsJSON := base64.NewDecoder(base64.URLEncoding, strings.NewReader(authConfigsEncoded))
+	// Pulling an image does not error when no auth is provided so to remain
+	// consistent with the existing api decode errors are ignored
+	json.NewDecoder(authConfigsJSON).Decode(&authConfigs)
+	return authConfigs
+}
+
+type syncWriter struct {
+	w  io.Writer
+	mu sync.Mutex
+}
+
+func (s *syncWriter) Write(b []byte) (count int, err error) {
+	s.mu.Lock()
+	count, err = s.w.Write(b)
+	s.mu.Unlock()
+	return
+}
+
+func buildProgressWriter(out io.Writer, wantAux bool, createProgressReader func(io.ReadCloser) io.ReadCloser) backend.ProgressWriter {
+	out = &syncWriter{w: out}
+
+	var aux *streamformatter.AuxFormatter
+	if wantAux {
+		aux = &streamformatter.AuxFormatter{Writer: out}
+	}
+
+	return backend.ProgressWriter{
+		Output:             out,
+		StdoutFormatter:    streamformatter.NewStdoutWriter(out),
+		StderrFormatter:    streamformatter.NewStderrWriter(out),
+		AuxFormatter:       aux,
+		ProgressReaderFunc: createProgressReader,
+	}
 }

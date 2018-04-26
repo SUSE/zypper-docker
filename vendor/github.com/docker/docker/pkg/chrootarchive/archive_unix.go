@@ -1,6 +1,6 @@
 // +build !windows
 
-package chrootarchive
+package chrootarchive // import "github.com/docker/docker/pkg/chrootarchive"
 
 import (
 	"bytes"
@@ -11,18 +11,10 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"syscall"
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/reexec"
 )
-
-func chroot(path string) error {
-	if err := syscall.Chroot(path); err != nil {
-		return err
-	}
-	return syscall.Chdir("/")
-}
 
 // untar is the entry-point for docker-untar on re-exec. This is not used on
 // Windows as it does not support chroot, hence no point sandboxing through
@@ -46,7 +38,10 @@ func untar() {
 		fatal(err)
 	}
 	// fully consume stdin in case it is zero padded
-	flush(os.Stdin)
+	if _, err := flush(os.Stdin); err != nil {
+		fatal(err)
+	}
+
 	os.Exit(0)
 }
 
@@ -71,10 +66,12 @@ func invokeUnpack(decompressedArchive io.Reader, dest string, options *archive.T
 	cmd.Stderr = output
 
 	if err := cmd.Start(); err != nil {
+		w.Close()
 		return fmt.Errorf("Untar error on re-exec cmd: %v", err)
 	}
 	//write the options to the pipe for the untar exec to read
 	if err := json.NewEncoder(w).Encode(options); err != nil {
+		w.Close()
 		return fmt.Errorf("Untar json encode to pipe failed: %v", err)
 	}
 	w.Close()
@@ -85,7 +82,7 @@ func invokeUnpack(decompressedArchive io.Reader, dest string, options *archive.T
 		// pending on write pipe forever
 		io.Copy(ioutil.Discard, decompressedArchive)
 
-		return fmt.Errorf("Untar re-exec error: %v: output: %s", err, output)
+		return fmt.Errorf("Error processing tar file(%v): %s", err, output)
 	}
 	return nil
 }
