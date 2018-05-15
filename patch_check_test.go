@@ -37,8 +37,8 @@ func TestPatchCheckCommand(t *testing.T) {
 
 func TestPatchCheckContainerCommand(t *testing.T) {
 	cases := testCases{
-		{"List Command fails", &mockClient{listFail: true}, 1, []string{"opensuse:13.2"}, true,
-			"Error while fetching running containers: Fake failure while listing containers.", ""},
+		{"List Command fails", &mockClient{listFail: true, inspectFail: true}, 1, []string{"opensuse:13.2"}, true,
+			"Container opensuse:13.2 does not exist", ""},
 		{"Ok", &mockClient{}, 0, []string{"suse"}, false, "Removed container zypper-docker-private-opensuse:13.2",
 			"streaming buffer initialized"},
 	}

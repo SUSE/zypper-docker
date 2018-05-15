@@ -265,3 +265,17 @@ func (mc *mockClient) ImageInspectWithRaw(ctx context.Context, imageID string) (
 	}
 	return types.ImageInspect{Config: &container.Config{Image: "1"}}, []byte{}, nil
 }
+
+func (mc *mockClient) ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error) {
+	if mc.removeFail {
+		return []types.ImageDeleteResponseItem{}, errors.New("remove fail")
+	}
+	return nil, nil
+}
+
+func (mc *mockClient) ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error) {
+	if mc.inspectFail {
+		return types.ContainerJSON{}, errors.New("inspect fail")
+	}
+	return types.ContainerJSON{Config: &container.Config{Image: "1"}}, nil
+}

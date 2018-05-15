@@ -247,16 +247,39 @@ func getImageID(name string) (string, error) {
 // context. This is used in the commandInContainer function.
 type commandFunc func(string, *cli.Context)
 
-// commandInContainer executes the given commandFunc for the image in which the
-// given container is based on. The container ID is extracted from the first
-// argument as given in ctx.
+// commandInContainer extracts the containerID from the given ctx. The function
+// first checks whether the container exists. If the container is running the
+// given commandFunc is executed on the image the container is based on. If the
+// --force flag is set the container is committed to a new image instead. In
+// case the container is not running it is committed to an image first.
+// Afterward commandFunc is executed on the new image.
 func commandInContainer(f commandFunc, ctx *cli.Context) {
 	containerID := ctx.Args().First()
-
+	// check if the container exists
+	if !checkContainerExists(containerID) {
+		logAndFatalf("Container %s does not exist.\n", containerID)
+	}
+	// check whether the container is running
 	if container, err := checkContainerRunning(containerID); err != nil {
-		logAndFatalf("%v.\n", err)
+		logAndPrintf("Checking stopped container %s ...\n", containerID)
+		// execute commitAndExecute on the stopped container
+		err = commitAndExecute(f, ctx, containerID)
+		if err != nil {
+			logAndFatalf("%v.\n", err)
+		}
 	} else {
-		f(container.Image, ctx)
+		// if the force flag is set commitAndExecute is executed on the running container
+		if ctx.GlobalBool("force") {
+			logAndPrintf("WARNING: Force flag used. Manually installed packages will be analyzed as well.\n")
+			err = commitAndExecute(f, ctx, containerID)
+			if err != nil {
+				logAndFatalf("%v.\n", err)
+			}
+		} else {
+			// directly call commandFunc on the image the container is based on
+			logAndPrintf("WARNING: Only the source image from this container will be inspected. Manually installed packages won't be taken into account.\n")
+			f(container.Image, ctx)
+		}
 	}
 }
 
