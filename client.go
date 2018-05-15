@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codegangsta/cli"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -67,9 +68,11 @@ type DockerClient interface {
 	ContainerResize(ctx context.Context, containerID string, options types.ResizeOptions) error
 	ContainerStart(ctx context.Context, containerID string, options types.ContainerStartOptions) error
 	ContainerWait(ctx context.Context, containerID string, condition container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error)
+	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
 
 	ImageInspectWithRaw(ctx context.Context, imageID string) (types.ImageInspect, []byte, error)
 	ImageList(ctx context.Context, options types.ImageListOptions) ([]types.ImageSummary, error)
+	ImageRemove(ctx context.Context, containerID string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
 }
 
 // The timeout in which the container is allowed to run a command as given
@@ -381,9 +384,13 @@ func commitContainerToImage(img, containerID, repo, tag, comment, author string)
 		"CMD " + joinAsArray(info.Config.Cmd, true),
 	}
 
+	var reference string
+	if repo != "" {
+		reference = repo + ":" + tag
+	}
 	// And we commit into the new image.
 	resp, err := client.ContainerCommit(context.Background(), containerID, types.ContainerCommitOptions{
-		Reference: repo + ":" + tag,
+		Reference: reference,
 		Comment:   comment,
 		Author:    author,
 		Changes:   changes,
@@ -456,4 +463,30 @@ func checkContainerRunning(id string) (types.Container, error) {
 	}
 
 	return container, nil
+}
+
+// checks whether a container with the given container ID exists.
+func checkContainerExists(containerID string) bool {
+	client := getDockerClient()
+	_, err := client.ContainerInspect(context.Background(), containerID)
+	return err == nil
+}
+
+// commitAndExecute commits the given container to a new image, executes the
+// given function and removes the image afterwards.
+func commitAndExecute(f commandFunc, ctx *cli.Context, containerID string) error {
+	client := getDockerClient()
+	// commit container to a new image
+	image, err := client.ContainerCommit(context.Background(), containerID, types.ContainerCommitOptions{})
+	if err != nil {
+		return err
+	}
+	// given commandFunc is executed.
+	f(image.ID, ctx)
+	// remove the image when finished
+	_, err = client.ImageRemove(context.Background(), image.ID, types.ImageRemoveOptions{
+		Force:         true,
+		PruneChildren: true,
+	})
+	return err
 }
