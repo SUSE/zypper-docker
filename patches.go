@@ -23,19 +23,20 @@ import (
 
 // zypper-docker list-patches [flags] <image>
 func listPatchesCmd(ctx *cli.Context) {
-	// It's safe to ignore the returned error because we set to false the
-	// `getError` parameter of this function.
-	listPatches(ctx.Args().First(), ctx)
+	imageID := ctx.Args().First()
+	err := listPatches(imageID, ctx)
+	exitOnError(imageID, "zypper lp", err)
 }
 
 // zypper-docker list-patches-container [flags] <container>
 func listPatchesContainerCmd(ctx *cli.Context) {
-	commandInContainer(listPatches, ctx)
+	imageID, err := commandInContainer(listPatches, ctx)
+	exitOnError(imageID, "zypper lp", err)
 }
 
 // listParches calls the `zypper lp` command for the given image and the given
 // arguments.
-func listPatches(image string, ctx *cli.Context) {
+func listPatches(image string, ctx *cli.Context) error {
 	if image == "" {
 		logAndFatalf("Error: no image name specified.\n")
 		exitWithCode(1)
@@ -54,11 +55,10 @@ func listPatches(image string, ctx *cli.Context) {
 		}
 	}
 
-	// It's safe to ignore the returned error because we set to false the
-	// `getError` parameter of this function.
-	_ = runStreamedCommand(
+	err := runStreamedCommand(
 		image,
-		cmdWithFlags("lp", ctx, []string{}, []string{}), false)
+		cmdWithFlags("lp", ctx, []string{}, []string{}), true)
+	return err
 }
 
 // zypper-docker patch [flags] image

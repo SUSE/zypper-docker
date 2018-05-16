@@ -36,7 +36,7 @@ func TestUpdateCommand(t *testing.T) {
 func TestListUpdatesCommand(t *testing.T) {
 	cases := testCases{
 		{"No image specified", &mockClient{}, 1, []string{}, true, "no image name specified", ""},
-		{"Command failure", &mockClient{commandFail: true}, 1, []string{"opensuse:13.2"}, false, "Command exited with status 1", ""},
+		{"Command failure", &mockClient{commandFail: true}, int(zypperExitCode), []string{"opensuse:13.2"}, false, "Command exited with status 1", ""},
 	}
 	cases.run(t, listUpdatesCmd, "zypper lu", "")
 }
@@ -45,7 +45,7 @@ func TestListUpdatesCommand(t *testing.T) {
 
 func TestListUpdatesContainerCommand(t *testing.T) {
 	cases := testCases{
-		{"List fails on list update container", &mockClient{listFail: true, inspectFail: true}, 1, []string{"opensuse:13.2"}, true, "Container opensuse:13.2 does not exist", ""},
+		{"List fails on list update container", &mockClient{listFail: true, inspectFail: true}, 1, []string{"opensuse:13.2"}, true, "container opensuse:13.2 does not exist", ""},
 		{"Updates container successfully", &mockClient{}, 0, []string{"suse"}, false, "Removed container zypper-docker-private-opensuse:13.2", ""},
 	}
 	cases.run(t, listUpdatesContainerCmd, "zypper lu", "")

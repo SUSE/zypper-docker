@@ -18,35 +18,20 @@ import "github.com/codegangsta/cli"
 
 // zypper-docker patch-check [flags] <image>
 func patchCheckCmd(ctx *cli.Context) {
-	patchCheck(ctx.Args().First(), ctx)
+	imageID := ctx.Args().First()
+	err := patchCheck(imageID, ctx)
+	exitOnError(imageID, "zypper pchk", err)
 }
 
 // zypper-docker patch-check-container [flags] <image>
 func patchCheckContainerCmd(ctx *cli.Context) {
-	commandInContainer(patchCheck, ctx)
+	imageID, err := commandInContainer(patchCheck, ctx)
+	exitOnError(imageID, "zypper pchk", err)
 }
 
 // patchCheck calls the `zypper pchk` command for the given image and the given
 // arguments.
-func patchCheck(image string, ctx *cli.Context) {
+func patchCheck(image string, ctx *cli.Context) error {
 	err := runStreamedCommand(image, "pchk", true)
-	if err == nil {
-		return
-	}
-
-	switch err.(type) {
-	case dockerError:
-		// According to zypper's documentation:
-		// 	100 - There are patches available for installation.
-		// 	101 - There are security patches available for installation.
-		// Therefore, if the returned exit code is one of the specified above,
-		// then we do nothing.
-		de := err.(dockerError)
-		if de.exitCode == 100 || de.exitCode == 101 {
-			exitWithCode(int(de.exitCode))
-			return
-		}
-	}
-	humanizeCommandError("zypper pchk", image, err)
-	exitWithCode(1)
+	return err
 }

@@ -36,7 +36,7 @@ func TestPatchCommand(t *testing.T) {
 func TestListPatchesCommand(t *testing.T) {
 	cases := testCases{
 		{"No image specified", &mockClient{}, 1, []string{}, true, "no image name specified", ""},
-		{"Command fail", &mockClient{commandFail: true}, 1, []string{"opensuse:13.2"}, false, "Error: Command exited with status 1", ""},
+		{"Command fail", &mockClient{commandFail: true}, int(zypperExitCode), []string{"opensuse:13.2"}, false, "Could not execute command 'zypper lp' successfully in image 'opensuse:13.2': Command exited with status 1", ""},
 		{"List patches", &mockClient{}, 0, []string{"opensuse:13.2"}, false, "Removed container zypper-docker-private-opensuse:13.2", "streaming buffer initialized"},
 	}
 	cases.run(t, listPatchesCmd, "zypper lp", "")
@@ -46,7 +46,7 @@ func TestListPatchesCommand(t *testing.T) {
 
 func TestListPatchesContainerCommand(t *testing.T) {
 	cases := testCases{
-		{"List fails on list patch container", &mockClient{listFail: true, inspectFail: true}, 1, []string{"opensuse:13.2"}, true, "Container opensuse:13.2 does not exist", ""},
+		{"List fails on list patch container", &mockClient{listFail: true, inspectFail: true}, 1, []string{"opensuse:13.2"}, true, "container opensuse:13.2 does not exist", ""},
 		{"Patches container successfully", &mockClient{}, 0, []string{"suse"}, false, "Removed container zypper-docker-private-opensuse:13.2", "streaming buffer initialized"},
 	}
 	cases.run(t, listPatchesContainerCmd, "zypper lp", "")

@@ -23,10 +23,10 @@ func TestPatchCheckCommand(t *testing.T) {
 		{"Image not specified", &mockClient{}, 1, []string{}, true, "Error: no image name specified.", ""},
 		{"Ok", &mockClient{}, 0, []string{"opensuse:13.2"}, false, "Removed container zypper-docker-private-opensuse:13.2",
 			"streaming buffer initialized"},
-		{"Invalid error", &mockClient{commandFail: true, commandExit: 2}, 1, []string{"opensuse:13.2"}, false,
+		{"Invalid error", &mockClient{commandFail: true, commandExit: 2}, int(zypperExitCode), []string{"opensuse:13.2"}, false,
 			"Could not execute command 'zypper pchk' successfully in image 'opensuse:13.2': Command exited with status 2.",
 			"streaming buffer initialized"},
-		{"Supported non-zero exit", &mockClient{commandFail: true, commandExit: 100}, 100, []string{"opensuse:13.2"}, false,
+		{"Supported non-zero exit", &mockClient{commandFail: true, commandExit: 100}, int(zypperExitCode), []string{"opensuse:13.2"}, false,
 			"Removed container zypper-docker-private-opensuse:13.2",
 			"streaming buffer initialized"},
 	}
@@ -38,7 +38,7 @@ func TestPatchCheckCommand(t *testing.T) {
 func TestPatchCheckContainerCommand(t *testing.T) {
 	cases := testCases{
 		{"List Command fails", &mockClient{listFail: true, inspectFail: true}, 1, []string{"opensuse:13.2"}, true,
-			"Container opensuse:13.2 does not exist", ""},
+			"container opensuse:13.2 does not exist", ""},
 		{"Ok", &mockClient{}, 0, []string{"suse"}, false, "Removed container zypper-docker-private-opensuse:13.2",
 			"streaming buffer initialized"},
 	}

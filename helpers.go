@@ -245,42 +245,65 @@ func getImageID(name string) (string, error) {
 
 // commandFunc represents a function that accepts an image ID and the CLI
 // context. This is used in the commandInContainer function.
-type commandFunc func(string, *cli.Context)
+type commandFunc func(string, *cli.Context) error
 
 // commandInContainer extracts the containerID from the given ctx. The function
 // first checks whether the container exists. If the container is running the
 // given commandFunc is executed on the image the container is based on. If the
 // --force flag is set the container is committed to a new image instead. In
 // case the container is not running it is committed to an image first.
-// Afterward commandFunc is executed on the new image.
-func commandInContainer(f commandFunc, ctx *cli.Context) {
+// Afterwards commandFunc is executed on the new image. The function returns
+// a string containing the image ID of the image in which the zypper command
+// is executed in and an error.
+func commandInContainer(f commandFunc, ctx *cli.Context) (string, error) {
 	containerID := ctx.Args().First()
+	var image string
+	var err error
 	// check if the container exists
 	if !checkContainerExists(containerID) {
-		logAndFatalf("Container %s does not exist.\n", containerID)
+		return "", fmt.Errorf("container %s does not exist", containerID)
 	}
 	// check whether the container is running
-	if container, err := checkContainerRunning(containerID); err != nil {
+	if container, runErr := checkContainerRunning(containerID); runErr != nil {
 		logAndPrintf("Checking stopped container %s ...\n", containerID)
 		// execute commitAndExecute on the stopped container
-		err = commitAndExecute(f, ctx, containerID)
-		if err != nil {
-			logAndFatalf("%v.\n", err)
-		}
+		image, err = commitAndExecute(f, ctx, containerID)
 	} else {
 		// if the force flag is set commitAndExecute is executed on the running container
 		if ctx.GlobalBool("force") {
 			logAndPrintf("WARNING: Force flag used. Manually installed packages will be analyzed as well.\n")
-			err = commitAndExecute(f, ctx, containerID)
-			if err != nil {
-				logAndFatalf("%v.\n", err)
-			}
+			image, err = commitAndExecute(f, ctx, containerID)
 		} else {
 			// directly call commandFunc on the image the container is based on
 			logAndPrintf("WARNING: Only the source image from this container will be inspected. Manually installed packages won't be taken into account.\n")
-			f(container.Image, ctx)
+			err = f(container.Image, ctx)
+			image = container.Image
 		}
 	}
+	return image, err
+}
+
+// if a non nil error is provided, check whether the given error has a zypper exit code != 0
+// and decide if it is severe. If it is print the error in a readable form and exit the
+// program, if not exit the program with the given zypper exit code.
+func exitOnError(image, cmd string, err error) {
+	if err == nil {
+		return
+	}
+	// check if an zypperExitCode != 0 was returned
+	switch err.(type) {
+	case dockerError:
+		if isZypperExitCodeSevere(int(err.(dockerError).exitCode)) {
+			humanizeCommandError(cmd, image, err)
+		}
+		return
+	}
+	if image == "" {
+		logAndPrintf("Error: %s", err)
+	} else {
+		humanizeCommandError(cmd, image, err)
+	}
+	exitWithCode(1)
 }
 
 // updatePatchCmd executes an update/patch command depending on the argument
