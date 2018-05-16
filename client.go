@@ -473,20 +473,29 @@ func checkContainerExists(containerID string) bool {
 }
 
 // commitAndExecute commits the given container to a new image, executes the
-// given function and removes the image afterwards.
-func commitAndExecute(f commandFunc, ctx *cli.Context, containerID string) error {
+// given function and removes the image afterwards. It returns a string containing
+// the ID of the created image and an error.
+func commitAndExecute(f commandFunc, ctx *cli.Context, containerID string) (string, error) {
 	client := getDockerClient()
 	// commit container to a new image
 	image, err := client.ContainerCommit(context.Background(), containerID, types.ContainerCommitOptions{})
+	// remove the image when finished
 	if err != nil {
-		return err
+		return "", err
 	}
 	// given commandFunc is executed.
-	f(image.ID, ctx)
-	// remove the image when finished
-	_, err = client.ImageRemove(context.Background(), image.ID, types.ImageRemoveOptions{
+	err = f(image.ID, ctx)
+
+	removeOpts := types.ImageRemoveOptions{
 		Force:         true,
 		PruneChildren: true,
-	})
-	return err
+	}
+
+	if _, rmErr := client.ImageRemove(context.Background(), image.ID, removeOpts); rmErr != nil {
+		if err != nil {
+			rmErr = fmt.Errorf("%v: %v", err, rmErr)
+		}
+		err = rmErr
+	}
+	return image.ID, err
 }

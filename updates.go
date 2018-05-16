@@ -18,20 +18,22 @@ import "github.com/codegangsta/cli"
 
 // zypper-docker list-updates [flags] <image>
 func listUpdatesCmd(ctx *cli.Context) {
-	listUpdates(ctx.Args().First(), ctx)
+	imageID := ctx.Args().First()
+	err := listUpdates(imageID, ctx)
+	exitOnError(imageID, "zypper lu", err)
 }
 
 // zypper-docker list-updates-container [flags] <container>
 func listUpdatesContainerCmd(ctx *cli.Context) {
-	commandInContainer(listUpdates, ctx)
+	imageID, err := commandInContainer(listUpdates, ctx)
+	exitOnError(imageID, "zypper lu", err)
 }
 
 // listUpdates lists all the updates available for the given image with the
 // given arguments.
-func listUpdates(image string, ctx *cli.Context) {
-	// It's safe to ignore the returned error because we set to false the
-	// `getError` parameter of this function.
-	_ = runStreamedCommand(image, "lu", false)
+func listUpdates(image string, ctx *cli.Context) error {
+	err := runStreamedCommand(image, "lu", true)
+	return err
 }
 
 // zypper-docker update [flags] image new-image
