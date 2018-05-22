@@ -201,7 +201,7 @@ If the tag has not been provided, then "latest" is the one that will be used.`,
 			ShortName: "lpc",
 			Aliases:   []string{"lpc"},
 			Usage:     "List all the available patches for the given container",
-			Action:    listPatchesContainerCmd,
+			Action:    getCmd("list-patches-container", listPatchesContainerCmd),
 			ArgsUsage: `<container-id>
 
 Where <container-id> is either the container ID or the name of the container
