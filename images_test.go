@@ -128,11 +128,11 @@ func TestImagesForce(t *testing.T) {
 	if !cd.Valid {
 		t.Fatal("It should be valid")
 	}
-	if len(cd.Suse) != 5 {
-		t.Fatalf("Expected 5 SUSE images, got %v", len(cd.Suse))
+	if len(cd.Suse) != 4 {
+		t.Fatalf("Expected 4 SUSE images, got %v", len(cd.Suse))
 	}
 
-	for i, v := range []string{"1234", "1", "2", "4", "5"} {
+	for i, v := range []string{"1", "2", "4", "5"} {
 		if cd.Suse[i] != v {
 			t.Fatal("Unexpected value")
 		}
