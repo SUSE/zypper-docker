@@ -125,8 +125,17 @@ func (cd *cachedData) flush() {
 
 // Empty the contents of the cache file.
 func (cd *cachedData) reset() {
+	file, err := fileutil.LockFile(cd.Path, os.O_RDWR, 0666)
+	if err != nil {
+		log.Printf("Cannot write to the cache file: %v", err)
+		return
+	}
+	defer file.Close()
+
 	cd.Suse, cd.Other = []string{}, []string{}
-	cd.flush()
+
+	enc := json.NewEncoder(file)
+	_ = enc.Encode(cd)
 }
 
 // Update the Cachefile after an update.
