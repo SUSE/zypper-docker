@@ -3,25 +3,11 @@ test :: checks unit_test test_integration
 unit_test :: build
 	docker run --rm -v `pwd`:/go/src/github.com/SUSE/zypper-docker zypper-docker /opt/test.sh
 
-test_integration :: build_zypper_docker build_integration_tests
-#	docker run \
-#		--rm \
-#		--volume="/var/run/docker.sock:/var/run/docker.sock" \
-#		--volume="$(CURDIR):/code" \
-#		zypper-docker-integration-tests \
-#		rake test
+test_integration :: build_zypper_docker
+	test/test-integration.sh
 
-# Run only the RSpec tests flagged as 'quick', does NOT build the zypper-docker
-# binary or the testing images
-# Note well: "docker -ti" is required to use byebug inside of the ruby tests
-test_integration_quick ::
-#	docker run \
-#		--rm \
-#		-ti \
-#		--volume="/var/run/docker.sock:/var/run/docker.sock" \
-#		--volume="$(CURDIR):/code" \
-#		zypper-docker-integration-tests \
-#		rspec -t quick
+local_test_integration :: build_zypper_docker build_integration_tests
+	test/test-integration.sh
 
 checks :: vet fmt lint gotest climate
 
@@ -45,7 +31,7 @@ climate:
 # TODO: use '-race' once it works in openSUSE's golang
 gotest:
 	@echo "+ $@"
-		@go test
+		@go test -v
 
 clean ::
 	docker rmi zypper-docker
@@ -66,6 +52,7 @@ build_zypper_docker ::
 build_integration_tests ::
 	@echo Building zypper-docker-integration-tests
 	docker build -f docker/Dockerfile-integration-tests -t zypper-docker-integration-tests $(CURDIR)
+	docker pull alpine:latest
 
 help ::
 	@echo usage: make [target]
