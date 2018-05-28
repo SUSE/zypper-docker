@@ -1,8 +1,0 @@
-# This Dockerfile produces an simple image with a cmd and an entrypoint set.
-# This is what we need to test that the patch/update operations do not modify
-# them.
-
-FROM opensuse:42.3
-
-CMD ["/etc/os-release"]
-ENTRYPOINT ["cat"]
