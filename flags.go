@@ -92,34 +92,34 @@ func newApp() *cli.App {
 			ArgsUsage: " ",
 		},
 		{
-			Name:      "list-updates",
-			ShortName: "lu",
-			Aliases:   []string{"lu"},
-			Usage:     "List all the available updates",
-			Action:    getCmd("list-updates", listUpdatesCmd),
-			ArgsUsage: `<image>
+			Name:    "list-updates",
+			Aliases: []string{"lu"},
+			Usage:   "List all the available updates",
+			Action:  getCmd("list-updates", listUpdatesCmd),
+			UsageText: `zypper-docker list-updates <image>
+   zypper-docker lu <image>
 
 Where <image> is the name of the openSUSE/SUSE Linux Enterprise image to use.
 If the tag has not been provided, then "latest" is the one that will be used.`,
 		},
 		{
-			Name:      "list-updates-container",
-			ShortName: "luc",
-			Aliases:   []string{"luc"},
-			Usage:     "List all the available updates for the given container",
-			Action:    getCmd("list-updates-container", listUpdatesContainerCmd),
-			ArgsUsage: `<container-id>
+			Name:    "list-updates-container",
+			Aliases: []string{"luc"},
+			Usage:   "List all the available updates for the given container",
+			Action:  getCmd("list-updates-container", listUpdatesContainerCmd),
+			UsageText: `zypper-docker list-updates-container <container-id>
+   zypper-docker luc <container-id>
 
 Where <container-id> is either the container ID or the name of the container
 to be used.`,
 		},
 		{
-			Name:      "update",
-			ShortName: "up",
-			Aliases:   []string{"up"},
-			Usage:     "Install the available updates",
-			Action:    getCmd("update", updateCmd),
-			ArgsUsage: `<image> <new-image>
+			Name:    "update",
+			Aliases: []string{"up"},
+			Usage:   "Install the available updates",
+			Action:  getCmd("update", updateCmd),
+			UsageText: `zypper-docker update [command options] <image> <new-image>
+   zypper-docker up [command options] <image> <new-image>
 
 Where <image> is the name of the openSUSE/SUSE Linux Enterprise image to
 update. Since zypper-docker does not overwrite images, <new-image> is the name
@@ -154,12 +154,12 @@ If the tag has not been provided on either <image> or <new-image>, then
 			},
 		},
 		{
-			Name:      "list-patches",
-			ShortName: "lp",
-			Aliases:   []string{"lp"},
-			Usage:     "List all the available patches",
-			Action:    getCmd("list-patches", listPatchesCmd),
-			ArgsUsage: `<image>
+			Name:    "list-patches",
+			Aliases: []string{"lp"},
+			Usage:   "List all the available patches",
+			Action:  getCmd("list-patches", listPatchesCmd),
+			UsageText: `zypper-docker list-patches [command options] <image>
+   zypper-docker lp [command options] <image>
 
 Where <image> is the name of the openSUSE/SUSE Linux Enterprise image to use.
 If the tag has not been provided, then "latest" is the one that will be used.`,
@@ -197,12 +197,12 @@ If the tag has not been provided, then "latest" is the one that will be used.`,
 			},
 		},
 		{
-			Name:      "list-patches-container",
-			ShortName: "lpc",
-			Aliases:   []string{"lpc"},
-			Usage:     "List all the available patches for the given container",
-			Action:    getCmd("list-patches-container", listPatchesContainerCmd),
-			ArgsUsage: `<container-id>
+			Name:    "list-patches-container",
+			Aliases: []string{"lpc"},
+			Usage:   "List all the available patches for the given container",
+			Action:  getCmd("list-patches-container", listPatchesContainerCmd),
+			UsageText: `zypper-docker list-patches-container [command options] <container-id>
+   zypper-docker lpc [command options] <container-id>
 
 Where <container-id> is either the container ID or the name of the container
 to be used.`,
@@ -293,23 +293,23 @@ If the tag has not been provided on either <image> or <new-image>, then
 			},
 		},
 		{
-			Name:      "patch-check",
-			ShortName: "pchk",
-			Aliases:   []string{"pchk"},
-			Usage:     "Check for patches",
-			Action:    getCmd("patch-check", patchCheckCmd),
-			ArgsUsage: `<image>
+			Name:    "patch-check",
+			Aliases: []string{"pchk"},
+			Usage:   "Check for patches",
+			Action:  getCmd("patch-check", patchCheckCmd),
+			UsageText: `zypper-docker patch-check <image>
+   zypper-docker pchk <image>
 
 Where <image> is the name of the openSUSE/SUSE Linux Enterprise image to use.
 If the tag has not been provided, then "latest" is the one that will be used.`,
 		},
 		{
-			Name:      "patch-check-container",
-			ShortName: "pchkc",
-			Aliases:   []string{"pchkc"},
-			Usage:     "Check for patches available for the given container",
-			Action:    getCmd("patch-check-container", patchCheckContainerCmd),
-			ArgsUsage: `<container-id>
+			Name:    "patch-check-container",
+			Aliases: []string{"pchkc"},
+			Usage:   "Check for patches available for the given container",
+			Action:  getCmd("patch-check-container", patchCheckContainerCmd),
+			UsageText: `zypper-docker patch-check-container <container-id>
+   zypper-docker pchkc <container-id>
 
 Where <container-id> is either the container ID or the name of the container
 to be used.`,
