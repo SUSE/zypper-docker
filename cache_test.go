@@ -219,17 +219,7 @@ func TestFlush(t *testing.T) {
 func TestUpdateCacheAfterUpdateFailsBecauseOfListError(t *testing.T) {
 	cache := cachedData{}
 
-	safeClient.client = &mockClient{listFail: true}
-	err := cache.updateCacheAfterUpdate("1", "2")
-	if err == nil {
-		t.Fatal("Expected failure")
-	}
-}
-
-func TestUpdateCacheAfterUpdateFailsBecauseOfListEmpty(t *testing.T) {
-	cache := cachedData{}
-
-	safeClient.client = &mockClient{listEmpty: true}
+	safeClient.client = &mockClient{inspectFail: true}
 	err := cache.updateCacheAfterUpdate("1", "2")
 	if err == nil {
 		t.Fatal("Expected failure")
@@ -241,7 +231,7 @@ func TestUpdateCacheAfterUpdateNothingDoneWhenTheImageIsAlreadyKnown(t *testing.
 		Outdated: []string{"35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01"},
 		Suse:     []string{"2"}}
 
-	safeClient.client = &mockClient{listEmpty: true}
+	safeClient.client = &mockClient{inspectFail: true}
 	err := cache.updateCacheAfterUpdate("opensuse:13.2", "2")
 	if err == nil {
 		t.Fatal("Expected failure")

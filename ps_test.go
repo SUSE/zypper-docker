@@ -65,19 +65,15 @@ func TestPsCommandMatches(t *testing.T) {
 	setupTestExitStatus()
 	safeClient.client = &mockClient{}
 
-	buffer := bytes.NewBuffer([]byte{})
-	log.SetOutput(buffer)
 	rec := capture.All(func() { psCmd(testContext([]string{}, false)) })
 
-	if !strings.Contains(buffer.String(), "Cannot analyze container 4 [foo]") {
-		t.Fatal("Wrong message")
-	}
-	if !strings.Contains(string(rec.Stdout), "Running containers whose images have been updated") {
+	if !strings.Contains(string(rec.Stdout), "Running containers whose images have been updated") &&
+		!strings.Contains(string(rec.Stdout), "busybox") {
 		t.Fatal("Wrong message")
 	}
 	if !strings.Contains(string(rec.Stdout), "The following containers have an unknown state") &&
-		!strings.Contains(string(rec.Stdout), "busybox") &&
-		!strings.Contains(string(rec.Stdout), "foo") {
+		!strings.Contains(string(rec.Stdout), "foo") &&
+		!strings.Contains(string(rec.Stdout), "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01") {
 		t.Fatal("Wrong message")
 	}
 	if !strings.Contains(string(rec.Stdout), "The following containers have been ignored") &&

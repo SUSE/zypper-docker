@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/docker/api/types"
@@ -48,16 +47,9 @@ func psCmd(ctx *cli.Context) {
 		case <-killChannel:
 			return
 		default:
-			imageID, err := getImageID(container.Image)
-			if err != nil {
-				log.Printf("Cannot analyze container %s [%s]: %s", container.ID, container.Image, err)
-				unknown = append(unknown, container)
-				continue
-			}
-
-			if exists, suse := cache.idExists(imageID); exists && !suse {
+			if exists, suse := cache.idExists(container.ImageID); exists && !suse {
 				notSuse = append(notSuse, container)
-			} else if cache.isImageOutdated(imageID) {
+			} else if cache.isImageOutdated(container.ImageID) {
 				matches = append(matches, container)
 			} else {
 				unknown = append(unknown, container)
