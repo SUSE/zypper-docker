@@ -89,14 +89,6 @@ func TestParseImageNameWrongFormat(t *testing.T) {
 	}
 }
 
-func TestGetImageIdErrorWhileParsingName(t *testing.T) {
-	_, err := getImageID("OPENSUSE")
-
-	if err == nil {
-		t.Fatalf("Should have failed")
-	}
-}
-
 func TestPreventImageOverwriteImageCheckImageFailure(t *testing.T) {
 	safeClient.client = &mockClient{listFail: true}
 

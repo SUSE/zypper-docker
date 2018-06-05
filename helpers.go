@@ -27,7 +27,6 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/go-units"
 )
@@ -215,32 +214,17 @@ func preventImageOverwrite(repo, tag string) error {
 	return nil
 }
 
+// Expects the name of an image and returns it's ID.
 func getImageID(name string) (string, error) {
 	client := getDockerClient()
+	img, _, err := client.ImageInspectWithRaw(context.Background(), name)
 
-	repo, tag, err := parseImageName(name)
 	if err != nil {
-		return "", err
-	}
-	if tag == "latest" && !strings.Contains(name, tag) {
-		name = name + ":" + tag
-	}
-
-	images, err := client.ImageList(context.Background(), types.ImageListOptions{All: false, Filters: filters.NewArgs(filters.Arg("reference", repo))})
-	if err != nil {
-		return "", err
-	}
-
-	if len(images) == 0 {
 		return "", fmt.Errorf("Cannot find image %s", name)
 	}
-	for _, image := range images {
-		if arrayIncludeString(image.RepoTags, name) {
-			return image.ID, nil
-		}
-	}
+	imageID := img.ID
 
-	return "", fmt.Errorf("Cannot find image %s", name)
+	return imageID, nil
 }
 
 // commandFunc represents a function that accepts an image ID and the CLI

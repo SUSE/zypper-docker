@@ -24,7 +24,6 @@ func TestPatchCommand(t *testing.T) {
 		{"List Command fails", &mockClient{listFail: true}, 1, []string{"ori", "opensuse:13.2"}, true, "Cannot proceed safely: List Failed", ""},
 		{"Overwrite detected", &mockClient{}, 1, []string{"ori", "opensuse:13.2"}, true, "Cannot overwrite an existing image. Please use a different repository/tag", ""},
 		{"Start fail on commit", &mockClient{startFail: true}, 1, []string{"ori", "new:1.0.0"}, true, "Could not commit to the new image: Start failed", ""},
-		{"Cannot update cache", &mockClient{}, 0, []string{"ori", "new:1.0.0"}, false, "Cannot add image details to zypper-docker cache", ""},
 		{"Cannot inspect", &mockClient{inspectFail: true}, 1, []string{"opensuse:13.2", "new:1.0.0"}, true, "could not inspect image 'opensuse:13.2': inspect fail", ""},
 		{"Patch success", &mockClient{listReturnOneImage: true}, 0, []string{"opensuse:13.2", "new:1.0.0"}, true, "new:1.0.0 successfully created", ""},
 	}

@@ -232,24 +232,28 @@ func (mc *mockClient) ContainerList(ctx context.Context, options types.Container
 
 	return []types.Container{
 		types.Container{
-			ID:    "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01",
-			Names: []string{"/suse"},
-			Image: "opensuse:13.2",
+			ID:      "35ae93c88cf8ab18da63bb2ad2dfd2399d745f292a344625fbb65892b7c25a01",
+			Names:   []string{"/suse"},
+			Image:   "opensuse:13.2",
+			ImageID: "sha256:7f31a825a11ec6557fbddd5fea8b823a4709ee552233352e435b4840e14388bd",
 		},
 		types.Container{
-			ID:    "2",
-			Names: []string{"/not_suse"},
-			Image: "busybox:latest",
+			ID:      "2",
+			Names:   []string{"/not_suse"},
+			Image:   "busybox:latest",
+			ImageID: "2",
 		},
 		types.Container{
-			ID:    "3",
-			Names: []string{"/ubuntu"},
-			Image: "ubuntu:latest",
+			ID:      "3",
+			Names:   []string{"/ubuntu"},
+			Image:   "ubuntu:latest",
+			ImageID: "3",
 		},
 		types.Container{
-			ID:    "4",
-			Names: []string{"/unknown_image"},
-			Image: "foo",
+			ID:      "4",
+			Names:   []string{"/unknown_image"},
+			Image:   "foo",
+			ImageID: "4",
 		},
 	}, nil
 }
@@ -263,7 +267,7 @@ func (mc *mockClient) ImageInspectWithRaw(ctx context.Context, imageID string) (
 	if mc.inspectFail {
 		return types.ImageInspect{}, []byte{}, errors.New("inspect fail")
 	}
-	return types.ImageInspect{Config: &container.Config{Image: "1"}}, []byte{}, nil
+	return types.ImageInspect{ID: "1", Config: &container.Config{Image: "1"}}, []byte{}, nil
 }
 
 func (mc *mockClient) ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error) {
