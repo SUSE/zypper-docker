@@ -1,6 +1,6 @@
 % ZYPPER-DOCKER(1) zypper-docker User manuals
 % SUSE LLC.
-% SEPTEMBER 2015
+% JUNE 2018
 # NAME
 zypper\-docker pchk \- Check for patches.
 
@@ -18,8 +18,15 @@ given openSUSE/SUSE Linux Enterprise image. The provided image follows the
 same naming conventions as in Docker. To fetch which images are based on
 openSUSE or SUSE Linux Enterprise, use the **images** command.
 
-The **patch-check-container** takes the container ID and lists the patches for
-the image in which the given container is based on.
+The **patch-check-container** command takes the container ID and checks the given
+container for patches. Note that **patch-check-container** will not modify a running
+container. Instead of that, **zypper-docker** will spawn a new container that will
+then be analyzed. **patch-check-container** is also able to analyze stopped containers.
+The **--base** flag can be used to analyze the base image of the container instead.
+
+# COMMAND OPTIONS
+**--base**
+  Execute a patch-check on the base image of the container.
 
 # EXIT CODES
 The **patch-check** command respects the same exit codes as provided by
@@ -37,3 +44,4 @@ exit codes:
 
 # HISTORY
 September 2015, created by Miquel Sabaté Solà <msabate@suse.com>
+June 2018, updated for v1.3.0 by Pascal Arlt <parlt@suse.com>
