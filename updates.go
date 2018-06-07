@@ -32,7 +32,9 @@ func listUpdatesContainerCmd(ctx *cli.Context) {
 // listUpdates lists all the updates available for the given image with the
 // given arguments.
 func listUpdates(image string, ctx *cli.Context) error {
-	err := runStreamedCommand(image, "lu", true)
+	err := runStreamedCommand(
+		image,
+		cmdWithFlags("lu", ctx, []string{}, []string{"base"}), true)
 	return err
 }
 

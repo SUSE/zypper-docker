@@ -45,13 +45,13 @@ load helpers
 @test "zypper-docker list-updates-container" {
   # run a container
   run_container
+  zypperdocker luc --base $CONTAINER_ID
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Base image $IMAGE_ID of container $CONTAINER_ID will be analyzed. Manually installed packages won't be taken into account."+ ]]
+
   zypperdocker luc $CONTAINER_ID
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "WARNING: Only the source image from this container will be inspected. Manually installed packages won't be taken into account."+ ]]
-
-  zypperdocker -f luc $CONTAINER_ID
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "WARNING: Force flag used. Manually installed packages will be analyzed as well."+ ]]
+  [[ "$output" =~ "Checking running container"+ ]]
 
   # stop the container
   stop_container

@@ -57,7 +57,7 @@ func listPatches(image string, ctx *cli.Context) error {
 
 	err := runStreamedCommand(
 		image,
-		cmdWithFlags("lp", ctx, []string{}, []string{}), true)
+		cmdWithFlags("lp", ctx, []string{}, []string{"base"}), true)
 	return err
 }
 

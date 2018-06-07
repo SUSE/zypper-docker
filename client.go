@@ -465,11 +465,12 @@ func checkContainerRunning(id string) (types.Container, error) {
 	return container, nil
 }
 
-// checks whether a container with the given container ID exists.
-func checkContainerExists(containerID string) bool {
+// checks whether a container with the given container ID exists. If it
+// does return the container.
+func checkContainerExists(containerID string) (types.ContainerJSON, bool) {
 	client := getDockerClient()
-	_, err := client.ContainerInspect(context.Background(), containerID)
-	return err == nil
+	container, err := client.ContainerInspect(context.Background(), containerID)
+	return container, err == nil
 }
 
 // commitAndExecute commits the given container to a new image, executes the

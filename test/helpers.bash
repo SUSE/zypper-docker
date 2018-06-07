@@ -18,6 +18,7 @@ ZYPPERDOCKER="${ZYPPERDOCKER:-${INTEGRATION_ROOT}/../zypper-docker}"
 CONTAINER_ID=""
 TESTIMAGE="zypper-docker-integration-tests"
 TAG="latest"
+IMAGE_ID=$(docker images --no-trunc $TESTIMAGE:$TAG | awk '{print $3}' | tail -n1)
 
 function sane_run() {
   local cmd="$1"
