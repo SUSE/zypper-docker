@@ -232,37 +232,36 @@ func getImageID(name string) (string, error) {
 type commandFunc func(string, *cli.Context) error
 
 // commandInContainer extracts the containerID from the given ctx. The function
-// first checks whether the container exists. If the container is running the
-// given commandFunc is executed on the image the container is based on. If the
-// --force flag is set the container is committed to a new image instead. In
-// case the container is not running it is committed to an image first.
-// Afterwards commandFunc is executed on the new image. The function returns
-// a string containing the image ID of the image in which the zypper command
-// is executed in and an error.
+// first checks whether the container exists. If it does the container is
+// committed to a new image. Afterwards commandFunc is executed on this image.
+// If the --base flag is set commandFunc is executed on the containers base
+// image instead. The function returns a string containing the image ID of the
+// image in which the zypper command is executed in and an error.
 func commandInContainer(f commandFunc, ctx *cli.Context) (string, error) {
 	containerID := ctx.Args().First()
 	var image string
 	var err error
+	var exists bool
+	var container types.ContainerJSON
 	// check if the container exists
-	if !checkContainerExists(containerID) {
+	if container, exists = checkContainerExists(containerID); !exists {
 		return "", fmt.Errorf("container %s does not exist", containerID)
 	}
-	// check whether the container is running
-	if container, runErr := checkContainerRunning(containerID); runErr != nil {
-		logAndPrintf("Checking stopped container %s ...\n", containerID)
-		// execute commitAndExecute on the stopped container
-		image, err = commitAndExecute(f, ctx, containerID)
+	// If the base flag is used the source image of the container will be analyzed
+	// instead
+	if ctx.IsSet("base") {
+		logAndPrintf("Base image %s of container %s will be analyzed. Manually installed packages won't be taken into account.\n", container.Image, containerID)
+		err = f(container.Image, ctx)
+		image = container.Image
 	} else {
-		// if the force flag is set commitAndExecute is executed on the running container
-		if ctx.GlobalBool("force") {
-			logAndPrintf("WARNING: Force flag used. Manually installed packages will be analyzed as well.\n")
-			image, err = commitAndExecute(f, ctx, containerID)
+		// check whether the container is running
+		if _, runErr := checkContainerRunning(containerID); runErr != nil {
+			logAndPrintf("Checking stopped container %s\n", containerID)
 		} else {
-			// directly call commandFunc on the image the container is based on
-			logAndPrintf("WARNING: Only the source image from this container will be inspected. Manually installed packages won't be taken into account.\n")
-			err = f(container.Image, ctx)
-			image = container.Image
+			logAndPrintf("Checking running container %s\n", containerID)
 		}
+		// execute commitAndExecute on the container
+		image, err = commitAndExecute(f, ctx, containerID)
 	}
 	return image, err
 }

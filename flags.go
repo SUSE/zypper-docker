@@ -112,6 +112,12 @@ If the tag has not been provided, then "latest" is the one that will be used.`,
 
 Where <container-id> is either the container ID or the name of the container
 to be used.`,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "base",
+					Usage: "Analyze the base image of the container for updates.",
+				},
+			},
 		},
 		{
 			Name:    "update",
@@ -207,6 +213,10 @@ If the tag has not been provided, then "latest" is the one that will be used.`,
 Where <container-id> is either the container ID or the name of the container
 to be used.`,
 			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "base",
+					Usage: "Analyse the base image of the container for patches.",
+				},
 				cli.StringFlag{
 					Name:  "b, bugzilla",
 					Value: "",
@@ -313,6 +323,12 @@ If the tag has not been provided, then "latest" is the one that will be used.`,
 
 Where <container-id> is either the container ID or the name of the container
 to be used.`,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "base",
+					Usage: "Execute a patch-check on the base image of the container.",
+				},
+			},
 		},
 		{
 			Name:      "ps",

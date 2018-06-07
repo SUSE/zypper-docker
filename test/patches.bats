@@ -47,13 +47,13 @@ load helpers
 @test "zypper-docker list-patches-container" {
   # run a container
   run_container
+  zypperdocker lpc --base $CONTAINER_ID
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Base image $IMAGE_ID of container $CONTAINER_ID will be analyzed. Manually installed packages won't be taken into account."+ ]]
+
   zypperdocker lpc $CONTAINER_ID
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "WARNING: Only the source image from this container will be inspected. Manually installed packages won't be taken into account."+ ]]
-
-  zypperdocker -f lpc $CONTAINER_ID
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "WARNING: Force flag used. Manually installed packages will be analyzed as well."+ ]]
+  [[ "$output" =~ "Checking running container"+ ]]
 
   # stop the container
   stop_container
