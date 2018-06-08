@@ -1,3 +1,31 @@
+Fri Jun 8 13:51:20 CET 2018 Pascal Arlt <parlt@suse.com>
+
+	* Release v2.0.0:
+		- Removed Go 1.5 and 1.6 support 1.9 and 1.10.x are supported now
+		  https://github.com/SUSE/zypper-docker/pull/139
+		- Add short forms of commands to help section
+		  https://github.com/SUSE/zypper-docker/pull/143
+		- Update and use zypper exit codes
+		  https://github.com/SUSE/zypper-docker/pull/122
+		- Move from docker/engine-api to docker/docker
+		  https://github.com/SUSE/zypper-docker/pull/138
+		- Allow inspection of stopped containers
+		  https://github.com/SUSE/zypper-docker/pull/137
+		- Fix bug that caused images not to be removed properly in some cases
+		  https://github.com/SUSE/zypper-docker/pull/137
+		- Fix bug that caused lpc command to log to stdout
+		  https://github.com/SUSE/zypper-docker/pull/140
+		- Fix bug that caused force flag not to work with zypper-docker images
+		  https://github.com/SUSE/zypper-docker/pull/141
+		- Fix docker ps command
+		  https://github.com/SUSE/zypper-docker/pull/146
+		- Fix bug with zypper-docker up/patch --no-recommends
+		  https://github.com/SUSE/zypper-docker/pull/150
+		- Update integration tests
+		  https://github.com/SUSE/zypper-docker/pull/142
+		- Analyze container instead of base image by default
+		  https://github.com/SUSE/zypper-docker/pull/148
+
 Tue Apr 26 15:07:31 CET 2016  Miquel Sabaté Solà <msabate@suse.com>
 
 	* Release v1.2:

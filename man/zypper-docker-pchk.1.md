@@ -44,4 +44,4 @@ exit codes:
 
 # HISTORY
 September 2015, created by Miquel Sabaté Solà <msabate@suse.com>
-June 2018, updated for v1.3.0 by Pascal Arlt <parlt@suse.com>
+June 2018, updated for v2.0.0 by Pascal Arlt <parlt@suse.com>
