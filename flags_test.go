@@ -1,4 +1,4 @@
-// Copyright (c) 2015 SUSE LLC. All rights reserved.
+// Copyright (c) 2018 SUSE LLC. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package main
 import "testing"
 
 func TestVersion(t *testing.T) {
-	if version() != "1.2.0" {
+	if version() != "2.0.0" {
 		t.Fatal("Wrong version")
 	}
 }

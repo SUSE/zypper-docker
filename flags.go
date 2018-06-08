@@ -1,4 +1,4 @@
-// Copyright (c) 2015 SUSE LLC. All rights reserved.
+// Copyright (c) 2018 SUSE LLC. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@ var currentContext *cli.Context
 // Returns the version string
 func version() string {
 	const (
-		major = 1
-		minor = 2
+		major = 2
+		minor = 0
 		patch = 0
 	)
 	return fmt.Sprintf("%v.%v.%v", major, minor, patch)
