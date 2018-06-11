@@ -25,6 +25,12 @@ load helpers
   [[ "$output" =~ "Cannot overwrite an existing image. Please use a different repository/tag"+ ]]
 
   docker rmi -f $TESTIMAGE:updated
+
+  zypperdocker up --no-recommends $TESTIMAGE:$TAG $TESTIMAGE:updated
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "$TESTIMAGE:updated successfully created"+ ]]
+
+  docker rmi -f $TESTIMAGE:updated
 }
 
 @test "zypper-docker list-updates" {
