@@ -26,6 +26,13 @@ load helpers
 
   # remove created image
   docker rmi -f $TESTIMAGE:patched
+
+  zypperdocker patch --no-recommends $TESTIMAGE:$TAG $TESTIMAGE:patched
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "$TESTIMAGE:patched successfully created"+ ]]
+
+  # remove created image
+  docker rmi -f $TESTIMAGE:patched
 }
 
 @test "zypper-docker list-patches" {

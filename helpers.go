@@ -316,8 +316,11 @@ func updatePatchCmd(zypperCmd string, ctx *cli.Context) {
 		"replacefiles"}
 	toIgnore := []string{"author", "message"}
 
-	cmd := formatZypperCommand("ref", fmt.Sprintf("-n %v", zypperCmd), "clean -a")
+	cmd := formatZypperCommand("ref", fmt.Sprintf("-n %v", zypperCmd))
+	clean := formatZypperCommand("clean -a")
 	cmd = cmdWithFlags(cmd, ctx, boolFlags, toIgnore)
+	cmd += " && " + clean
+
 	newImgID, err := runCommandAndCommitToImage(
 		img,
 		repo,
