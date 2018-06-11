@@ -27,7 +27,7 @@ func TestUpdateCommand(t *testing.T) {
 		{"Start fail on commit", &mockClient{startFail: true}, 1, []string{"ori", "new:1.0.0"}, true, "Could not commit to the new image: Start failed", ""},
 		{"Update success", &mockClient{listReturnOneImage: true}, 0, []string{"opensuse:13.2", "new:1.0.0"}, true, "new:1.0.0 successfully created", ""},
 	}
-	cases.run(t, updateCmd, "zypper -n up", "")
+	cases.run(t, updateCmd, "zypper --cache-dir=$temp ref", "")
 }
 
 // LIST UPDATES

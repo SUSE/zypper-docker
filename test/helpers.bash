@@ -59,3 +59,18 @@ function remove_container() {
   docker rm -f $CONTAINER_ID > /dev/null
   CONTAINER_ID=""
 }
+
+function check_cache() {
+  container_id=$(docker run -t -d $TESTIMAGE:$TAG)
+  docker exec $container_id zypper ref
+  cache_before=$(docker exec $container_id find /var/cache/zypp/ -type f -exec md5sum {} \; | md5sum)
+  docker exec $container_id zypper --non-interactive --cache-dir=$(mktemp -d) in tar
+  cache_after=$(docker exec $container_id find /var/cache/zypp/ -type f -exec md5sum {} \; | md5sum)
+
+  if [[ $cache_before == $cache_after ]]; then
+    echo "Cache check successful"
+  else 
+    echo "Cache check failed"
+  fi
+  docker rm -f $container_id > /dev/null
+}

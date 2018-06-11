@@ -27,7 +27,7 @@ func TestPatchCommand(t *testing.T) {
 		{"Cannot inspect", &mockClient{inspectFail: true}, 1, []string{"opensuse:13.2", "new:1.0.0"}, true, "could not inspect image 'opensuse:13.2': inspect fail", ""},
 		{"Patch success", &mockClient{listReturnOneImage: true}, 0, []string{"opensuse:13.2", "new:1.0.0"}, true, "new:1.0.0 successfully created", ""},
 	}
-	cases.run(t, patchCmd, "zypper -n patch", "")
+	cases.run(t, patchCmd, "zypper --cache-dir=$temp ref", "")
 }
 
 // LIST PATCHES
