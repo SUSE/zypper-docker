@@ -19,7 +19,7 @@ before_install:
   - make build_integration_tests
 
 before_script:
-  - go get github.com/golang/lint/golint
+  - go get golang.org/x/lint/golint
 
 script:
   - make checks
