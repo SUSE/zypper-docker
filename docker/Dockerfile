@@ -1,7 +1,7 @@
 FROM golang
 
 RUN go get golang.org/x/tools/cmd/cover
-RUN go get github.com/golang/lint/golint
+RUN go get golang.org/x/lint/golint
 RUN curl -sL -o /usr/bin/gimme https://raw.githubusercontent.com/travis-ci/gimme/master/gimme
 RUN chmod +x /usr/bin/gimme
 COPY ./test.sh /opt/test.sh
