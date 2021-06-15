@@ -1,1 +1,1 @@
-From opensuse/tumbleweed:latest
+FROM registry.opensuse.org/opensuse/tumbleweed:latest
