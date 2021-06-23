@@ -33,6 +33,14 @@ load helpers
   docker rmi -f $TESTIMAGE:updated
 }
 
+# This test is currently disabled due to a bug with zypper:
+# https://github.com/openSUSE/zypper/issues/180
+# It will be reactivated once this is fixed
+# @test "Check zypper cache" {
+#   sane_run check_cache
+#   [[ "$output" =~ "Cache check successful"+ ]]
+# }
+
 @test "zypper-docker list-updates" {
   zypperdocker lu $TESTIMAGE:$TAG
   [ "$status" -eq 0 ]
