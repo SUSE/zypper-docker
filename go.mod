@@ -10,7 +10,7 @@ require (
 	github.com/coreos/pkg v0.0.0-20180108230652-97fdf19511ea // indirect
 	github.com/cpuguy83/go-md2man v1.0.9-0.20180215021727-48d8747a2ca1
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/docker/distribution v2.6.0-rc.1.0.20180327202408-83389a148052+incompatible
+	github.com/docker/distribution v2.8.0+incompatible
 	github.com/docker/docker v17.12.0-ce-rc1.0.20180508015315-17b039cb4901+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.3.3
