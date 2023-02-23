@@ -91,14 +91,13 @@ go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
-# golang.org/x/net v0.0.0-20180509002218-f73e4c9ed3b7
+# golang.org/x/net v0.7.0
 ## explicit
-golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
-# golang.org/x/sys v0.0.0-20180507135725-7db1c3b1a980
-## explicit
+# golang.org/x/sys v0.5.0
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/windows
 # gotest.tools v2.2.0+incompatible
 ## explicit
