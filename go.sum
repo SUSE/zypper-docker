@@ -48,8 +48,8 @@ go.uber.org/zap v1.8.1-0.20180502182426-2dc8d10634f4 h1:ZgNmbwMIODxOTC76Vho7++Np
 go.uber.org/zap v1.8.1-0.20180502182426-2dc8d10634f4/go.mod h1:vwi/ZaCAaUcBkycHslxD9B2zi4UTXhF60s6SWpuDF0Q=
 golang.org/x/net v0.0.0-20180509002218-f73e4c9ed3b7 h1:vwPhSHmZ2xckGbhyz9c/u82CIp9iyzUDJHNXrRP0Xx8=
 golang.org/x/net v0.0.0-20180509002218-f73e4c9ed3b7/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
-golang.org/x/sys v0.0.0-20180507135725-7db1c3b1a980 h1:hvqHUTRCXR+FYTkWHUJ1PxgLPanze5d14+1nKGWOi8k=
-golang.org/x/sys v0.0.0-20180507135725-7db1c3b1a980/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+golang.org/x/sys v0.1.0 h1:kunALQeHf1/185U1i0GOB/fy1IPRDDpuoOOqRReG57U=
+golang.org/x/sys v0.1.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 gotest.tools v2.2.0+incompatible h1:VsBPFP1AI068pPrMxtb/S8Zkgf9xEmTLJjfM+P5UIEo=
 gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=

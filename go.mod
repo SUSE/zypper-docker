@@ -28,6 +28,6 @@ require (
 	go.uber.org/multierr v1.1.1-0.20180122172545-ddea229ff1df // indirect
 	go.uber.org/zap v1.8.1-0.20180502182426-2dc8d10634f4 // indirect
 	golang.org/x/net v0.0.0-20180509002218-f73e4c9ed3b7 // indirect
-	golang.org/x/sys v0.0.0-20180507135725-7db1c3b1a980 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
 )
