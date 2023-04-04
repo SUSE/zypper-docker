@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 
 	"github.com/docker/docker/api/types/swarm"
 )
@@ -15,12 +15,12 @@ func (cli *Client) TaskInspectWithRaw(ctx context.Context, taskID string) (swarm
 		return swarm.Task{}, nil, objectNotFoundError{object: "task", id: taskID}
 	}
 	serverResp, err := cli.get(ctx, "/tasks/"+taskID, nil, nil)
+	defer ensureReaderClosed(serverResp)
 	if err != nil {
 		return swarm.Task{}, nil, wrapResponseError(err, serverResp, "task", taskID)
 	}
-	defer ensureReaderClosed(serverResp)
 
-	body, err := ioutil.ReadAll(serverResp.body)
+	body, err := io.ReadAll(serverResp.body)
 	if err != nil {
 		return swarm.Task{}, nil, err
 	}
