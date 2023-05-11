@@ -18,7 +18,7 @@ github.com/coreos/pkg/capnslog
 github.com/cpuguy83/go-md2man/md2man
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
-# github.com/docker/distribution v2.6.0-rc.1.0.20180327202408-83389a148052+incompatible
+# github.com/docker/distribution v2.8.2-beta.1+incompatible
 ## explicit
 github.com/docker/distribution/digestset
 github.com/docker/distribution/reference
